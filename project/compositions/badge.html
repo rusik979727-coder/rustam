@@ -2,22 +2,26 @@
   <!-- Logo badge: top-left corner for the whole film (BELES) -->
   <style>
     #root { position: absolute; inset: 0; }
-    #badge-box { position: absolute; left: 44px; top: 184px; }
-    #badge-in {
-      width: 150px; height: 122px; border-radius: 26px; background: #fff;
-      box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22); overflow: hidden;
-      display: flex; align-items: center; justify-content: center;
-    }
-    #badge-in img { width: 142px; height: auto; display: block; }
+    #badge-box { position: absolute; left: 40px; top: 136px; }
+    /* no plate: transparent logo; a thin light halo keeps the navy letters readable on dark shots */
+    #badge-in { position: relative; width: 212px; height: 183px; }
+    #badge-in img { position: absolute; left: 0; top: 0; width: 212px; height: auto; display: block; }
+    #badge-col { filter: drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 4px 12px rgba(0,0,0,.16)); }
+    #badge-wht { opacity: 0; }
   </style>
   <div id="root" data-composition-id="badge" data-width="1080" data-height="1920">
     <div id="badge-box" class="clip" data-start="0" data-duration="29.9" data-track-index="0">
-      <div id="badge-in"><img src="assets/logo.jpg" alt="BELES медицина орталығы" /></div>
+      <div id="badge-in"><img id="badge-col" src="assets/logo.png" alt="BELES медицина орталығы" /><img id="badge-wht" src="assets/logo_white.png" alt="" /></div>
     </div>
   </div>
   <script>
     const tl = gsap.timeline({ paused: true });
     tl.fromTo("#badge-in", { opacity: 0.4, scale: 0.92 }, { opacity: 0.96, scale: 1, duration: 0.5, ease: "expo.out" }, 0);
+    // on the full-screen teal cards the colour logo disappears: swap to the white one with the curtain
+    [[14.03, 1], [16.165, 0], [26.34, 1]].forEach(([t, w]) => {
+      tl.to("#badge-wht", { opacity: w, duration: 0.3, ease: "power2.inOut" }, t + 0.05);
+      tl.to("#badge-col", { opacity: 1 - w, duration: 0.3, ease: "power2.inOut" }, t + 0.05);
+    });
     window.__timelines["badge"] = tl;
   </script>
 </template>

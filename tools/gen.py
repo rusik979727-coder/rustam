@@ -41,7 +41,7 @@ def render(text, env):
     return re.sub(r"\{\{\s*(.+?)\s*\}\}", sub, text.replace("/*FONTS*/", FONTS))
 
 
-def caption_groups(words, fullscreen, maxw=3, maxchars=22):
+def caption_groups(words, fullscreen, maxw=4, maxchars=26):
     def hidden(w):
         return any(a - 0.05 <= w["start"] < b for a, b in fullscreen)
     groups, cur = [], []
@@ -74,14 +74,14 @@ def build_captions(words, fullscreen, end):
         for a, b in fullscreen:
             if gs < a < ge:
                 ge = round(a, 3)
-        spans = " ".join(f'<span class="w" id="cw{w["id"][1:]}">{w["text"]}</span>' for w in g)
-        html.append(f'    <div id="cg{gi}" class="clip cap" data-start="{gs}" data-duration="{round(ge - gs, 3)}" '
+        spans = "".join(f'<span class="w" id="cw{w["id"][1:]}">{w["text"]}</span>' for w in g)
+        html.append(f'    <div id="cg{gi}" class="clip cap" data-layout-allow-caption-zone data-start="{gs}" data-duration="{round(ge - gs, 3)}" '
                     f'data-track-index="{gi % 8}">\n      <div class="cap-in" id="cgi{gi}">{spans}</div>\n    </div>')
         js.append(f'  tl.fromTo("#cgi{gi}", {{opacity:0, y:18}}, {{opacity:1, y:0, duration:0.16, ease:"power3.out"}}, {gs});')
         for w in g:
             ws, we = w["start"], min(w["end"], ge - 0.02)
-            js.append(f'  tl.fromTo("#cw{w["id"][1:]}", {{color:INK, scale:1}}, {{color:ACC, scale:1.07, duration:0.07, ease:"power2.out"}}, {ws:.3f});')
-            js.append(f'  tl.to("#cw{w["id"][1:]}", {{color:INK, scale:1, duration:0.1, ease:"power2.in"}}, {max(ws + 0.08, we - 0.1):.3f});')
+            js.append(f'  tl.fromTo("#cw{w["id"][1:]}", {{color:INK}}, {{color:ACC, duration:0.07, ease:"power2.out"}}, {ws:.3f});')
+            js.append(f'  tl.to("#cw{w["id"][1:]}", {{color:INK, duration:0.1, ease:"power2.in"}}, {max(ws + 0.08, we - 0.1):.3f});')
         js.append(f'  tl.to("#cgi{gi}", {{opacity:0, duration:0.1, ease:"power2.in"}}, {ge - 0.1:.3f});')
         js.append(f'  tl.set("#cgi{gi}", {{opacity:0}}, {ge:.3f});')
     return groups, "\n".join(html), "\n".join(js)
