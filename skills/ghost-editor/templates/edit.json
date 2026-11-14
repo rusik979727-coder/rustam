@@ -1,0 +1,11 @@
+{
+  "source": "raw.mp4",
+  "transcript": "transcript.json",
+  "output": "out/final.mp4",
+  "format": { "w": 1080, "h": 1920, "fps": 30 },
+  "captions": { "maxWords": 3, "maxChars": 18, "position": 0.7, "uppercase": false, "highlight": "#FFD400" },
+  "takes": [
+    { "in": 0.0, "out": 5.0, "note": "hook" }
+  ],
+  "beats": []
+}

@@ -1,0 +1,1 @@
+Inter ExtraBold — © The Inter Project Authors, SIL Open Font License 1.1 (https://openfontlicense.org).
