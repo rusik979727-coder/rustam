@@ -1,0 +1,17 @@
+/* Rustam font library — usage: <link rel="stylesheet" href="fonts/fonts.css"> */
+@font-face{font-family:"Montserrat";src:url("Montserrat-Thin.otf") format("opentype");font-weight:100;font-style:normal;font-display:swap}
+@font-face{font-family:"Montserrat";src:url("Montserrat-MediumItalic.ttf") format("truetype");font-weight:500;font-style:italic;font-display:swap}
+@font-face{font-family:"Montserrat";src:url("Montserrat-Bold.ttf") format("truetype");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"Montserrat";src:url("Montserrat-ExtraBoldItalic.otf") format("opentype");font-weight:800;font-style:italic;font-display:swap}
+@font-face{font-family:"Montserrat";src:url("Montserrat-BlackItalic.ttf") format("truetype");font-weight:900;font-style:italic;font-display:swap}
+@font-face{font-family:"NobelKaz";src:url("NobelKaz-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:"NobelKaz";src:url("NobelKaz-Bold.ttf") format("truetype");font-weight:700;font-display:swap}
+@font-face{font-family:"NobelWGL";src:url("NobelWGL-Light.ttf") format("truetype");font-weight:300;font-display:swap}
+@font-face{font-family:"NobelWGL";src:url("NobelWGL-Book.ttf") format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:"Century Gothic Paneuropean";src:url("CenturyGothicPaneuropeanExtraBold.ttf") format("truetype");font-weight:800;font-display:swap}
+@font-face{font-family:"Century Gothic Paneuropean";src:url("CenturyGothicPaneuropeanBlack.ttf") format("truetype");font-weight:900;font-display:swap}
+@font-face{font-family:"Trajan Pro 3";src:url("TrajanPro3Regular.ttf") format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:"Trajan Pro 3";src:url("TrajanPro3SemiBold.ttf") format("truetype");font-weight:600;font-display:swap}
+@font-face{font-family:"NAMU";src:url("NAMU-1960.otf") format("opentype");font-weight:700;font-display:swap}
+@font-face{font-family:"KZ Piedra";src:url("KZPiedra.ttf") format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:"Sports World";src:url("Sports_World-Regular.ttf") format("truetype");font-weight:400;font-display:swap}
