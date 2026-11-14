@@ -4,3 +4,4 @@ raw.mp4
 music.m4a
 out/render.mp4
 project/.hyperframes/
+__pycache__/
