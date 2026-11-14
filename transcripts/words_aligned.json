@@ -1,0 +1,506 @@
+[
+ {
+  "id": "w0",
+  "text": "Есіңізде",
+  "start": 0.02,
+  "end": 0.46,
+  "span": "S1",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w1",
+  "text": "болсын,",
+  "start": 0.46,
+  "end": 0.93,
+  "span": "S1",
+  "sent_end": false,
+  "comma": true
+ },
+ {
+  "id": "w2",
+  "text": "егер",
+  "start": 0.93,
+  "end": 1.175,
+  "span": "S1",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w3",
+  "text": "грыжаны",
+  "start": 1.175,
+  "end": 1.615,
+  "span": "S1",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w4",
+  "text": "дұрыс",
+  "start": 1.615,
+  "end": 1.95,
+  "span": "S1",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w5",
+  "text": "әдіспен",
+  "start": 1.95,
+  "end": 2.4,
+  "span": "S1",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w6",
+  "text": "емдесеңіз,",
+  "start": 2.4,
+  "end": 3.185,
+  "span": "S1",
+  "sent_end": false,
+  "comma": true
+ },
+ {
+  "id": "w7",
+  "text": "ешқандай",
+  "start": 3.185,
+  "end": 3.61,
+  "span": "S1",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w8",
+  "text": "операцияның",
+  "start": 3.61,
+  "end": 3.96,
+  "span": "S1",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w9",
+  "text": "қажеті",
+  "start": 4.3,
+  "end": 4.645,
+  "span": "S1",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w10",
+  "text": "жоқ.",
+  "start": 4.645,
+  "end": 5.06,
+  "span": "S1",
+  "sent_end": true,
+  "comma": false
+ },
+ {
+  "id": "w11",
+  "text": "Грыжа",
+  "start": 5.06,
+  "end": 5.44,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w12",
+  "text": "ол",
+  "start": 5.44,
+  "end": 5.59,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w13",
+  "text": "омыртқааралық",
+  "start": 5.59,
+  "end": 6.505,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w14",
+  "text": "дискінің",
+  "start": 6.505,
+  "end": 7.35,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w15",
+  "text": "жыртылуы.",
+  "start": 7.35,
+  "end": 8.19,
+  "span": "S2",
+  "sent_end": true,
+  "comma": false
+ },
+ {
+  "id": "w16",
+  "text": "Осы",
+  "start": 8.19,
+  "end": 8.43,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w17",
+  "text": "жыртылудың",
+  "start": 8.43,
+  "end": 9.47,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w18",
+  "text": "әсерінен",
+  "start": 9.47,
+  "end": 10.23,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w19",
+  "text": "ауру",
+  "start": 10.23,
+  "end": 10.51,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w20",
+  "text": "сезімі",
+  "start": 10.51,
+  "end": 10.985,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w21",
+  "text": "белімізге",
+  "start": 10.985,
+  "end": 11.806,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w22",
+  "text": "береді,",
+  "start": 11.806,
+  "end": 12.35,
+  "span": "S2",
+  "sent_end": false,
+  "comma": true
+ },
+ {
+  "id": "w23",
+  "text": "жамбасқа",
+  "start": 12.35,
+  "end": 12.77,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w24",
+  "text": "тарайды,",
+  "start": 12.77,
+  "end": 13.095,
+  "span": "S2",
+  "sent_end": false,
+  "comma": true
+ },
+ {
+  "id": "w25",
+  "text": "аяғымыз",
+  "start": 13.095,
+  "end": 13.505,
+  "span": "S2",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w26",
+  "text": "ауырады.",
+  "start": 13.505,
+  "end": 14.28,
+  "span": "S2",
+  "sent_end": true,
+  "comma": false
+ },
+ {
+  "id": "w27",
+  "text": "BELES",
+  "start": 14.28,
+  "end": 14.61,
+  "span": "S3",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w28",
+  "text": "клиникасы",
+  "start": 14.61,
+  "end": 15.175,
+  "span": "S3",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w29",
+  "text": "ешқандай",
+  "start": 15.175,
+  "end": 15.67,
+  "span": "S3",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w30",
+  "text": "операциясыз",
+  "start": 15.67,
+  "end": 16.365,
+  "span": "S3",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w31",
+  "text": "резорбция",
+  "start": 16.365,
+  "end": 16.925,
+  "span": "S3",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w32",
+  "text": "әдісімен",
+  "start": 16.925,
+  "end": 17.485,
+  "span": "S3",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w33",
+  "text": "грыжаны",
+  "start": 17.485,
+  "end": 17.92,
+  "span": "S3",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w34",
+  "text": "емдеп",
+  "start": 17.92,
+  "end": 18.225,
+  "span": "S3",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w35",
+  "text": "шығады.",
+  "start": 18.225,
+  "end": 19.19,
+  "span": "S3",
+  "sent_end": true,
+  "comma": false
+ },
+ {
+  "id": "w36",
+  "text": "Бұл",
+  "start": 19.19,
+  "end": 19.43,
+  "span": "S4",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w37",
+  "text": "ем",
+  "start": 19.43,
+  "end": 19.56,
+  "span": "S4",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w38",
+  "text": "грыжаны",
+  "start": 19.56,
+  "end": 20.01,
+  "span": "S4",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w39",
+  "text": "кішірейтіп,",
+  "start": 20.01,
+  "end": 20.73,
+  "span": "S4",
+  "sent_end": false,
+  "comma": true
+ },
+ {
+  "id": "w40",
+  "text": "бастапқы",
+  "start": 20.73,
+  "end": 21.25,
+  "span": "S4",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w41",
+  "text": "қалпына",
+  "start": 21.25,
+  "end": 21.48,
+  "span": "S4",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w42",
+  "text": "қайта",
+  "start": 21.64,
+  "end": 21.965,
+  "span": "S4",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w43",
+  "text": "келтіреді.",
+  "start": 21.965,
+  "end": 22.88,
+  "span": "S4",
+  "sent_end": true,
+  "comma": false
+ },
+ {
+  "id": "w44",
+  "text": "Егер",
+  "start": 22.88,
+  "end": 23.08,
+  "span": "S5",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w45",
+  "text": "сізде",
+  "start": 23.08,
+  "end": 23.33,
+  "span": "S5",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w46",
+  "text": "осындай",
+  "start": 23.33,
+  "end": 23.67,
+  "span": "S5",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w47",
+  "text": "симптом",
+  "start": 23.67,
+  "end": 24.035,
+  "span": "S5",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w48",
+  "text": "болатын",
+  "start": 24.035,
+  "end": 24.39,
+  "span": "S5",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w49",
+  "text": "болса,",
+  "start": 24.39,
+  "end": 24.745,
+  "span": "S5",
+  "sent_end": false,
+  "comma": true
+ },
+ {
+  "id": "w50",
+  "text": "консультацияға",
+  "start": 24.745,
+  "end": 25.52,
+  "span": "S5",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w51",
+  "text": "жазылсаңыз",
+  "start": 25.52,
+  "end": 25.71,
+  "span": "S5",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w52",
+  "text": "болады.",
+  "start": 25.87,
+  "end": 26.54,
+  "span": "S5",
+  "sent_end": true,
+  "comma": false
+ },
+ {
+  "id": "w53",
+  "text": "Грыжадан",
+  "start": 26.54,
+  "end": 26.985,
+  "span": "S6",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w54",
+  "text": "операциясыз",
+  "start": 26.985,
+  "end": 27.68,
+  "span": "S6",
+  "sent_end": false,
+  "comma": false
+ },
+ {
+  "id": "w55",
+  "text": "айығыңыз.",
+  "start": 27.68,
+  "end": 28.617,
+  "span": "S6",
+  "sent_end": true,
+  "comma": false
+ }
+]

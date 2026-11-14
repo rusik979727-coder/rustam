@@ -1,0 +1,131 @@
+{
+  "_doc": "Every timing in the composition comes from here. word = approved word (case/punctuation/kk-letter insensitive), n = n-th occurrence (1-based), offset in seconds. Run: python3 tools/gen.py",
+  "consts": {
+    "END": 29.9,
+    "MEDIA": 28.667
+  },
+  "cues": {
+    "punch1": {
+      "word": "ешқандай",
+      "n": 1
+    },
+    "chkOp": {
+      "word": "операцияның",
+      "offset": -0.08
+    },
+    "s2Start": {
+      "word": "грыжа",
+      "n": 1
+    },
+    "disc": {
+      "word": "дискінің",
+      "offset": -0.1
+    },
+    "tear": {
+      "word": "жыртылуы"
+    },
+    "discOut": {
+      "word": "әсерінен"
+    },
+    "pain": {
+      "word": "ауру",
+      "offset": -0.05
+    },
+    "bel": {
+      "word": "белімізге",
+      "offset": -0.05
+    },
+    "jam": {
+      "word": "жамбасқа",
+      "offset": -0.05
+    },
+    "ayak": {
+      "word": "аяғымыз",
+      "offset": -0.05
+    },
+    "s3In": {
+      "word": "beles",
+      "offset": -0.25
+    },
+    "fsW1": {
+      "word": "beles"
+    },
+    "fsW2": {
+      "word": "клиникасы"
+    },
+    "fsW3": {
+      "word": "ешқандай",
+      "n": 2
+    },
+    "fsW4": {
+      "word": "операциясыз",
+      "n": 1
+    },
+    "s3Out": {
+      "word": "резорбция",
+      "offset": -0.2
+    },
+    "rez": {
+      "word": "резорбция",
+      "offset": -0.05
+    },
+    "s4In": {
+      "word": "кішірейтіп",
+      "offset": -0.15
+    },
+    "shrink": {
+      "word": "кішірейтіп"
+    },
+    "restore": {
+      "word": "қалпына",
+      "offset": -0.05
+    },
+    "egerP": {
+      "word": "егер",
+      "n": 2
+    },
+    "s5In": {
+      "word": "консультацияға",
+      "offset": -0.3
+    },
+    "cta": {
+      "word": "консультацияға",
+      "offset": -0.05
+    },
+    "cta2": {
+      "word": "жазылсаңыз"
+    },
+    "s6In": {
+      "word": "грыжадан",
+      "offset": -0.2
+    },
+    "fin1": {
+      "word": "грыжадан"
+    },
+    "fin2": {
+      "word": "операциясыз",
+      "n": 2
+    },
+    "fin3": {
+      "word": "айығыңыз"
+    },
+    "h1": {
+      "word": "операцияның",
+      "offset": -0.2
+    },
+    "h2": {
+      "word": "дискінің",
+      "offset": -0.25
+    }
+  },
+  "fullscreen": [
+    [
+      "s3In",
+      "s3Out"
+    ],
+    [
+      "s6In",
+      "END"
+    ]
+  ]
+}

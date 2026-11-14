@@ -1,0 +1,46 @@
+<template>
+  <!-- S5: slide-scene (speaker shrinks down in index.html), CTA card on top. «консультацияға» → title, «жазылсаңыз» → second line -->
+  <style>
+    /*FONTS*/
+    #root { position: absolute; inset: 0; font-family: "BelesSans", system-ui, sans-serif; color: #1b2a44; }
+    #s5-card { position: absolute; left: 120px; width: 768px; top: 296px; }
+    #s5-card-in {
+      background: #fcfbf8; border-radius: 28px; box-shadow: 0 28px 90px rgba(0,0,0,.34);
+      padding: 36px 40px 40px; display: flex; gap: 28px; align-items: center; height: 300px;
+    }
+    #s5-cal { width: 120px; height: 120px; flex: none; }
+    #s5-kicker { font-size: 28px; font-weight: 600; color: #2f6b6b; letter-spacing: 0.06em; margin-bottom: 14px; }
+    .s5-line { overflow: hidden; padding-bottom: 4px; }
+    .s5-w { display: block; font-size: 54px; font-weight: 800; line-height: 1.12; letter-spacing: -0.015em; }
+    #s5-w2 { color: #2f6b6b; }
+  </style>
+  <div id="root" data-composition-id="s5" data-width="1080" data-height="1920">
+    <div id="s5-card" class="clip" data-start="{{ cta - s5In }}" data-duration="{{ s6In + 0.5 - cta }}" data-track-index="0">
+      <div id="s5-card-in">
+        <svg id="s5-cal" viewBox="0 0 150 150">
+          <rect x="12" y="24" width="126" height="114" rx="22" fill="none" stroke="#1b2a44" stroke-width="8"/>
+          <path d="M12 58 H138" stroke="#1b2a44" stroke-width="8"/>
+          <path d="M46 12 V36 M104 12 V36" stroke="#1b2a44" stroke-width="8" stroke-linecap="round"/>
+          <circle id="s5-dot" cx="75" cy="98" r="24" fill="#2f6b6b"/>
+          <path id="s5-check" d="M63 98 L72 107 L89 89" fill="none" stroke="#fcfbf8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="50" stroke-dashoffset="50"/>
+        </svg>
+        <div>
+          <div id="s5-kicker">BELES · МЕДИЦИНА ОРТАЛЫҒЫ</div>
+          <div class="s5-line"><span class="s5-w" id="s5-w1">Консультацияға</span></div>
+          <div class="s5-line"><span class="s5-w" id="s5-w2">жазылыңыз</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const C = {{ cta - s5In }}, C2 = {{ cta2 - s5In }};
+    tl.fromTo("#s5-card-in", { opacity: 0, y: -40, filter: "blur(8px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, C - 0.1);
+    tl.fromTo("#s5-kicker", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" }, C);
+    tl.fromTo("#s5-w1", { yPercent: 110 }, { yPercent: 0, duration: 0.42, ease: "expo.out" }, C);
+    tl.fromTo("#s5-w2", { yPercent: 110 }, { yPercent: 0, duration: 0.42, ease: "expo.out" }, C2);
+    tl.fromTo("#s5-dot", { scale: 0, transformOrigin: "50% 50%" }, { scale: 1, duration: 0.4, ease: "back.out(1.6)" }, C2 + 0.05);
+    tl.fromTo("#s5-check", { attr: { "stroke-dashoffset": 50 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.3, ease: "power2.out" }, C2 + 0.3);
+    window.__timelines["s5"] = tl;
+  </script>
+</template>

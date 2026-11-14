@@ -1,0 +1,40 @@
+<template>
+  <!-- S1: "ешқандай операцияның қажеті жоқ" → chip «Операциясыз» on the word -->
+  <style>
+    
+@font-face{font-family:"BelesSans";src:url("assets/fonts/Inter-Regular.otf");font-weight:400}
+@font-face{font-family:"BelesSans";src:url("assets/fonts/Inter-Medium.otf");font-weight:500}
+@font-face{font-family:"BelesSans";src:url("assets/fonts/Inter-SemiBold.otf");font-weight:600}
+@font-face{font-family:"BelesSans";src:url("assets/fonts/Inter-Bold.otf");font-weight:700}
+@font-face{font-family:"BelesSans";src:url("assets/fonts/Inter-ExtraBold.otf");font-weight:800}
+
+    #root { position: absolute; inset: 0; font-family: "BelesSans", system-ui, sans-serif; }
+    #s1-chip { position: absolute; left: 120px; width: 768px; top: 352px; display: flex; justify-content: center; }
+    #s1-chip-in {
+      display: flex; align-items: center; gap: 22px; padding: 22px 40px 22px 24px;
+      background: #fcfbf8; border-radius: 999px; box-shadow: 0 28px 90px rgba(0,0,0,.34);
+      color: #1b2a44; font-size: 54px; font-weight: 700; letter-spacing: -0.01em;
+    }
+    #s1-ico { width: 72px; height: 72px; border-radius: 50%; background: #2f6b6b; display: flex; align-items: center; justify-content: center; }
+  </style>
+  <div id="root" data-composition-id="s1" data-width="1080" data-height="1920">
+    <div id="s1-chip" class="clip" data-start="0.12" data-duration="1.53" data-track-index="0">
+      <div id="s1-chip-in">
+        <div id="s1-ico">
+          <svg width="44" height="44" viewBox="0 0 44 44"><path id="s1-check" d="M10 23 L19 31 L34 14" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="40" stroke-dashoffset="40"/></svg>
+        </div>
+        <span id="s1-txt">Операциясыз</span>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const T0 = 0.12, T1 = 1.65;
+    tl.fromTo("#s1-chip-in", { opacity: 0, scale: 0.86, filter: "blur(8px)" },
+              { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.45, ease: "expo.out" }, T0);
+    tl.fromTo("#s1-check", { attr: { "stroke-dashoffset": 40 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.35, ease: "power2.out" }, T0 + 0.18);
+    tl.to("#s1-chip-in", { opacity: 0, scale: 0.96, filter: "blur(6px)", duration: 0.22, ease: "power3.in" }, T1 - 0.24);
+    tl.set("#s1-chip-in", { opacity: 0 }, T1 - 0.01);
+    window.__timelines["s1"] = tl;
+  </script>
+</template>

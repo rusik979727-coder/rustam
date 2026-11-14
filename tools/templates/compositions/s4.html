@@ -1,0 +1,47 @@
+<template>
+  <!-- S4: «кішірейтіп» → the hernia circle shrinks on the word; «қалпына» → label swaps, disc restored -->
+  <style>
+    /*FONTS*/
+    #root { position: absolute; inset: 0; font-family: "BelesSans", system-ui, sans-serif; color: #1b2a44; }
+    #s4-card { position: absolute; left: 120px; width: 768px; top: 330px; }
+    #s4-card-in {
+      display: flex; align-items: center; gap: 30px; padding: 30px 36px; background: #fcfbf8; border-radius: 28px;
+      box-shadow: 0 28px 90px rgba(0,0,0,.34); height: 260px;
+    }
+    #s4-stage { width: 170px; height: 170px; flex: none; }
+    #s4-txt { position: relative; flex: 1; height: 166px; }
+    .s4-t { position: absolute; left: 0; right: 0; top: 0; font-size: 48px; font-weight: 700; line-height: 1.12; letter-spacing: -0.01em; }
+    .s4-t small { display: block; font-size: 32px; font-weight: 500; color: #2f6b6b; margin-bottom: 6px; letter-spacing: 0; }
+  </style>
+  <div id="root" data-composition-id="s4" data-width="1080" data-height="1920">
+    <div id="s4-card" class="clip" data-start="0" data-duration="{{ egerP - s4In }}" data-track-index="0">
+      <div id="s4-card-in">
+        <svg id="s4-stage" viewBox="0 0 190 190">
+          <rect x="18" y="22" width="154" height="40" rx="14" fill="#1b2a44"/>
+          <rect x="18" y="128" width="154" height="40" rx="14" fill="#1b2a44"/>
+          <rect id="s4-disc" x="30" y="76" width="130" height="38" rx="19" fill="#2f6b6b" opacity="0.35"/>
+          <circle id="s4-bulge" cx="150" cy="95" r="34" fill="#2f6b6b"/>
+          <path id="s4-check" d="M66 95 L86 113 L124 76" fill="none" stroke="#fcfbf8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="100" stroke-dashoffset="100"/>
+        </svg>
+        <div id="s4-txt">
+          <div class="s4-t" id="s4-t1"><small>Ем нәтижесі</small>Грыжа кішірейеді</div>
+          <div class="s4-t" id="s4-t2"><small>Ем нәтижесі</small>Диск қалпына келеді</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const SH = {{ shrink - s4In }}, RS = {{ restore - s4In }}, END = {{ egerP - s4In }};
+    tl.fromTo("#s4-card-in", { opacity: 0, y: -30, filter: "blur(8px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.45, ease: "expo.out" }, 0);
+    tl.fromTo("#s4-t2", { opacity: 0 }, { opacity: 0, duration: 0.01 }, 0);
+    tl.fromTo("#s4-bulge", { attr: { r: 34, cx: 150 } }, { attr: { r: 0, cx: 128 }, duration: 1.1, ease: "power2.inOut" }, SH);
+    tl.fromTo("#s4-disc", { opacity: 0.35 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, RS - 0.1);
+    tl.fromTo("#s4-check", { attr: { "stroke-dashoffset": 100 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.4, ease: "power2.out" }, RS + 0.1);
+    tl.fromTo("#s4-t1", { opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(8px)", duration: 0.16, ease: "power2.in" }, RS - 0.12);
+    tl.fromTo("#s4-t2", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power2.out", immediateRender: false }, RS + 0.04);
+    tl.to("#s4-card-in", { opacity: 0, y: -18, duration: 0.22, ease: "power3.in" }, END - 0.24);
+    tl.set("#s4-card-in", { opacity: 0 }, END - 0.01);
+    window.__timelines["s4"] = tl;
+  </script>
+</template>

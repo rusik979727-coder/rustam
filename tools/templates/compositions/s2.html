@@ -1,0 +1,57 @@
+<template>
+  <!-- S2: over the source's own 3D spine B-roll — labels only, never cover it.
+       «дискінің» → label, «жыртылуы» → swaps to the diagnosis, «ауру … белімізге / жамбасқа / аяғымыз» → pain path -->
+  <style>
+    /*FONTS*/
+    #root { position: absolute; inset: 0; font-family: "BelesSans", system-ui, sans-serif; color: #1b2a44; }
+    .s2-pill {
+      background: #fcfbf8; border-radius: 28px; box-shadow: 0 28px 90px rgba(0,0,0,.34);
+      padding: 24px 40px; font-weight: 700; letter-spacing: -0.01em;
+    }
+    #s2-label { position: absolute; left: 120px; width: 768px; top: 340px; display: flex; justify-content: center; }
+    #s2-label-in { position: relative; font-size: 48px; text-align: center; width: 720px; height: 122px; overflow: hidden; }
+    .s2-l { position: absolute; left: 0; right: 0; top: 32px; text-align: center; }
+    #s2-l2 b { color: #2f6b6b; font-weight: 800; }
+    #s2-pain { position: absolute; left: 120px; width: 768px; top: 300px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+    #s2-head { font-size: 36px; font-weight: 600; letter-spacing: 0.02em; color: #fcfbf8;
+               background: #2f6b6b; border-radius: 999px; padding: 14px 32px; }
+    #s2-row { display: flex; align-items: center; gap: 12px; }
+    .s2-chip { font-size: 46px; padding: 20px 26px; }
+    .s2-arr { width: 44px; height: 32px; }
+  </style>
+  <div id="root" data-composition-id="s2" data-width="1080" data-height="1920">
+    <div id="s2-label" class="clip" data-start="{{ disc - h2 }}" data-duration="{{ discOut - disc }}" data-track-index="0">
+      <div id="s2-label-in" class="s2-pill">
+        <div class="s2-l" id="s2-l1">Омыртқааралық диск</div>
+        <div class="s2-l" id="s2-l2"><b>Грыжа</b> = диск жыртылуы</div>
+      </div>
+    </div>
+    <div id="s2-pain" class="clip" data-start="{{ pain - h2 }}" data-duration="{{ s3In + 0.5 - pain }}" data-track-index="1">
+      <div id="s2-head">Ауырсыну таралады</div>
+      <div id="s2-row">
+        <div class="s2-chip s2-pill" id="s2-c1">Бел</div>
+        <svg class="s2-arr" viewBox="0 0 56 40"><path id="s2-a1" d="M4 20 H46 M34 8 L48 20 L34 32" fill="none" stroke="#fcfbf8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="90" stroke-dashoffset="90"/></svg>
+        <div class="s2-chip s2-pill" id="s2-c2">Жамбас</div>
+        <svg class="s2-arr" viewBox="0 0 56 40"><path id="s2-a2" d="M4 20 H46 M34 8 L48 20 L34 32" fill="none" stroke="#fcfbf8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="90" stroke-dashoffset="90"/></svg>
+        <div class="s2-chip s2-pill" id="s2-c3">Аяқ</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const D = {{ disc - h2 }}, TEAR = {{ tear - h2 }}, DOUT = {{ discOut - h2 }};
+    const P = {{ pain - h2 }}, B = {{ bel - h2 }}, J = {{ jam - h2 }}, A = {{ ayak - h2 }};
+    tl.fromTo("#s2-label-in", { opacity: 0, y: -26, filter: "blur(8px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.45, ease: "expo.out" }, D);
+    tl.fromTo("#s2-l1", { opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(8px)", duration: 0.16, ease: "power2.in" }, TEAR - 0.08);
+    tl.fromTo("#s2-l2", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power2.out" }, TEAR + 0.06);
+    tl.to("#s2-label-in", { opacity: 0, y: -18, duration: 0.24, ease: "power3.in" }, DOUT - 0.26);
+    tl.set("#s2-label-in", { opacity: 0 }, DOUT - 0.01);
+
+    tl.fromTo("#s2-head", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.4, ease: "expo.out" }, P);
+    [["#s2-c1", B], ["#s2-c2", J], ["#s2-c3", A]].forEach(([s, t]) =>
+      tl.fromTo(s, { opacity: 0, y: 34, filter: "blur(8px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.42, ease: "expo.out" }, t));
+    tl.fromTo("#s2-a1", { attr: { "stroke-dashoffset": 90 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.3, ease: "power2.out" }, J - 0.2);
+    tl.fromTo("#s2-a2", { attr: { "stroke-dashoffset": 90 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.3, ease: "power2.out" }, A - 0.2);
+    window.__timelines["s2"] = tl;
+  </script>
+</template>

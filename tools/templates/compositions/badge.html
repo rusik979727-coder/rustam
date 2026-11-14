@@ -1,0 +1,23 @@
+<template>
+  <!-- Logo badge: top-left corner for the whole film (BELES) -->
+  <style>
+    #root { position: absolute; inset: 0; }
+    #badge-box { position: absolute; left: 44px; top: 184px; }
+    #badge-in {
+      width: 150px; height: 122px; border-radius: 26px; background: #fff;
+      box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22); overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #badge-in img { width: 142px; height: auto; display: block; }
+  </style>
+  <div id="root" data-composition-id="badge" data-width="1080" data-height="1920">
+    <div id="badge-box" class="clip" data-start="0" data-duration="{{ END }}" data-track-index="0">
+      <div id="badge-in"><img src="assets/logo.jpg" alt="BELES медицина орталығы" /></div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#badge-in", { opacity: 0.4, scale: 0.92 }, { opacity: 0.96, scale: 1, duration: 0.5, ease: "expo.out" }, 0);
+    window.__timelines["badge"] = tl;
+  </script>
+</template>

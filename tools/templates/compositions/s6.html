@@ -1,0 +1,38 @@
+<template>
+  <!-- S6: final line full-screen on the music drop «Грыжадан операциясыз айығыңыз» -->
+  <style>
+    /*FONTS*/
+    #root { position: absolute; inset: 0; font-family: "BelesSans", system-ui, sans-serif; }
+    #s6-fs { position: absolute; inset: 0; }
+    #s6-field {
+      position: absolute; inset: 0; padding: 300px 300px 680px 120px; background: linear-gradient(165deg, #2f6b6b 0%, #24525a 55%, #1b2a44 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #fcfbf8;
+    }
+    .s6-line { overflow: hidden; padding: 6px 10px; }
+    .s6-w { display: block; text-align: center; font-size: 86px; font-weight: 800; line-height: 1.08; letter-spacing: -0.02em; }
+    #s6-w3 { color: #2f6b6b; background: #fcfbf8; border-radius: 30px; padding: 8px 40px 18px; }
+    #s6-rule { width: 0; height: 8px; border-radius: 4px; background: #fcfbf8; margin-top: 40px; opacity: .8; }
+    #s6-sub { font-size: 30px; font-weight: 600; letter-spacing: 0.08em; margin-top: 26px; opacity: .9; }
+  </style>
+  <div id="root" data-composition-id="s6" data-width="1080" data-height="1920">
+    <div id="s6-fs" class="clip" data-start="0" data-duration="{{ END - s6In }}" data-track-index="0">
+      <div id="s6-field">
+        <div class="s6-line"><span class="s6-w" id="s6-w1">Грыжадан</span></div>
+        <div class="s6-line"><span class="s6-w" id="s6-w2">операциясыз</span></div>
+        <div class="s6-line"><span class="s6-w" id="s6-w3">айығыңыз</span></div>
+        <div id="s6-rule"></div>
+        <div id="s6-sub">BELES · МЕДИЦИНА ОРТАЛЫҒЫ</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const F1 = {{ fin1 - s6In }}, F2 = {{ fin2 - s6In }}, F3 = {{ fin3 - s6In }};
+    tl.fromTo("#s6-field", { clipPath: "circle(0% at 50% 50%)" }, { clipPath: "circle(75% at 50% 50%)", duration: 0.5, ease: "power3.inOut" }, 0);
+    [["#s6-w1", F1], ["#s6-w2", F2], ["#s6-w3", F3]].forEach(([s, t]) =>
+      tl.fromTo(s, { yPercent: 110, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.45, ease: "expo.out" }, t - 0.04));
+    tl.fromTo("#s6-rule", { width: 0 }, { width: 220, duration: 0.6, ease: "power3.out" }, F3 + 0.5);
+    tl.fromTo("#s6-sub", { opacity: 0, filter: "blur(6px)" }, { opacity: 0.9, filter: "blur(0px)", duration: 0.4, ease: "power2.out" }, F3 + 0.7);
+    window.__timelines["s6"] = tl;
+  </script>
+</template>

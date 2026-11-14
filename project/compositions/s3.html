@@ -1,0 +1,80 @@
+<template>
+  <!-- S3: key phrase full-screen «BELES клиникасы ешқандай операциясыз» — curtain, icon draws, words rise on their spoken times.
+       Then «резорбция» → chip. -->
+  <style>
+    
+@font-face{font-family:"BelesSans";src:url("assets/fonts/Inter-Regular.otf");font-weight:400}
+@font-face{font-family:"BelesSans";src:url("assets/fonts/Inter-Medium.otf");font-weight:500}
+@font-face{font-family:"BelesSans";src:url("assets/fonts/Inter-SemiBold.otf");font-weight:600}
+@font-face{font-family:"BelesSans";src:url("assets/fonts/Inter-Bold.otf");font-weight:700}
+@font-face{font-family:"BelesSans";src:url("assets/fonts/Inter-ExtraBold.otf");font-weight:800}
+
+    #root { position: absolute; inset: 0; font-family: "BelesSans", system-ui, sans-serif; }
+    #s3-fs { position: absolute; inset: 0; }
+    #s3-field {
+      position: absolute; inset: 0; padding: 300px 300px 680px 120px; background: linear-gradient(165deg, #2f6b6b 0%, #24525a 55%, #1b2a44 100%);
+      clip-path: inset(100% 0 0 0);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; color: #fcfbf8;
+    }
+    #s3-ico { width: 180px; height: 180px; margin-bottom: 28px; }
+    .s3-line { overflow: hidden; padding: 6px 30px; }
+    .s3-w { display: block; text-align: center; }
+    #s3-w1 { font-size: 136px; font-weight: 800; letter-spacing: 0.08em; line-height: 1; padding-left: 0.1em; }
+    #s3-w2 { font-size: 64px; font-weight: 500; line-height: 1.1; opacity: .92; }
+    #s3-w3 { font-size: 80px; font-weight: 700; line-height: 1.1; }
+    #s3-w4 { font-size: 80px; font-weight: 800; line-height: 1.1; color: #2f6b6b; background: #fcfbf8; border-radius: 28px; padding: 6px 34px 14px; }
+    #s3-rez { position: absolute; left: 120px; width: 768px; top: 352px; display: flex; justify-content: center; }
+    #s3-rez-in {
+      display: flex; align-items: center; gap: 22px; padding: 22px 40px 22px 24px; background: #fcfbf8; border-radius: 999px;
+      box-shadow: 0 28px 90px rgba(0,0,0,.34); color: #1b2a44; font-size: 52px; font-weight: 700;
+    }
+    #s3-rez-ico { width: 72px; height: 72px; border-radius: 50%; background: #2f6b6b; display: flex; align-items: center; justify-content: center; }
+  </style>
+  <div id="root" data-composition-id="s3" data-width="1080" data-height="1920">
+    <div id="s3-fs" class="clip" data-start="0" data-duration="2.555" data-track-index="0">
+      <div id="s3-field">
+        <svg id="s3-ico" viewBox="0 0 210 210">
+          <circle id="s3-ring" cx="105" cy="105" r="92" fill="none" stroke="#fcfbf8" stroke-width="7" stroke-dasharray="580" stroke-dashoffset="580" transform="rotate(-90 105 105)"/>
+          <path id="s3-s" d="M132 48 C 92 60, 150 104, 106 112 C 66 120, 112 160, 76 168" fill="none" stroke="#fcfbf8" stroke-width="16" stroke-linecap="round" stroke-dasharray="4 18" stroke-dashoffset="0" opacity="0"/>
+        </svg>
+        <div class="s3-line"><span class="s3-w" id="s3-w1">BELES</span></div>
+        <div class="s3-line"><span class="s3-w" id="s3-w2">клиникасы</span></div>
+        <div class="s3-line"><span class="s3-w" id="s3-w3">ешқандай</span></div>
+        <div class="s3-line"><span class="s3-w" id="s3-w4">операциясыз</span></div>
+      </div>
+    </div>
+    <div id="s3-rez" class="clip" data-start="2.285" data-duration="3.545" data-track-index="1">
+      <div id="s3-rez-in">
+        <div id="s3-rez-ico">
+          <svg width="48" height="48" viewBox="0 0 48 48">
+            <circle id="s3-d1" cx="24" cy="24" r="13" fill="#fcfbf8"/>
+            <circle id="s3-d2" cx="10" cy="12" r="4" fill="#fcfbf8" opacity="0"/>
+            <circle id="s3-d3" cx="39" cy="14" r="3.5" fill="#fcfbf8" opacity="0"/>
+            <circle id="s3-d4" cx="36" cy="38" r="3" fill="#fcfbf8" opacity="0"/>
+          </svg>
+        </div>
+        <span>Резорбция әдісі</span>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const W1 = 0.25, W2 = 0.58, W3 = 1.145, W4 = 1.64;
+    const OUT = 2.135, R = 2.285, END = 5.83;
+    tl.fromTo("#s3-field", { clipPath: "inset(100% 0% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: 0.42, ease: "power3.inOut" }, 0);
+    tl.fromTo("#s3-ring", { attr: { "stroke-dashoffset": 580 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.8, ease: "power2.inOut" }, 0.2);
+    tl.fromTo("#s3-s", { opacity: 0, scale: 0.7, transformOrigin: "50% 50%" }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, 0.45);
+    [["#s3-w1", W1], ["#s3-w2", W2], ["#s3-w3", W3], ["#s3-w4", W4]].forEach(([s, t]) =>
+      tl.fromTo(s, { yPercent: 110, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.42, ease: "expo.out" }, t - 0.04));
+    tl.fromTo("#s3-field", { clipPath: "inset(0% 0% 0% 0%)" }, { clipPath: "inset(0% 0% 100% 0%)", duration: 0.4, ease: "power3.in", immediateRender: false }, OUT);
+
+    tl.fromTo("#s3-rez-in", { opacity: 0, scale: 0.86, filter: "blur(8px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.45, ease: "expo.out" }, R);
+    // the core "dissolves": resorption drawn as a shrinking body shedding particles
+    tl.fromTo("#s3-d1", { attr: { r: 13 } }, { attr: { r: 7 }, duration: 1.4, ease: "power2.inOut" }, R + 0.3);
+    ["#s3-d2", "#s3-d3", "#s3-d4"].forEach((s, i) =>
+      tl.fromTo(s, { opacity: 0, scale: 0.4, transformOrigin: "50% 50%" }, { opacity: 0.9, scale: 1, duration: 0.4, ease: "power2.out" }, R + 0.45 + i * 0.25));
+    tl.to("#s3-rez-in", { opacity: 0, scale: 0.96, filter: "blur(6px)", duration: 0.22, ease: "power3.in" }, END - 0.24);
+    tl.set("#s3-rez-in", { opacity: 0 }, END - 0.01);
+    window.__timelines["s3"] = tl;
+  </script>
+</template>
