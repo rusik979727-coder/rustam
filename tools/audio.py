@@ -26,6 +26,26 @@ def loudnorm_2pass(inp, out, chain, I, TP=-1.0, LRA=11):
     return m
 
 
+def norm_linear(inp, out, chain, I, TP=-1.0):
+    """Two passes, strictly linear: measure integrated loudness, apply the exact gain, then a
+    peak limiter 0.6 dB under the TP target (4x oversampled) so the lift to I never clips.
+    Used where loudnorm silently falls back to dynamic mode (speech with a silent tail, LRA > 11)."""
+    pre = (chain + ",") if chain else ""
+    err = run(["-i", inp, "-af", f"{pre}ebur128", "-f", "null", "-"])
+    mI = float(re.findall(r"I:\s+(-?[\d.]+) LUFS", err)[-1])
+    lim = 10 ** ((TP - 0.6) / 20)
+    gain = I - mI
+    for _ in range(4):  # the limiter eats a little loudness: correct and re-run until within 0.1 LU
+        run(["-i", inp, "-af", f"{pre}volume={gain:.2f}dB,aresample={SR * 4},"
+             f"alimiter=limit={lim:.4f}:attack=1:release=50:level=disabled,aresample={SR}",
+             "-ar", str(SR), "-c:a", "pcm_s24le", out])
+        got, _ = lufs(out)
+        if abs(got - I) <= 0.1:
+            break
+        gain += I - got
+    return mI
+
+
 def dur(path):
     return float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration",
                                           "-of", "csv=p=0", path]).strip())
@@ -41,10 +61,11 @@ def lufs(path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--voice", default=".tmp/cut.mp4")
-    ap.add_argument("--music", default="music.m4a")
+    ap.add_argument("--music", default="music.m4a", help="'none' = no music bed")
+    ap.add_argument("--sfx", default=None, help="SFX bus wav (tools/sfx.py), mixed as is")
     ap.add_argument("--total", type=float, required=True)
-    ap.add_argument("--drop", type=float, required=True)
-    ap.add_argument("--phrase", type=float, required=True)
+    ap.add_argument("--drop", type=float, default=None)
+    ap.add_argument("--phrase", type=float, default=None)
     ap.add_argument("--bed", type=float, default=-24)
     ap.add_argument("--denoise", type=float, default=6, help="afftdn nr in dB, 0 = off")
     ap.add_argument("--fadeout", type=float, default=1.2)
@@ -54,30 +75,41 @@ def main():
     vchain = "highpass=f=80,highpass=f=80"
     if a.denoise > 0:
         vchain += f",afftdn=nr={a.denoise}:nf=-42"
-    vchain += f",apad=whole_dur={T},atrim=0:{T}"
-    loudnorm_2pass(a.voice, ".tmp/voice.wav", vchain, -14)
+    # sample-peak limiter at −3 dBFS: leaves headroom so the linear loudnorm can reach −14 LUFS at −1 dBTP
+    vchain += f",alimiter=limit=0.708:attack=3:release=60:level=disabled,apad=whole_dur={T},atrim=0:{T}"
+    norm_linear(a.voice, ".tmp/voice.wav", vchain, -14)
 
-    off = a.drop - a.phrase
-    mchain = (f"atrim=start={off}:duration={T},asetpts=PTS-STARTPTS,afade=t=in:d=0.4,"
-              f"afade=t=out:st={T - a.fadeout}:d={a.fadeout}")
-    loudnorm_2pass(a.music, ".tmp/music_bed.wav", mchain, a.bed, TP=-3)
-
-    # sidechain: pad both inputs, trim output, check length (sidechaincompress loses ~1 s)
-    run(["-i", ".tmp/music_bed.wav", "-i", ".tmp/voice.wav", "-filter_complex",
-         f"[0:a]apad=pad_dur=2[m];[1:a]apad=pad_dur=2[v];"
-         f"[m][v]sidechaincompress=threshold=0.10:ratio=3:attack=20:release=380,atrim=0:{T}[o]",
-         "-map", "[o]", "-c:a", "pcm_s24le", ".tmp/music_ducked.wav"])
-    run(["-i", ".tmp/voice.wav", "-i", ".tmp/music_ducked.wav", "-filter_complex",
-         "[0:a][1:a]amix=inputs=2:normalize=0:duration=first[o]", "-map", "[o]",
-         "-c:a", "pcm_s24le", ".tmp/premix.wav"])
-    loudnorm_2pass(".tmp/premix.wav", ".tmp/audio_mixed.wav", "", -14)
+    if a.music != "none":
+        off = a.drop - a.phrase
+        mchain = (f"atrim=start={off}:duration={T},asetpts=PTS-STARTPTS,afade=t=in:d=0.4,"
+                  f"afade=t=out:st={T - a.fadeout}:d={a.fadeout}")
+        loudnorm_2pass(a.music, ".tmp/music_bed.wav", mchain, a.bed, TP=-3)
+        # sidechain: pad both inputs, trim output, check length (sidechaincompress loses ~1 s)
+        run(["-i", ".tmp/music_bed.wav", "-i", ".tmp/voice.wav", "-filter_complex",
+             f"[0:a]apad=pad_dur=2[m];[1:a]apad=pad_dur=2[v];"
+             f"[m][v]sidechaincompress=threshold=0.10:ratio=3:attack=20:release=380,atrim=0:{T}[o]",
+             "-map", "[o]", "-c:a", "pcm_s24le", ".tmp/music_ducked.wav"])
+    stems = [".tmp/voice.wav"]
+    if a.music != "none":
+        stems.append(".tmp/music_ducked.wav")
+    if a.sfx:
+        stems.append(a.sfx)
+    inputs = sum((["-i", p] for p in stems), [])
+    prep = ";".join(f"[{i}:a]aresample={SR},aformat=channel_layouts=mono,apad=whole_dur={T},atrim=0:{T}[s{i}]"
+                    for i in range(len(stems)))
+    mix = "".join(f"[s{i}]" for i in range(len(stems))) + f"amix=inputs={len(stems)}:normalize=0:duration=first[o]"
+    run(inputs + ["-filter_complex", f"{prep};{mix}", "-map", "[o]", "-c:a", "pcm_s24le", ".tmp/premix.wav"])
+    norm_linear(".tmp/premix.wav", ".tmp/audio_mixed.wav", "", -14)
 
     vI, _ = lufs(".tmp/voice.wav")
-    mI, _ = lufs(".tmp/music_ducked.wav")
     fI, ftp = lufs(".tmp/audio_mixed.wav")
-    print(f"music offset {off:.2f}s  voice {vI} LUFS  ducked music {mI} LUFS  separation {vI - mI:.1f} dB")
+    if a.music != "none":
+        mI, _ = lufs(".tmp/music_ducked.wav")
+        print(f"music offset {off:.2f}s  voice {vI} LUFS  ducked music {mI} LUFS  separation {vI - mI:.1f} dB")
+    else:
+        print(f"no music; voice {vI} LUFS")
     print(f"final {fI} LUFS  true peak {ftp} dBFS")
-    for p in [".tmp/voice.wav", ".tmp/music_ducked.wav", ".tmp/audio_mixed.wav"]:
+    for p in [".tmp/voice.wav", ".tmp/audio_mixed.wav"]:
         print(f"{p}: {dur(p):.3f}s (target {T})")
 
 

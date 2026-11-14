@@ -127,5 +127,41 @@
       "s6In",
       "END"
     ]
-  ]
+  ],
+  "sfx": [
+    {
+      "cue": "chkOp",
+      "file": "pop",
+      "peak_dbfs": -15
+    },
+    {
+      "cue": "s3In",
+      "file": "whoosh-short",
+      "peak_dbfs": -16,
+      "end_by": "fsW1"
+    },
+    {
+      "cue": "rez",
+      "file": "click-soft",
+      "peak_dbfs": -16
+    },
+    {
+      "cue": "cta",
+      "file": "pop",
+      "peak_dbfs": -15
+    },
+    {
+      "cue": "fin1",
+      "file": "riser",
+      "peak_dbfs": -20,
+      "tail": 1.5,
+      "align": "end"
+    },
+    {
+      "cue": "fin1",
+      "file": "impact-bass-1",
+      "peak_dbfs": -10
+    }
+  ],
+  "_sfx_doc": "sfx: cue = where the sound's PEAK lands (+1 frame); peak_dbfs = absolute peak of the effect before the final loudnorm (voice is −14 LUFS); tail = keep only the last N s (riser), align end = the clip's end lands on the cue. Run tools/sfx.py then tools/audio.py. end_by = cue the sound must be silent by (30 ms fade), so it never covers a word."
 }

@@ -1,6 +1,6 @@
 # BELES — монтаж картасы
 
-**Нәтиже:** `out/preview.mp4` — 1080×1920, 30 fps, 29,9 с (сөйлеу 28,67 с + 1,2 с финал карта), −14,1 LUFS, true peak −1,0 dBFS.
+**Нәтиже:** `out/preview.mp4` — 1080×1920, 30 fps, 29,9 с (сөйлеу 28,67 с + 1,2 с финал карта), −14,1 LUFS, true peak −1,5 dBFS. Голос + дыбыс эффектілері, фондық музыка жоқ.
 `out/master.mp4` түзетулерден кейін шығарылады.
 
 ## Өлшенген сандар
@@ -8,8 +8,9 @@
 |---|---|
 | Бастапқы → cut | 32,15 с → 28,67 с (10 сегмент, 9 пауза қысылды) |
 | Қалдық тишина | ең көбі **90 мс** (норма ≤150) |
-| Голос / музыка айырмасы | **15,0 дБ** (голос −14,3, сайдчейннен кейінгі музыка −29,3 LUFS) |
-| Музыка | тректің 99,86 с-ынан басталады → дроп (126,4 с) «Грыжадан…» фразасына (26,54 с) дәл түседі |
+| Музыка | **жоқ** (пайдаланушы алып тастады) |
+| Дыбыс эффектілері | 5 сәт (төменде), әрқайсысы өз сөзіне байланған; голостан төмен |
+| «BELES» сөзі | түпнұсқа кесігіндегі 38 мс сандық тыныштық бөлме шуымен толтырылды, басы +5 дБ, 3,2 кГц +3 дБ → whisper «Елес» емес, «Белес» деп таниды |
 | `hyperframes check` | lint/runtime/motion/contrast/audio — 0; layout — 1 warn (субтитр сұраныс бойынша платформа UI аймағына түсті); craft — 1 warn (төменде) |
 
 ## Сахналар (cut уақыты)
@@ -29,6 +30,16 @@
 | 24,45 | «консультацияға» | слайд-сцена: спикер кішірейіп төмен түседі, CTA карта «Консультацияға жазылыңыз» |
 | 26,34–29,9 | «Грыжадан операциясыз айығыңыз» | финал толық экран + музыка дропы |
 
+## Дыбыс эффектілері (`cues.json` → `sfx`, `tools/sfx.py`)
+| Сәт | Сөз | Эффект |
+|---|---|---|
+| 3,53 | «операцияның» — чип | pop |
+| 14,03 | шторка (BELES сөзіне дейін бітеді) | whoosh-short |
+| 16,32 | «резорбция» — чип | click-soft |
+| 24,70 | «консультацияға» — CTA | pop |
+| 26,54 | финал фраза | riser (соңғы 1,5 с) → impact |
+Файлдар: `project/assets/sfx/` (HyperFrames кітапханасы, Pixabay Content License, атрибуция міндетті емес). Деңгей: `peak_dbfs`; уақыт: `cue` (+1 кадр); `end_by` — сөзді жаппау үшін.
+
 ## Қайда не өзгертуге болады
 - **Мәтін/дизайн:** `tools/templates/` (index.html, compositions/s1…s6.html, captions.html). `project/` ішіндегі файлдарды тікелей өзгертпеңіз — олар генерацияланады.
 - **Тайминг:** `cues.json` — әр белгі айтылған сөзге байланған (`word`, `n`, `offset`).
@@ -41,8 +52,11 @@ python3 tools/envelope.py .tmp/audio16k_hp.wav .tmp/env_raw.json     # маск�
 python3 tools/cut.py                                                  # .tmp/cut.mp4 + .tmp/segments.json
 # whisper: cut-тан сөз таймингтері (turbo + толық модель, -dtw), содан кейін:
 python3 tools/words.py --media-end 28.667                             # бекітілген мәтін ↔ тайминг
-python3 tools/audio.py --total 29.9 --drop 126.4 --phrase 26.54 --bed -25.6
-python3 tools/gen.py                                                  # композиция
+python3 tools/gen.py                                                  # композиция + .tmp/cues_resolved.json
+python3 tools/word_fix.py --in .tmp/cut.mp4 --out .tmp/cut_fixed.wav --at 14.28   # «BELES» анықтығы
+python3 tools/sfx.py                                                  # .tmp/sfx_bus.wav
+python3 tools/audio.py --voice .tmp/cut_fixed.wav --music none --sfx .tmp/sfx_bus.wav --total 29.9
+cp .tmp/audio_mixed.wav project/assets/audio_mixed.wav
 cd project && npx hyperframes check && npx hyperframes render . -o ../out/render.mp4 --quality high
 ffmpeg -i out/render.mp4 -i .tmp/audio_mixed.wav -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 256k -ar 48000 -shortest -movflags +faststart out/master.mp4
 ```
