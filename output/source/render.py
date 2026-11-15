@@ -137,7 +137,7 @@ def section_img(num, title):
     pw, ph = wn + wt + 70, 98
     img = Image.new("RGBA", (pw, ph), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
     d.text((36, 20), n, font=f, fill=YELLOW + (255,)); d.text((36 + wn, 20), T, font=f, fill=WHITE + (255,))
-    return shadowed(img, 10, 5, 140)[0]
+    return shadowed(img, 7, 3, 235)[0]
 
 # ---------------- callout (бастапқы кеңістікте) ----------------
 _pill = {}
@@ -252,7 +252,7 @@ def grade(f):
     if VIG is None:
         yy, xx = np.ogrid[:H, :W]
         d = ((xx - W / 2) / (W / 1.25)) ** 2 + ((yy - H / 2) / (H / 1.25)) ** 2
-        VIG = (1 - 0.22 * np.clip(d, 0, 1))[..., None].astype(np.float32)
+        VIG = (1 - 0.10 * np.clip(d, 0, 1))[..., None].astype(np.float32)
     g = f.astype(np.float32)  # негізгі грейд beauty.py-да; мұнда тек виньетка
     return np.clip(g * VIG, 0, 255).astype(np.uint8)
 

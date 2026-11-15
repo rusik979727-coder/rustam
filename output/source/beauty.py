@@ -22,15 +22,8 @@ def curve(x):  # жұмсақ S-қисық, қара сәл көтерілген
     return 0.035 + 0.94 * np.clip(s, 0, 1)
 
 def cine(f):
-    """f: float32 BGR 0..1 -> кино-грейд"""
-    lum = (0.114 * f[..., 0] + 0.587 * f[..., 1] + 0.299 * f[..., 2])[..., None]
-    f = lum + (f - lum) * 0.95                         # қанықтықты сәл түсіру
-    f = curve(f)
-    lum = (0.114 * f[..., 0] + 0.587 * f[..., 1] + 0.299 * f[..., 2])[..., None]
-    sh = np.clip(1 - lum * 2.2, 0, 1); hi = np.clip(lum * 1.6 - 0.6, 0, 1)
-    f = f + sh * np.array([0.035, 0.012, -0.02]) + hi * np.array([-0.04, 0.0, 0.035])  # бирюза көлеңке, жылы жарық
-    f = f * np.array([0.93, 0.99, 1.06])                             # жалпы жылы (амбер)
-    return np.clip(f, 0, 1)
+    """табиғи жарық сақталады: тек сәл контраст"""
+    return np.clip((f - 0.5) * 1.04 + 0.5, 0, 1)
 
 class Masks:
     def __init__(self): self.prev = None
@@ -67,25 +60,6 @@ def beauty(bgr, masks):
     sharp = f + 0.45 * (f - cv2.GaussianBlur(f, (0, 0), 2.0))
     ks = (person * (1 - skin * 0.9))[..., None]
     f = f * (1 - ks) + sharp * ks
-    # 4) фон: бұлыңғырсыз, тек жарықтың жұмсақ құлауы (қабырға/терезе күңгірт, адам жарық)
-    pe = cv2.GaussianBlur(cv2.erode(person, np.ones((11, 11), np.uint8)), (0, 0), 3)
-    hi = np.clip((f.max(2, keepdims=True) - 0.6) / 0.4, 0, 1)        # терезе жарығын басу
-    upper = np.clip((DESK_Y - yy) / 520, 0, 1)                       # жоғарыға қарай біртіндеп
-    dark = 1 - (1 - pe) * (0.42 * upper + 0.12)
-    f = f * (1 - 0.35 * hi * ((1 - pe) * upper)[..., None])
-    f = f * dark[..., None]
-    f = f * (1 + ((1 - pe) * upper)[..., None] * (np.array([0.84, 0.95, 1.1]) - 1))
-    # 5) жарық: бетке жұмсақ key-light (жоғарғы сол жақтан), сол жаққа rim
-    ys, xs = np.nonzero(face > 0.4)
-    if len(xs) > 200:
-        cx, cy = xs.mean(), ys.mean(); r = max(140, (xs.max() - xs.min()))
-    else:
-        cx, cy, r = 520, 650, 200
-    g = np.exp(-(((xx - cx + 0.25 * r) / (2.4 * r)) ** 2 + ((yy - cy + 0.2 * r) / (3.0 * r)) ** 2))
-    f = f * (1 + 0.22 * g[..., None] * person[..., None]) + 0.02 * g[..., None]
-    # ортасына қарай жалпы жарық құлауы (виньетка ішкі)
-    v = np.exp(-(((xx - cx) / (W * 0.9)) ** 2 + ((yy - cy - 250) / (H * 0.75)) ** 2))
-    f = f * (0.72 + 0.28 * v[..., None])
     return f
 
 def in_ranges(t): return any(a <= t < b for a, b in RANGES)
