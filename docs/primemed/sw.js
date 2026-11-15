@@ -1,5 +1,5 @@
 // Prime Med cash register: cache the app shell so it opens without internet.
-const CACHE = "primemed-kassasy-v3";
+const CACHE = "primemed-kassasy-v4";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png", "./icons/logo.png", "./fonts/nunito-cyrillic-500-normal.woff2", "./fonts/nunito-cyrillic-700-normal.woff2", "./fonts/nunito-cyrillic-800-normal.woff2", "./fonts/nunito-cyrillic-ext-500-normal.woff2", "./fonts/nunito-cyrillic-ext-700-normal.woff2", "./fonts/nunito-cyrillic-ext-800-normal.woff2", "./fonts/nunito-latin-500-normal.woff2", "./fonts/nunito-latin-700-normal.woff2", "./fonts/nunito-latin-800-normal.woff2"];
 
 self.addEventListener("install", (e) => {

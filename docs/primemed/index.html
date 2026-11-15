@@ -436,6 +436,7 @@ html.locked .wrap { visibility: hidden; }
   function setStatus(t, ok) { $("status").textContent = t; $("dot").className = "dot" + (ok ? " ok" : ""); }
 
   function shareOrDownload(filename, text, mime) {
+    if (window.pinPause) window.pinPause();
     const blob = new Blob([text], { type: mime });
     const file = new File([blob], filename, { type: mime });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -475,6 +476,7 @@ html.locked .wrap { visibility: hidden; }
     };
 
     let pendingImport = null;
+    $("restoreFile").addEventListener("click", () => { if (window.pinPause) window.pinPause(); });
     $("restoreFile").addEventListener("change", async (ev) => {
       const f = ev.target.files && ev.target.files[0];
       ev.target.value = "";
@@ -1020,7 +1022,7 @@ html.locked .wrap { visibility: hidden; }
   function renderSec(note) {
     const has = !!getPin();
     $("secInfo").textContent = (note ? note + " " : "") + (has
-      ? "Қосымша ашылғанда және 1 минуттан артық жабық тұрғанда PIN-код сұралады. Ескерту: сақтық көшірме файлы PIN-кодпен қорғалмайды, оны сенімді жерде сақтаңыз."
+      ? "Қосымшаға әр кірген сайын PIN-код сұралады. Ескерту: сақтық көшірме файлы PIN-кодпен қорғалмайды, оны сенімді жерде сақтаңыз."
       : "PIN-код қойылмаған. Телефонды басқа біреу алса, деректерді көре алады.");
     $("pinSet").hidden = has; $("pinChange").hidden = !has; $("pinRemove").hidden = !has;
   }
@@ -1028,13 +1030,15 @@ html.locked .wrap { visibility: hidden; }
   $("pinChange").onclick = () => open("verify", "Қазіргі PIN-код", () => open("new", "Жаңа PIN-код (4 сан)"));
   $("pinRemove").onclick = () => open("verify", "Қазіргі PIN-код", () => { try { localStorage.removeItem(PK); } catch {} renderSec("PIN-код алынды."); });
 
-  // Hide data while the app is in the background; ask for the PIN again after a minute away.
-  let hiddenAt = 0;
-  document.addEventListener("visibilitychange", () => {
-    if (!getPin()) return;
-    if (document.hidden) { hiddenAt = Date.now(); if ($("lock").hidden) root.classList.add("locked"); }
-    else if ($("lock").hidden) { if (hiddenAt && Date.now() - hiddenAt > 60000) lockNow(); else root.classList.remove("locked"); }
-  });
+  // Lock as soon as the app leaves the screen, so the PIN is asked every time it is opened again.
+  // Sharing a backup or picking a file opens an iOS sheet; that is not leaving the app.
+  let pausedUntil = 0;
+  window.pinPause = () => { pausedUntil = Date.now() + 120000; };
+  const lockIfSet = () => { if (Date.now() < pausedUntil) return; if (getPin() && $("lock").hidden) lockNow(); };
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() < pausedUntil) pausedUntil = 0; });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) lockIfSet(); });
+  window.addEventListener("pagehide", lockIfSet);
+  window.addEventListener("pageshow", (ev) => { if (ev.persisted) lockIfSet(); });
 
   renderSec();
   if (getPin()) lockNow(); else root.classList.remove("locked");
