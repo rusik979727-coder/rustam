@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14232b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Шығын">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Шығын дәптері</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow column — month summary, add form, category bars, then the day-grouped ledger. */
+:root {
+  --bg: #f3f6f7;
+  --surface: #ffffff;
+  --ink: #14232b;
+  --muted: #5d7079;
+  --line: #dbe4e8;
+  --accent: #0a8fa6;
+  --accent-soft: #dff2f5;
+  --gold: #c98a12;
+  --danger: #c0392b;
+  --font-display: "Unbounded", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e171c; --surface: #16232a; --ink: #e6eef1; --muted: #93a7b0;
+    --line: #26363e; --accent: #3cc3d9; --accent-soft: #173a42; --gold: #e3a83a; --danger: #ef6b5d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e171c; --surface: #16232a; --ink: #e6eef1; --muted: #93a7b0;
+  --line: #26363e; --accent: #3cc3d9; --accent-soft: #173a42; --gold: #e3a83a; --danger: #ef6b5d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body);
+  font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 48px;
+}
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--font-display); font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.sub { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+
+.month-nav { display: flex; align-items: center; gap: 4px; }
+.month-nav span { min-width: 120px; text-align: center; font-weight: 600; }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  width: 36px; height: 36px; border-radius: 10px; cursor: pointer; font-size: 18px; line-height: 1;
+}
+.icon-btn:hover { border-color: var(--accent); }
+
+.summary { background: var(--ink); color: var(--bg); border-radius: 18px; padding: 22px; display: grid; gap: 14px; }
+.summary .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; }
+.total { font-family: var(--font-display); font-size: clamp(30px, 8vw, 42px); font-weight: 700; line-height: 1.1; }
+.total small { font-size: 0.55em; opacity: 0.7; margin-left: 4px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.daily { display: flex; flex-direction: column; gap: 10px; }
+.daily-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.daily-head b { color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
+.chart { position: relative; height: 140px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; align-items: end; border-bottom: 1px solid var(--line); }
+.chart button { height: 100%; display: flex; align-items: flex-end; background: none; border: none; padding: 0; cursor: pointer; border-radius: 3px 3px 0 0; min-width: 0; }
+.chart button:hover { background: var(--accent-soft); }
+.chart button i { display: block; width: 100%; background: var(--accent); opacity: .55; border-radius: 3px 3px 0 0; min-height: 2px; }
+.chart button.zero i { background: var(--line); opacity: 1; }
+.chart button.over i { background: var(--gold); opacity: .8; }
+.chart button.today i { opacity: 1; }
+.chart button.sel i { opacity: 1; outline: 2px solid var(--ink); outline-offset: 1px; }
+.chart .limit { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--gold); pointer-events: none; }
+.chart .limit span { position: absolute; right: 0; top: -18px; font-size: 11px; color: var(--gold); background: var(--surface); padding: 0 4px; font-variant-numeric: tabular-nums; }
+.axis { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; font-size: 10px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--accent); }
+.legend .lg-over::before { background: var(--gold); }
+.legend .lg-limit::before { height: 0; border-top: 2px dashed var(--gold); vertical-align: 3px; background: none; }
+.day-filter { display: inline-flex; align-items: center; gap: 6px; }
+.backup-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.file-btn { display: inline-flex; align-items: center; font-size: 15px; }
+.offline-badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--gold); border: 1px solid var(--gold); border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: 1px; }
+.stats div { display: flex; flex-direction: column; gap: 2px; }
+.stats b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.stats span { font-size: 12px; opacity: 0.7; }
+.budget { display: grid; gap: 6px; }
+.budget-bar { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--bg) 22%, transparent); overflow: hidden; }
+.budget-bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width .3s; }
+.budget-bar i.warn { background: var(--gold); }
+.budget-bar i.over { background: var(--danger); }
+.budget-row { display: flex; justify-content: space-between; font-size: 13px; gap: 8px; flex-wrap: wrap; }
+.link-btn { background: none; border: none; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; padding: 0; opacity: .85; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+form.add { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+form.add .full { grid-column: 1 / -1; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 500; min-width: 0; }
+input, select {
+  font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; width: 100%; min-width: 0;
+}
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.amount-input { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 999px;
+  padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center;
+}
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.primary {
+  background: var(--accent); color: #fff; border: none; border-radius: 12px; padding: 12px 16px;
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+:root[data-theme="dark"] .primary { color: #06262c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .primary { color: #06262c; } }
+.primary:hover { filter: brightness(1.06); }
+.err { color: var(--danger); font-size: 13px; min-height: 1em; margin: 0; }
+
+.cats { display: flex; flex-direction: column; gap: 10px; }
+.cat-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline; }
+.cat-row .name { display: flex; gap: 8px; align-items: center; font-weight: 500; min-width: 0; }
+.cat-row .name .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.cat-row .amt { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.cat-row .amt em { font-style: normal; color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
+.cat-row .bar { grid-column: 1 / -1; height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.cat-row .bar i { display: block; height: 100%; border-radius: 3px; }
+
+.day { display: flex; flex-direction: column; }
+.day + .day { margin-top: 14px; }
+.day-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-weight: 600; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.item:last-child { border-bottom: none; }
+.item .badge { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff; }
+.item .txt { min-width: 0; }
+.item .txt b { display: block; font-weight: 500; overflow-wrap: anywhere; }
+.item .txt span { font-size: 12px; color: var(--muted); }
+.item .val { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 6px; border-radius: 8px; font: inherit; }
+.del:hover { color: var(--danger); background: var(--bg); }
+.del.confirm { color: #fff; background: var(--danger); }
+
+.empty { text-align: center; color: var(--muted); padding: 24px 8px; }
+.empty b { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
+.note { font-size: 12px; color: var(--muted); text-align: center; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.toolbar h2 { margin: 0; }
+.toolbar select { width: auto; padding: 6px 10px; font-size: 13px; }
+
+dialog.sheet { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 18px; width: min(360px, calc(100vw - 32px)); }
+dialog.sheet::backdrop { background: rgba(0,0,0,.4); }
+dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.ghost { background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 12px; padding: 10px 14px; font: inherit; cursor: pointer; }
+
+@media (max-width: 420px) {
+  form.add { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: 1fr 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Шығын дәптері</h1>
+      <p class="sub" id="storageNote">Жүктелуде…</p>
+    </div>
+    <div class="month-nav">
+      <button class="icon-btn" id="prevMonth" aria-label="Алдыңғы ай">‹</button>
+      <span id="monthLabel"></span>
+      <button class="icon-btn" id="nextMonth" aria-label="Келесі ай">›</button>
+    </div>
+  </header>
+
+  <section class="summary" aria-live="polite">
+    <div>
+      <div class="label">Осы айдағы шығын</div>
+      <div class="total num" id="total">0<small>₸</small></div>
+    </div>
+    <div class="stats">
+      <div><b id="statToday">0 ₸</b><span id="statTodayLabel">бүгін</span></div>
+      <div><b id="statCount">0</b><span>жазба</span></div>
+      <div><b id="statAvg">0 ₸</b><span>күніне орташа</span></div>
+      <div><b id="statPrev">—</b><span>өткен аймен салыстыру</span></div>
+    </div>
+    <div class="budget" id="budgetBox">
+      <div class="budget-row"><span id="budgetText">Айлық бюджет қойылмаған</span><button class="link-btn" id="budgetBtn" type="button">Бюджет қою</button></div>
+      <div class="budget-bar" id="budgetBarWrap" hidden><i id="budgetBar"></i></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Жаңа шығын</h2>
+    <form class="add" id="addForm" novalidate>
+      <label class="f full">Сомасы, ₸
+        <input id="amount" class="amount-input" inputmode="decimal" autocomplete="off" placeholder="0">
+      </label>
+      <div class="f full">Санат
+        <div class="chips" id="catChips" role="group" aria-label="Санат"></div>
+      </div>
+      <label class="f">Күні
+        <input id="date" type="date">
+      </label>
+      <label class="f">Түсініктеме
+        <input id="note" maxlength="80" placeholder="мысалы, Magnum">
+      </label>
+      <p class="err full" id="formErr"></p>
+      <button class="primary full" type="submit">Қосу</button>
+    </form>
+  </section>
+
+  <section class="panel daily">
+    <h2 style="margin:0">Күндік шығын</h2>
+    <div class="daily-head">
+      <span>Ең көп: <b id="dayMax">—</b></span>
+      <span>Шығынсыз күн: <b id="dayZero">0</b></span>
+    </div>
+    <div class="chart" id="chart" role="group" aria-label="Ай күндері бойынша шығын"></div>
+    <div class="axis" id="axis"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Санаттар бойынша</h2>
+    <div class="cats" id="cats"></div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <h2>Жазбалар</h2>
+      <span class="day-filter" id="dayFilter" hidden><span class="chip" aria-pressed="true" id="dayFilterLabel"></span><button class="del" type="button" id="dayFilterClear" aria-label="Күн сүзгісін алу">✕</button></span>
+      <select id="filterCat" aria-label="Санат бойынша сүзу"></select>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section class="panel backup">
+    <h2>Резервтік көшірме</h2>
+    <p class="sub" style="margin:0 0 12px">Жазбаларды файлға сақтап алып, басқа құрылғыға немесе офлайн нұсқаға көшіре аласыз.</p>
+    <div class="backup-row">
+      <button class="ghost" type="button" id="exportBtn">Файлға сақтау</button>
+      <label class="ghost file-btn" for="importFile">Файлдан жүктеу</label>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <p class="sub" id="backupMsg" style="margin:10px 0 0"></p>
+  </section>
+
+  <p class="note" id="footNote"></p>
+</div>
+
+<dialog class="sheet" id="budgetDialog">
+  <form method="dialog" id="budgetForm">
+    <label class="f">Айлық бюджет, ₸
+      <input id="budgetInput" inputmode="decimal" placeholder="мысалы, 300000">
+    </label>
+    <div class="row">
+      <button class="ghost" value="cancel" type="button" id="budgetCancel">Болдырмау</button>
+      <button class="primary" value="ok" type="submit">Сақтау</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  const CATS = [
+    { id: "food",    name: "Азық-түлік",      color: "#2e9e6a" },
+    { id: "cafe",    name: "Кафе",            color: "#d9822b" },
+    { id: "transport", name: "Көлік",         color: "#3b7dd8" },
+    { id: "home",    name: "Үй, коммуналдық", color: "#8a5cc7" },
+    { id: "phone",   name: "Байланыс",        color: "#1aa3b8" },
+    { id: "health",  name: "Денсаулық",       color: "#d2455a" },
+    { id: "clothes", name: "Киім",            color: "#b5689b" },
+    { id: "fun",     name: "Демалыс",         color: "#c9a516" },
+    { id: "edu",     name: "Білім",           color: "#4f8a3a" },
+    { id: "other",   name: "Басқа",           color: "#7a8a92" },
+  ];
+  const catById = Object.fromEntries(CATS.map(c => [c.id, c]));
+  const MONTHS = ["Қаңтар","Ақпан","Наурыз","Сәуір","Мамыр","Маусым","Шілде","Тамыз","Қыркүйек","Қазан","Қараша","Желтоқсан"];
+  const WEEKDAYS = ["жексенбі","дүйсенбі","сейсенбі","сәрсенбі","бейсенбі","жұма","сенбі"];
+  const LS_KEY = "shygyn-daptery-v1";
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => Math.round(n).toLocaleString("ru-RU").replace(/,/g, " ");
+  const pad = n => String(n).padStart(2, "0");
+  const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+  const monthKey = s => s.slice(0, 7);
+
+  // ---------- state ----------
+  let expenses = [];   // {id, amount, cat, date, note, createdAt}
+  let budget = 0;
+  let view = new Date(); view.setDate(1);
+  let selectedCat = "food";
+  let filterCat = "all";
+  let selectedDay = null; // "YYYY-MM-DD" or null
+  let pendingDelete = null;
+
+  // ---------- storage (claude.ai db when available, localStorage otherwise) ----------
+  const store = {
+    mode: "local",
+    col: null,
+    settingsRef: null,
+    async add(e) {
+      if (this.mode === "db") { await this.col.doc(e.id).set(e); }
+      else { expenses.push(e); saveLocal(); render(); }
+    },
+    async remove(id) {
+      if (this.mode === "db") { await this.col.doc(id).delete(); }
+      else { expenses = expenses.filter(x => x.id !== id); saveLocal(); render(); }
+    },
+    async setBudget(v) {
+      if (this.mode === "db") { await this.settingsRef.set({ budget: v }); }
+      else { budget = v; saveLocal(); render(); }
+    },
+  };
+  function loadLocal() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) { const d = JSON.parse(raw); expenses = d.expenses || []; budget = d.budget || 0; }
+    } catch (_) {}
+  }
+  function saveLocal() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ expenses, budget })); }
+    catch (_) { $("footNote").textContent = "Браузер деректерді сақтауға рұқсат бермеді: бет жабылғанда жазбалар жоғалады."; }
+  }
+
+  async function initStorage() {
+    loadLocal();
+    $("storageNote").textContent = "Деректер осы браузерде сақталады";
+    render();
+    if (!window.claude || typeof window.claude.use !== "function") return;
+    let db = null, user = null;
+    try { [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]); } catch (_) {}
+    if (!db || !user) return;
+    let uid;
+    try { uid = await user.id(); } catch (_) { return; }
+    if (!uid) return;
+    store.mode = "db";
+    store.col = db.collection("data/users/" + uid + "/expenses");
+    store.settingsRef = db.doc("data/users/" + uid + "/settings/main");
+    $("storageNote").textContent = "Жеке жазбалар · тек сізге көрінеді";
+    expenses = []; budget = 0; render(true);
+    const timer = setTimeout(() => { $("footNote").textContent = "Дерекқорға әзірге қосылу мүмкін болмады. Интернетті тексеріңіз."; }, 10000);
+    store.col.onSnapshot(snap => {
+      if (!snap.metadata.fromCache) { clearTimeout(timer); $("footNote").textContent = ""; }
+      expenses = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      loaded = true; render();
+    }, err => { clearTimeout(timer); $("footNote").textContent = "Жазбаларды жүктеу сәтсіз аяқталды: " + (err && err.message || "қате"); });
+    store.settingsRef.onSnapshot(s => { budget = (s.exists && Number(s.data().budget)) || 0; render(); }, () => {});
+  }
+  let loaded = true;
+
+  // ---------- rendering ----------
+  function renderChips() {
+    const box = $("catChips"); box.innerHTML = "";
+    CATS.forEach(c => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "chip"; b.setAttribute("aria-pressed", String(c.id === selectedCat));
+      b.innerHTML = `<span class="dot" style="background:${c.color}"></span>`;
+      b.append(c.name);
+      b.onclick = () => { selectedCat = c.id; renderChips(); };
+      box.append(b);
+    });
+    const f = $("filterCat");
+    if (!f.options.length) {
+      f.append(new Option("Барлық санат", "all"));
+      CATS.forEach(c => f.append(new Option(c.name, c.id)));
+    }
+  }
+
+  function render(loading) {
+    if (loading) loaded = false;
+    const mk = `${view.getFullYear()}-${pad(view.getMonth()+1)}`;
+    $("monthLabel").textContent = `${MONTHS[view.getMonth()]} ${view.getFullYear()}`;
+    const inMonth = expenses.filter(e => monthKey(e.date) === mk);
+    const total = inMonth.reduce((s, e) => s + e.amount, 0);
+    $("total").innerHTML = `${fmt(total)}<small>₸</small>`;
+    $("statCount").textContent = inMonth.length;
+
+    const now = new Date();
+    const isCurrent = now.getFullYear() === view.getFullYear() && now.getMonth() === view.getMonth();
+    const daysInMonth = new Date(view.getFullYear(), view.getMonth()+1, 0).getDate();
+    const days = isCurrent ? now.getDate() : daysInMonth;
+    const isFuture = view > now;
+    $("statAvg").textContent = isFuture ? "—" : `${fmt(total / days)} ₸`;
+
+    const pv = new Date(view.getFullYear(), view.getMonth()-1, 1);
+    const pmk = `${pv.getFullYear()}-${pad(pv.getMonth()+1)}`;
+    const prevTotal = expenses.filter(e => monthKey(e.date) === pmk).reduce((s, e) => s + e.amount, 0);
+    if (prevTotal > 0) {
+      const diff = Math.round((total - prevTotal) / prevTotal * 100);
+      $("statPrev").textContent = (diff > 0 ? "+" : "") + diff + "%";
+    } else $("statPrev").textContent = "—";
+
+    // budget
+    if (budget > 0) {
+      const pct = total / budget * 100;
+      const bar = $("budgetBar");
+      $("budgetBarWrap").hidden = false;
+      bar.style.width = Math.min(100, pct) + "%";
+      bar.className = pct > 100 ? "over" : pct > 80 ? "warn" : "";
+      const left = budget - total;
+      $("budgetText").textContent = left >= 0
+        ? `Бюджет ${fmt(budget)} ₸ · қалды ${fmt(left)} ₸`
+        : `Бюджеттен ${fmt(-left)} ₸ асып кетті`;
+      $("budgetBtn").textContent = "Өзгерту";
+    } else {
+      $("budgetBarWrap").hidden = true;
+      $("budgetText").textContent = "Айлық бюджет қойылмаған";
+      $("budgetBtn").textContent = "Бюджет қою";
+    }
+
+    // today
+    const tStr = todayStr();
+    $("statToday").textContent = `${fmt(expenses.filter(e => e.date === tStr).reduce((s, e) => s + e.amount, 0))} ₸`;
+
+    // daily chart
+    const byDay = new Array(daysInMonth + 1).fill(0);
+    inMonth.forEach(e => { byDay[Number(e.date.slice(8, 10))] += e.amount; });
+    const dayLimit = budget > 0 ? budget / daysInMonth : 0;
+    const maxDay = Math.max(...byDay.slice(1));
+    const scale = Math.max(maxDay, dayLimit) || 1;
+    const chart = $("chart"), axis = $("axis");
+    chart.innerHTML = ""; axis.innerHTML = "";
+    let zeroDays = 0, maxDayN = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const v = byDay[d];
+      const ds = `${mk}-${pad(d)}`;
+      const passed = !isFuture && (!isCurrent || d <= now.getDate());
+      if (passed && v === 0) zeroDays++;
+      if (v > 0 && v === maxDay) maxDayN = d;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = [v === 0 ? "zero" : "", dayLimit && v > dayLimit ? "over" : "", ds === tStr ? "today" : "", ds === selectedDay ? "sel" : ""].join(" ").trim();
+      b.title = `${d} ${MONTHS[view.getMonth()].toLowerCase()}: ${fmt(v)} ₸`;
+      b.setAttribute("aria-label", b.title);
+      b.innerHTML = `<i style="height:${v / scale * 100}%"></i>`;
+      b.onclick = () => { selectedDay = selectedDay === ds ? null : ds; render(); };
+      chart.append(b);
+      const lab = document.createElement("span");
+      lab.textContent = (d === 1 || d % 5 === 0) ? d : "";
+      axis.append(lab);
+    }
+    if (dayLimit) {
+      const line = document.createElement("div"); line.className = "limit";
+      line.style.bottom = (dayLimit / scale * 100) + "%";
+      line.innerHTML = `<span>${fmt(dayLimit)} ₸</span>`;
+      chart.append(line);
+    }
+    $("dayMax").textContent = maxDay > 0 ? `${fmt(maxDay)} ₸ (${maxDayN} ${MONTHS[view.getMonth()].toLowerCase()})` : "—";
+    $("dayZero").textContent = zeroDays;
+    $("legend").innerHTML = dayLimit
+      ? `<span>Күндік шығын</span><span class="lg-over">Күндік лимиттен асқан</span><span class="lg-limit">Күндік лимит (бюджет ÷ ${daysInMonth})</span>`
+      : `<span>Күндік шығын</span><span style="opacity:.8">Бағанды бассаңыз, сол күннің жазбалары ашылады</span>`;
+    if (selectedDay && monthKey(selectedDay) !== mk) selectedDay = null;
+    $("dayFilter").hidden = !selectedDay;
+    if (selectedDay) {
+      const sd = Number(selectedDay.slice(8, 10));
+      $("dayFilterLabel").textContent = `${sd} ${MONTHS[view.getMonth()].toLowerCase()}`;
+    }
+
+    // categories
+    const byCat = {};
+    inMonth.forEach(e => byCat[e.cat] = (byCat[e.cat] || 0) + e.amount);
+    const rows = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+    const cats = $("cats"); cats.innerHTML = "";
+    if (!rows.length) {
+      cats.innerHTML = `<div class="empty">Бұл айда шығын әлі жоқ. Санаттар үлесі осы жерде көрсетіледі.</div>`;
+    } else {
+      const max = rows[0][1];
+      rows.forEach(([id, sum]) => {
+        const c = catById[id] || catById.other;
+        const el = document.createElement("div"); el.className = "cat-row";
+        el.innerHTML = `<div class="name"><span class="dot" style="background:${c.color}"></span><span></span></div>
+          <div class="amt">${fmt(sum)} ₸<em>${Math.round(sum / total * 100)}%</em></div>
+          <div class="bar"><i style="width:${sum / max * 100}%;background:${c.color}"></i></div>`;
+        el.querySelector(".name span:last-child").textContent = c.name;
+        cats.append(el);
+      });
+    }
+
+    // list
+    const list = $("list"); list.innerHTML = "";
+    const shown = inMonth.filter(e => (filterCat === "all" || e.cat === filterCat) && (!selectedDay || e.date === selectedDay))
+      .sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
+    if (!loaded) { list.innerHTML = `<div class="empty">Жазбалар жүктелуде…</div>`; return; }
+    if (!shown.length) {
+      list.innerHTML = selectedDay
+        ? `<div class="empty">Бұл күні шығын жазылмаған.</div>`
+        : filterCat === "all"
+        ? `<div class="empty"><b>Әзірге жазба жоқ</b>Жоғарыдағы формаға соманы енгізіп, «Қосу» батырмасын басыңыз.</div>`
+        : `<div class="empty">Бұл санатта осы айда жазба жоқ.</div>`;
+      return;
+    }
+    const groups = {};
+    shown.forEach(e => (groups[e.date] = groups[e.date] || []).push(e));
+    Object.keys(groups).forEach(date => {
+      const items = groups[date];
+      const d = new Date(date + "T00:00:00");
+      const day = document.createElement("div"); day.className = "day";
+      const daySum = items.reduce((s, e) => s + e.amount, 0);
+      const label = date === todayStr() ? "Бүгін" : `${d.getDate()} ${MONTHS[d.getMonth()].toLowerCase()}, ${WEEKDAYS[d.getDay()]}`;
+      day.innerHTML = `<div class="day-head"><span>${label}</span><span class="num">${fmt(daySum)} ₸</span></div>`;
+      items.forEach(e => {
+        const c = catById[e.cat] || catById.other;
+        const it = document.createElement("div"); it.className = "item";
+        it.innerHTML = `<div class="badge" style="background:${c.color}">${c.name[0]}</div>
+          <div class="txt"><b></b><span></span></div>
+          <div class="val">−${fmt(e.amount)} ₸</div>
+          <button class="del" type="button" aria-label="Жою">✕</button>`;
+        it.querySelector(".txt b").textContent = e.note || c.name;
+        it.querySelector(".txt span").textContent = e.note ? c.name : "";
+        const del = it.querySelector(".del");
+        if (pendingDelete === e.id) { del.textContent = "Жою?"; del.classList.add("confirm"); }
+        del.onclick = async () => {
+          if (pendingDelete === e.id) {
+            pendingDelete = null;
+            try { await store.remove(e.id); } catch (err) { $("footNote").textContent = "Жою сәтсіз аяқталды. Қайта көріңіз."; }
+          } else { pendingDelete = e.id; render(); setTimeout(() => { if (pendingDelete === e.id) { pendingDelete = null; render(); } }, 3000); }
+        };
+        day.append(it);
+      });
+      list.append(day);
+    });
+  }
+
+  // ---------- events ----------
+  $("prevMonth").onclick = () => { view.setMonth(view.getMonth() - 1); render(); };
+  $("nextMonth").onclick = () => { view.setMonth(view.getMonth() + 1); render(); };
+  $("filterCat").onchange = e => { filterCat = e.target.value; render(); };
+  $("dayFilterClear").onclick = () => { selectedDay = null; render(); };
+
+  $("addForm").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const raw = $("amount").value.replace(/\s/g, "").replace(",", ".");
+    const amount = Number(raw);
+    if (!raw || !isFinite(amount) || amount <= 0) { $("formErr").textContent = "Соманы оң сан түрінде енгізіңіз, мысалы 2500."; $("amount").focus(); return; }
+    const date = $("date").value || todayStr();
+    const e = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      amount: Math.round(amount * 100) / 100, cat: selectedCat, date,
+      note: $("note").value.trim(), createdAt: Date.now(),
+    };
+    $("formErr").textContent = "";
+    try {
+      await store.add(e);
+      $("amount").value = ""; $("note").value = "";
+      const d = new Date(date + "T00:00:00");
+      if (d.getFullYear() !== view.getFullYear() || d.getMonth() !== view.getMonth()) { view = new Date(d.getFullYear(), d.getMonth(), 1); render(); }
+      $("amount").focus();
+    } catch (err) {
+      $("formErr").textContent = err && err.code === "quota_exceeded"
+        ? "Дерекқор толды: ескі жазбаларды жойыңыз."
+        : "Сақтау сәтсіз аяқталды. Интернетті тексеріп, қайта көріңіз.";
+    }
+  });
+
+  const dlg = $("budgetDialog");
+  $("budgetBtn").onclick = () => { $("budgetInput").value = budget || ""; dlg.showModal(); $("budgetInput").focus(); };
+  $("budgetCancel").onclick = () => dlg.close();
+  $("budgetForm").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const v = Number($("budgetInput").value.replace(/\s/g, "").replace(",", "."));
+    dlg.close();
+    try { await store.setBudget(isFinite(v) && v > 0 ? Math.round(v) : 0); } catch (_) { $("footNote").textContent = "Бюджетті сақтау сәтсіз аяқталды."; }
+  });
+
+  // ---------- backup: export / import ----------
+  const backupMsg = t => { $("backupMsg").textContent = t; };
+  $("exportBtn").onclick = async () => {
+    const data = JSON.stringify({ app: "shygyn-daptery", version: 1, exportedAt: new Date().toISOString(), budget, expenses }, null, 2);
+    const filename = `shygyndar-${todayStr()}.json`;
+    let downloads = null;
+    if (window.claude && typeof window.claude.use === "function") {
+      try { downloads = await window.claude.use("downloads"); } catch (_) {}
+      if (!downloads) { backupMsg("Бұл көріністе файл сақтау қолжетімсіз."); return; }
+      try { await downloads.save({ filename, data }); backupMsg(`${expenses.length} жазба файлға жіберілді.`); }
+      catch (err) { backupMsg(err && err.code === "dismissed" ? "Сақтау тоқтатылды." : "Файлды сақтау сәтсіз аяқталды."); }
+      return;
+    }
+    try {
+      const url = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+      const a = document.createElement("a"); a.href = url; a.download = filename;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      backupMsg(`${expenses.length} жазба «${filename}» файлына сақталды.`);
+    } catch (_) { backupMsg("Файлды сақтау сәтсіз аяқталды."); }
+  };
+  $("importFile").addEventListener("change", async ev => {
+    const file = ev.target.files && ev.target.files[0];
+    ev.target.value = "";
+    if (!file) return;
+    let parsed;
+    try { parsed = JSON.parse(await file.text()); } catch (_) { backupMsg("Файлды оқу мүмкін болмады: бұл JSON файлы емес."); return; }
+    const list = Array.isArray(parsed) ? parsed : parsed && parsed.expenses;
+    if (!Array.isArray(list)) { backupMsg("Файлда шығын жазбалары табылмады."); return; }
+    const have = new Set(expenses.map(e => e.id));
+    const fresh = list.filter(e => e && e.id && !have.has(String(e.id)) && Number(e.amount) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.date))
+      .map(e => ({ id: String(e.id), amount: Number(e.amount), cat: catById[e.cat] ? e.cat : "other", date: e.date, note: String(e.note || "").slice(0, 80), createdAt: Number(e.createdAt) || Date.now() }));
+    backupMsg(`Жүктелуде: ${fresh.length} жазба…`);
+    try {
+      if (store.mode === "db") { for (const e of fresh) await store.col.doc(e.id).set(e); }
+      else { expenses.push(...fresh); saveLocal(); render(); }
+      if (!budget && parsed && Number(parsed.budget) > 0) await store.setBudget(Math.round(Number(parsed.budget)));
+      backupMsg(fresh.length ? `${fresh.length} жаңа жазба қосылды. Бұрыннан барлары қайталанбады.` : "Жаңа жазба жоқ: бәрі бұрыннан бар.");
+    } catch (_) { backupMsg("Жүктеу толық аяқталмады. Қайта көріңіз: қосылғандары қайталанбайды."); }
+  });
+
+  // ---------- offline (installed app build only) ----------
+  if (document.querySelector('link[rel="manifest"]') && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+  if (!window.claude) {
+    const upd = () => {
+      const base = "Деректер осы құрылғыда сақталады";
+      $("storageNote").innerHTML = "";
+      $("storageNote").append(base);
+      if (!navigator.onLine) { const b = document.createElement("span"); b.className = "offline-badge"; b.textContent = "ОФЛАЙН"; $("storageNote").append(b); }
+    };
+    window.addEventListener("online", upd); window.addEventListener("offline", upd);
+    setTimeout(upd, 0);
+  }
+
+  $("date").value = todayStr();
+  renderChips();
+  initStorage();
+})();
+</script>
+
+</body>
+</html>

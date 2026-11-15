@@ -76,6 +76,9 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: 
 .legend .lg-over::before { background: var(--gold); }
 .legend .lg-limit::before { height: 0; border-top: 2px dashed var(--gold); vertical-align: 3px; background: none; }
 .day-filter { display: inline-flex; align-items: center; gap: 6px; }
+.backup-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.file-btn { display: inline-flex; align-items: center; font-size: 15px; }
+.offline-badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--gold); border: 1px solid var(--gold); border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: 1px; }
 .stats div { display: flex; flex-direction: column; gap: 2px; }
 .stats b { font-size: 16px; font-variant-numeric: tabular-nums; }
 .stats span { font-size: 12px; opacity: 0.7; }
@@ -228,6 +231,17 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12
       <select id="filterCat" aria-label="Санат бойынша сүзу"></select>
     </div>
     <div id="list"></div>
+  </section>
+
+  <section class="panel backup">
+    <h2>Резервтік көшірме</h2>
+    <p class="sub" style="margin:0 0 12px">Жазбаларды файлға сақтап алып, басқа құрылғыға немесе офлайн нұсқаға көшіре аласыз.</p>
+    <div class="backup-row">
+      <button class="ghost" type="button" id="exportBtn">Файлға сақтау</button>
+      <label class="ghost file-btn" for="importFile">Файлдан жүктеу</label>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <p class="sub" id="backupMsg" style="margin:10px 0 0"></p>
   </section>
 
   <p class="note" id="footNote"></p>
@@ -548,6 +562,62 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12
     dlg.close();
     try { await store.setBudget(isFinite(v) && v > 0 ? Math.round(v) : 0); } catch (_) { $("footNote").textContent = "Бюджетті сақтау сәтсіз аяқталды."; }
   });
+
+  // ---------- backup: export / import ----------
+  const backupMsg = t => { $("backupMsg").textContent = t; };
+  $("exportBtn").onclick = async () => {
+    const data = JSON.stringify({ app: "shygyn-daptery", version: 1, exportedAt: new Date().toISOString(), budget, expenses }, null, 2);
+    const filename = `shygyndar-${todayStr()}.json`;
+    let downloads = null;
+    if (window.claude && typeof window.claude.use === "function") {
+      try { downloads = await window.claude.use("downloads"); } catch (_) {}
+      if (!downloads) { backupMsg("Бұл көріністе файл сақтау қолжетімсіз."); return; }
+      try { await downloads.save({ filename, data }); backupMsg(`${expenses.length} жазба файлға жіберілді.`); }
+      catch (err) { backupMsg(err && err.code === "dismissed" ? "Сақтау тоқтатылды." : "Файлды сақтау сәтсіз аяқталды."); }
+      return;
+    }
+    try {
+      const url = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+      const a = document.createElement("a"); a.href = url; a.download = filename;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      backupMsg(`${expenses.length} жазба «${filename}» файлына сақталды.`);
+    } catch (_) { backupMsg("Файлды сақтау сәтсіз аяқталды."); }
+  };
+  $("importFile").addEventListener("change", async ev => {
+    const file = ev.target.files && ev.target.files[0];
+    ev.target.value = "";
+    if (!file) return;
+    let parsed;
+    try { parsed = JSON.parse(await file.text()); } catch (_) { backupMsg("Файлды оқу мүмкін болмады: бұл JSON файлы емес."); return; }
+    const list = Array.isArray(parsed) ? parsed : parsed && parsed.expenses;
+    if (!Array.isArray(list)) { backupMsg("Файлда шығын жазбалары табылмады."); return; }
+    const have = new Set(expenses.map(e => e.id));
+    const fresh = list.filter(e => e && e.id && !have.has(String(e.id)) && Number(e.amount) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(e.date))
+      .map(e => ({ id: String(e.id), amount: Number(e.amount), cat: catById[e.cat] ? e.cat : "other", date: e.date, note: String(e.note || "").slice(0, 80), createdAt: Number(e.createdAt) || Date.now() }));
+    backupMsg(`Жүктелуде: ${fresh.length} жазба…`);
+    try {
+      if (store.mode === "db") { for (const e of fresh) await store.col.doc(e.id).set(e); }
+      else { expenses.push(...fresh); saveLocal(); render(); }
+      if (!budget && parsed && Number(parsed.budget) > 0) await store.setBudget(Math.round(Number(parsed.budget)));
+      backupMsg(fresh.length ? `${fresh.length} жаңа жазба қосылды. Бұрыннан барлары қайталанбады.` : "Жаңа жазба жоқ: бәрі бұрыннан бар.");
+    } catch (_) { backupMsg("Жүктеу толық аяқталмады. Қайта көріңіз: қосылғандары қайталанбайды."); }
+  });
+
+  // ---------- offline (installed app build only) ----------
+  if (document.querySelector('link[rel="manifest"]') && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+  if (!window.claude) {
+    const upd = () => {
+      const base = "Деректер осы құрылғыда сақталады";
+      $("storageNote").innerHTML = "";
+      $("storageNote").append(base);
+      if (!navigator.onLine) { const b = document.createElement("span"); b.className = "offline-badge"; b.textContent = "ОФЛАЙН"; $("storageNote").append(b); }
+    };
+    window.addEventListener("online", upd); window.addEventListener("offline", upd);
+    setTimeout(upd, 0);
+  }
 
   $("date").value = todayStr();
   renderChips();
