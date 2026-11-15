@@ -122,6 +122,27 @@ details.pt summary::-webkit-details-marker { display: none; }
 .chip.consult { background: var(--consult); }
 .chip.treatment { background: var(--treat); }
 .chip.expense { background: var(--bad); }
+.jtabs { justify-self: start; }
+.jtabs .cnt { font-family: var(--font-num); font-size: 11px; opacity: .8; }
+.tm { font-family: var(--font-num); font-size: 12px; color: var(--muted); margin-right: 6px; }
+.tline { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.tline b { font-weight: 600; color: var(--fg); font-family: var(--font-num); }
+.tline .owe b { color: var(--bad); }
+.tline .ok b { color: var(--good); }
+.tablewrap { overflow-x: auto; margin-bottom: 6px; }
+.card > * { min-width: 0; }
+#journal { min-width: 0; display: grid; }
+table.tp { width: 100%; border-collapse: collapse; font-size: 13px; }
+@media (max-width: 430px) { table.tp { font-size: 12px; } table.tp td, table.tp th { padding-inline: 3px; } }
+table.tp th { text-align: right; font-weight: 500; color: var(--muted); font-size: 12px; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+table.tp th:first-child, table.tp td:first-child { text-align: left; }
+table.tp td { text-align: right; padding: 7px 4px; border-bottom: 1px solid var(--line); font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+table.tp td, table.tp th { white-space: nowrap; }
+table.tp td:first-child { font-family: var(--font-body); font-weight: 600; white-space: normal; min-width: 90px; }
+table.tp td.owe { color: var(--bad); font-weight: 600; }
+table.tp td.ok { color: var(--good); }
+table.tp tfoot td { font-weight: 600; border-bottom: 0; }
+.subh { font-size: 13px; font-weight: 600; margin: 6px 0 2px; }
 .plus { color: var(--good); }
 .minus { color: var(--bad); }
 .tile .v.neg { color: var(--bad); }
@@ -211,17 +232,18 @@ details.pt summary::-webkit-details-marker { display: none; }
       <button type="button" data-k="consult" aria-pressed="true">Консультация</button>
       <button type="button" data-k="treatment" aria-pressed="false">Ем</button>
     </div>
+    <label for="cost" id="costWrap" hidden>Емнің жалпы құны, ₸
+      <input id="cost" class="amount" inputmode="decimal" autocomplete="off" placeholder="мысалы, 250000">
+    </label>
     <div class="row">
       <label for="amount">Төлеген сомасы, ₸<input id="amount" class="amount" inputmode="decimal" autocomplete="off" placeholder="0"></label>
-      <label for="date">Күні<input id="date" type="date"></label>
-    </div>
-    <div class="row">
       <label for="method">Төлем тәсілі
         <select id="method"><option>Қолма-қол</option><option>Kaspi</option><option>Карта</option><option>Аударым</option></select>
       </label>
-      <label for="cost" id="costWrap" hidden>Емнің жалпы құны, ₸ (міндетті емес)
-        <input id="cost" class="amount" inputmode="decimal" autocomplete="off" placeholder="мысалы, 250000">
-      </label>
+    </div>
+    <div class="row">
+      <label for="date">Күні<input id="date" type="date"></label>
+      <label for="time">Келген уақыты<input id="time" type="time"></label>
     </div>
     <label for="note">Ескертпе<input id="note" autocomplete="off" placeholder="мысалы, 1-сеанс, дәрігер аты"></label>
     <div class="toolbar">
@@ -249,8 +271,13 @@ details.pt summary::-webkit-details-marker { display: none; }
 
   <section class="card">
     <div class="toolbar">
-      <h2>Журнал</h2>
+      <h2>Журналдар</h2>
       <button type="button" class="mini" id="export" hidden>CSV жүктеу</button>
+    </div>
+    <div class="seg jtabs" id="jtabs" role="tablist" aria-label="Журнал түрі">
+      <button type="button" data-j="consult" aria-pressed="true">Консультация <span class="cnt" id="cntConsult"></span></button>
+      <button type="button" data-j="treatment" aria-pressed="false">Ем <span class="cnt" id="cntTreat"></span></button>
+      <button type="button" data-j="expense" aria-pressed="false">Расход <span class="cnt" id="cntExp"></span></button>
     </div>
     <div id="journal"></div>
   </section>
@@ -280,11 +307,13 @@ details.pt summary::-webkit-details-marker { display: none; }
   const parseISO = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
   const human = (s) => { const d = parseISO(s); return d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear(); };
   const key = (name) => name.trim().replace(/\s+/g, " ").toLowerCase();
+  const nowTime = () => { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+  const byWhen = (a, b) => (a.date || "").localeCompare(b.date || "") || (a.time || "").localeCompare(b.time || "") || (a.createdAt || 0) - (b.createdAt || 0);
   const toNum = (v) => { const s = String(v).replace(/\s/g, "").replace(",", "."); return s ? Number(s) : NaN; };
 
   let patients = [], payments = [], expenses = [];
   let period = "day", anchor = new Date(), kind = "consult";
-  let store = null, pendingDelete = null, openPatient = null;
+  let store = null, pendingDelete = null, openPatient = null, jtab = "consult";
 
   // ---------- storage ----------
   const LS = "clinic-cash-v1";
@@ -325,11 +354,11 @@ details.pt summary::-webkit-details-marker { display: none; }
 
     const btn = $("export"); btn.hidden = false;
     btn.onclick = () => {
-      const rows = [["Күні", "Пациент / санат", "Түрі", "Сома", "Тәсілі", "Ескертпе"]];
+      const rows = [["Күні", "Уақыты", "Пациент / санат", "Түрі", "Сома", "Тәсілі", "Ескертпе"]];
       const all = [
-        ...payments.map((p) => [p.date, p.patientName, KIND[p.kind] || p.kind, p.amount, p.method || "", p.note || ""]),
-        ...expenses.map((x) => [x.date, x.category, "Расход", -Number(x.amount || 0), x.method || "", x.note || ""]),
-      ].sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+        ...payments.map((p) => [p.date, p.time || "", p.patientName, KIND[p.kind] || p.kind, p.amount, p.method || "", p.note || ""]),
+        ...expenses.map((x) => [x.date, "", x.category, "Расход", -Number(x.amount || 0), x.method || "", x.note || ""]),
+      ].sort((a, b) => String(a[0]).localeCompare(String(b[0])) || String(a[1]).localeCompare(String(b[1])));
       all.forEach((r) => rows.push(r));
       const csv = "﻿" + rows.map((r) => r.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(";")).join("\n");
       shareOrDownload("klinika-" + iso(new Date()) + ".csv", csv, "text/csv");
@@ -496,26 +525,109 @@ details.pt summary::-webkit-details-marker { display: none; }
       const pay = el("button", "mini", "Осы пациентке төлем қосу"); pay.type = "button";
       pay.onclick = () => { $("pname").value = p.name; updatePatientInfo(); $("amount").focus(); $("form").scrollIntoView({ behavior: "smooth", block: "start" }); };
       body.append(pay);
-      [...st.list].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).forEach((x) => body.append(paymentRow(x, false)));
+      [...st.list].sort((a, b) => byWhen(b, a)).forEach((x) => body.append(paymentRow(x, false)));
       d.append(body);
       box.append(d);
     });
   }
 
-  function renderJournal(inP, inE) {
-    const j = $("journal"); j.replaceChildren();
-    const items = [...inP.map((x) => ({ ...x, _t: "pay" })), ...inE.map((x) => ({ ...x, _t: "exp" }))];
-    if (!items.length) { j.append(el("div", "empty", payments.length || expenses.length ? "Бұл кезеңде жазба жоқ." : "Әзірге жазба жоқ. Бірінші төлемді немесе расходты қосқанда ол осында күн бойынша шығады.")); return; }
+  // Running treatment balance for each treatment payment: paid so far and debt left after it.
+  function treatmentLedger() {
+    const out = {};
+    const byP = {};
+    payments.filter((x) => x.kind === "treatment").forEach((x) => (byP[x.patientId] ||= []).push(x));
+    Object.keys(byP).forEach((pid) => {
+      const p = patients.find((q) => q.id === pid);
+      const cost = Number(p?.treatmentCost || 0);
+      let run = 0;
+      byP[pid].sort(byWhen).forEach((x) => { run += Number(x.amount || 0); out[x.id] = { cost, paidSoFar: run, left: cost > 0 ? cost - run : null }; });
+    });
+    return out;
+  }
+
+  function dayGroups(list, sign) {
     const days = {};
-    items.forEach((x) => (days[x.date] ||= []).push(x));
-    Object.keys(days).sort().reverse().forEach((d) => {
-      const list = days[d];
-      const net = list.reduce((a, x) => a + (x._t === "exp" ? -1 : 1) * Number(x.amount || 0), 0);
+    list.forEach((x) => (days[x.date] ||= []).push(x));
+    return Object.keys(days).sort().reverse().map((d) => {
+      const items = days[d].sort((a, b) => byWhen(b, a));
       const box = el("div", "day");
       const head = el("div", "dayhead");
-      head.append(el("span", null, human(d)), el("span", "num", (net > 0 ? "+" : "") + money(net)));
+      head.append(el("span", null, human(d) + " · " + items.length), el("span", "num", (sign < 0 ? "−" : "+") + money(items.reduce((a, x) => a + Number(x.amount || 0), 0))));
       box.append(head);
-      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).forEach((x) => box.append(x._t === "exp" ? expenseRow(x) : paymentRow(x, true)));
+      return { box, items };
+    });
+  }
+
+  function renderJournal(inP, inE) {
+    const j = $("journal"); j.replaceChildren();
+    const cons = inP.filter((x) => x.kind === "consult");
+    const treat = inP.filter((x) => x.kind === "treatment");
+    $("cntConsult").textContent = cons.length ? "(" + cons.length + ")" : "";
+    $("cntTreat").textContent = treat.length ? "(" + treat.length + ")" : "";
+    $("cntExp").textContent = inE.length ? "(" + inE.length + ")" : "";
+    document.querySelectorAll("#jtabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.j === jtab)));
+
+    if (jtab === "consult") {
+      if (!cons.length) { j.append(el("div", "empty", "Бұл кезеңде консультация жоқ.")); return; }
+      dayGroups(cons, 1).forEach(({ box, items }) => { items.forEach((x) => box.append(paymentRow(x, true))); j.append(box); });
+      return;
+    }
+
+    if (jtab === "expense") {
+      if (!inE.length) { j.append(el("div", "empty", "Бұл кезеңде расход жоқ.")); return; }
+      dayGroups(inE, -1).forEach(({ box, items }) => { items.forEach((x) => box.append(expenseRow(x))); j.append(box); });
+      return;
+    }
+
+    // treatment
+    if (!treat.length) { j.append(el("div", "empty", "Бұл кезеңде ем үшін төлем жоқ.")); return; }
+    const ledger = treatmentLedger();
+    // summary table of patients treated in this period
+    const ids = [...new Set(treat.map((x) => x.patientId))];
+    const rows = ids.map((pid) => {
+      const p = patients.find((q) => q.id === pid) || { name: treat.find((x) => x.patientId === pid).patientName };
+      const st = stats(pid);
+      const cost = Number(p.treatmentCost || 0);
+      const inPeriod = treat.filter((x) => x.patientId === pid).reduce((a, x) => a + Number(x.amount || 0), 0);
+      return { name: p.name, cost, paid: st.treatPaid, inPeriod, left: cost > 0 ? cost - st.treatPaid : null };
+    }).sort((a, b) => (b.left || 0) - (a.left || 0) || a.name.localeCompare(b.name));
+    j.append(el("div", "subh", "Емделген пациенттер"));
+    const wrap = el("div", "tablewrap");
+    const t = el("table", "tp");
+    const th = el("thead"); const hr = el("tr");
+    ["Пациент", "Ем құны", "Төледі", "Қарыз"].forEach((h) => hr.append(el("th", null, h)));
+    th.append(hr); t.append(th);
+    const tb = el("tbody");
+    let sCost = 0, sPaid = 0, sLeft = 0;
+    rows.forEach((r) => {
+      const tr = el("tr");
+      tr.append(el("td", null, r.name), el("td", null, r.cost ? money(r.cost) : "—"), el("td", null, money(r.paid)));
+      const lt = r.left == null ? el("td", null, "—") : r.left > 0 ? el("td", "owe", money(r.left)) : el("td", "ok", "төленді");
+      tr.append(lt); tb.append(tr);
+      sCost += r.cost; sPaid += r.paid; if (r.left > 0) sLeft += r.left;
+    });
+    t.append(tb);
+    const tf = el("tfoot"); const fr = el("tr");
+    fr.append(el("td", null, "Барлығы"), el("td", null, money(sCost)), el("td", null, money(sPaid)), el("td", sLeft > 0 ? "owe" : "ok", money(sLeft)));
+    tf.append(fr); t.append(tf);
+    wrap.append(t); j.append(wrap);
+    if (rows.some((r) => r.left == null)) j.append(el("div", "hint", "«—» — ем құны жазылмаған. Оны Пациенттер бөлімінде пациентті ашып жазуға болады."));
+
+    j.append(el("div", "subh", "Ем төлемдері"));
+    dayGroups(treat, 1).forEach(({ box, items }) => {
+      items.forEach((x) => {
+        const row = paymentRow(x, true);
+        const L = ledger[x.id];
+        if (L) {
+          const line = el("div", "tline");
+          const part = (label, val, cls) => { const sp = el("span", cls || null, label + " "); sp.append(el("b", null, val)); line.append(sp); };
+          if (L.cost) part("Ем құны", money(L.cost));
+          part("Барлығы төледі", money(L.paidSoFar));
+          if (L.left != null) L.left > 0 ? part("Қарыз", money(L.left), "owe") : part("Қарыз", "жоқ", "ok");
+          row.querySelector(".what").append(line);
+        }
+        box.append(row);
+      });
       j.append(box);
     });
   }
@@ -540,6 +652,7 @@ details.pt summary::-webkit-details-marker { display: none; }
     const r = el("div", "entry");
     const what = el("div", "what");
     what.append(el("span", "chip " + x.kind, KIND[x.kind] || x.kind));
+    if (x.time) what.append(el("span", "tm", x.time));
     what.append(document.createTextNode(showName ? x.patientName : human(x.date)));
     const sub = [x.method, x.note].filter(Boolean).join(" · ");
     if (sub) what.append(el("small", null, sub));
@@ -587,7 +700,10 @@ details.pt summary::-webkit-details-marker { display: none; }
   $("search").addEventListener("input", renderPatients);
   $("pname").addEventListener("input", updatePatientInfo);
   $("date").value = iso(new Date());
+  $("time").value = nowTime();
   $("edate").value = iso(new Date());
+  document.querySelectorAll("#jtabs button").forEach((b) => b.onclick = () => { jtab = b.dataset.j; render(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("pname").value) { $("time").value = nowTime(); $("date").value = iso(new Date()); } });
 
   document.querySelectorAll("#modeSeg button").forEach((b) => b.onclick = () => {
     const m = b.dataset.m;
@@ -608,6 +724,7 @@ details.pt summary::-webkit-details-marker { display: none; }
       const category = $("ecat").value;
       await store.addExpense({ category, amount, date: $("edate").value || iso(new Date()), method: $("emethod").value, note: $("enote").value.trim(), createdAt: Date.now() });
       msg.className = "msg ok"; msg.textContent = category + ": " + money(amount) + " расход сақталды.";
+      jtab = "expense"; render();
       $("eamount").value = ""; $("enote").value = "";
       $("eamount").focus();
     } catch (err) {
@@ -638,9 +755,11 @@ details.pt summary::-webkit-details-marker { display: none; }
       } else if (kind === "treatment" && costRaw) {
         await store.updatePatient(pid, { treatmentCost: cost });
       }
-      await store.addPayment({ patientId: pid, patientName: name, kind, amount, date: $("date").value || iso(new Date()), method: $("method").value, note: $("note").value.trim(), createdAt: Date.now() });
+      await store.addPayment({ patientId: pid, patientName: name, kind, amount, date: $("date").value || iso(new Date()), time: $("time").value || "", method: $("method").value, note: $("note").value.trim(), createdAt: Date.now() });
       msg.className = "msg ok"; msg.textContent = name + ": " + money(amount) + " сақталды.";
+      jtab = kind; render();
       $("pname").value = ""; $("amount").value = ""; $("cost").value = ""; $("note").value = "";
+      $("time").value = nowTime();
       updatePatientInfo();
       $("pname").focus();
     } catch (err) {
