@@ -119,45 +119,28 @@ while beat_t < TOTAL:
             for f in chord: add(music, pad_note(f, dur + 0.3), beat_t, 0.16 if full else 0.22, pan=rng.uniform(-0.4, 0.4))
             if full: add(music, sub(bass / 2 if bass > 100 else bass, dur - 0.05), beat_t, 0.32)
         if full:
-            if bar_beat in (0, 2): add(music, KICK, beat_t, 0.85)
-            if bar_beat in (1, 3): add(music, CLAP, beat_t, 0.35, pan=0.1)
-            add(music, HAT, beat_t + BEAT / 2, 0.30, pan=0.35)
-            add(music, HAT, beat_t, 0.12, pan=-0.3)
-            for j in range(2):  # 8-шы пульсті арпеджио
-                f = chord[(bar_beat * 2 + j) % 3] * 2
-                add(music, pluck(f), beat_t + j * BEAT / 2, 0.10, pan=-0.5 if j else 0.5)
-        else:
-            add(music, HAT, beat_t + BEAT / 2, 0.12, pan=0.3)
+            if bar_beat == 0: add(music, lp(KICK, 0.6), beat_t, 0.45)   # жұмсақ, сирек пульс
+            add(music, HAT, beat_t + BEAT / 2, 0.08, pan=0.3)
+            if bar_beat in (0, 2):  # баяу пианино-тәрізді нота
+                f = chord[(k // 2) % 3]
+                add(music, lp(pluck(f), 0.5), beat_t, 0.10, pan=-0.2)
     beat_t += BEAT; k += 1
 
 # end-card: соңғы аккорд, сөнеді
 add(music, sum(pad_note(f, 2.9) for f in [220.0, 261.63, 329.63, 440.0]), SRC, 0.22)
 add(music, sub(55.0, 2.6), SRC, 0.4)
 
-# ---------------- SFX ----------------
+# ---------------- SFX: тек маңызды жерлер, байыпты ----------------
+def soft_whoosh(d=0.6):
+    w = whoosh(d)
+    for _ in range(2): w = lp(w, 0.82)            # жоғары жиілікті алып, тереңірек
+    return w / (np.abs(w).max() + 1e-9)
 sfx = np.zeros((N, 2))
-add(sfx, impact(), 0.0, 0.55)
-add(sfx, whoosh(0.4), 0.45, 0.35, pan=-0.4)
-for tr in SPEC["transitions"]:
-    ty, t0 = tr["type"], tr["t"]
-    if ty == "flash":
-        add(sfx, whoosh(0.25), t0 - 0.2, 0.28); add(sfx, tick(2200, 0.06), t0, 0.15)
-    else:
-        add(sfx, whoosh(0.42), t0 - 0.36, 0.5, pan=(-0.5 if ty == "whip" else 0.0))
-        add(sfx, whoosh(0.3, up=False), t0 + 0.02, 0.25, pan=(0.5 if ty == "whip" else 0.0))
-add(sfx, boom(), 24.133, 0.6); add(sfx, boom(), 25.9, 0.55)
-for c in SPEC["callouts"]:
-    if c.get("kind") == "pulse": continue
-    add(sfx, tick(1800, 0.05), c["start"], 0.18)
-    add(sfx, pop(), c["start"] + 0.5, 0.3, pan=0.3)
-for c in SPEC["captions"]:
-    toks = [w for ln in c["lines"] for w in ln.split()]
-    for tok, tm in zip(toks, c["times"]):
-        if tok[0] in "!~": add(sfx, tick(1100, 0.04), tm, 0.12); add(sfx, pop(), tm, 0.06)
-add(sfx, riser(1.0), SRC - 1.0, 0.22)
-add(sfx, impact(), SRC, 0.6)
-add(sfx, chime(1046.5), SRC + 0.55, 0.12); add(sfx, chime(1318.5), SRC + 1.25, 0.12)
-
+add(sfx, lp(impact(), 0.9), 0.0, 0.30)                       # басы: жұмсақ төмен соққы
+for t0 in (4.067, 14.10, 26.90):                             # тек негізгі сахна ауысулары
+    add(sfx, soft_whoosh(0.6), t0 - 0.5, 0.22)
+add(sfx, boom(), 25.9, 0.30)                                 # «грыжа» сәті
+add(sfx, lp(impact(), 0.9), SRC, 0.32)                       # end-card
 # ---------------- микс ----------------
 def read_wav(p):
     w = wave.open(p); a = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float64) / 32768
@@ -172,7 +155,12 @@ env = np.sqrt(np.convolve((voice ** 2).mean(1), np.ones(2400) / 2400, mode="same
 on = (env > 0.02).astype(np.float64)
 att = np.convolve(on, np.ones(9600) / 9600, mode="same")  # ~0.2 с жұмсақ
 duck = 1 - 0.68 * np.clip(att * 1.6, 0, 1)
-music_g = music / (np.abs(music).max() + 1e-9) * 0.26
+if SPEC.get("music_file"):
+    mp = os.path.join(WD, "music48.wav")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(SPEC.get("music_start", 0)), "-i", os.path.join(WD, SPEC["music_file"]),
+                    "-t", str(TOTAL), "-ac", "2", "-ar", str(SR), "-af", f"afade=t=out:st={TOTAL-1.5}:d=1.5", mp], check=True)
+    m = read_wav(mp); music = np.zeros((N, 2)); music[:len(m)] = m[:N]
+music_g = music / (np.abs(music).max() + 1e-9) * SPEC.get("music_gain", 0.26)
 mix = voice + music_g * duck[:, None] + sfx * 0.9
 for name, arr in (("music_only.wav", music_g * duck[:, None]), ("mix_raw.wav", mix)):
     a = np.clip(arr, -1, 1)

@@ -63,72 +63,56 @@ def shadowed(img, rad=8, off=4, op=160):
 def word_style(tok):
     st = {"*": "y", "^": "p", "!": "B", "~": "BY"}.get(tok[0], "w")
     t = tok[1:] if st != "w" else tok
-    return {"w": (t.lower(), 52, WHITE), "y": (t.lower(), 58, YELLOW), "p": (t.lower(), 58, PINK),
-            "B": (t.upper(), 80, WHITE), "BY": (t.upper(), 80, YELLOW)}[st] + (st,)
+    return {"w": (t.lower(), 54, WHITE), "y": (t.lower(), 54, YELLOW), "p": (t.lower(), 54, PINK),
+            "B": (t.upper(), 76, WHITE), "BY": (t.upper(), 76, YELLOW)}[st] + (st,)
 
 def render_word(text, size, col, st):
-    f = font(size, FONT_SB if st == "w" else FONT); b = f.getbbox(text)
-    w, h = b[2] - b[0], b[3] - b[1]
-    img = Image.new("RGBA", (w + 4, int(size * 1.25)), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.text((2 - b[0], int(size * 0.12) - b[1] + int(size * 0.05)), text, font=f, fill=col + (255,),
-           stroke_width=0)
-    return shadowed(img, 9, 3, 150)
+    f = font(size, FONT_SB if st == "w" else FONT)
+    asc, desc = f.getmetrics(); w = int(math.ceil(f.getlength(text)))
+    img = Image.new("RGBA", (w + 4, asc + desc + 4), (0, 0, 0, 0))
+    ImageDraw.Draw(img).text((2, 2 + asc), text, font=f, fill=col + (255,), anchor="ls")
+    sh, pad = shadowed(img, 8, 3, 165)
+    return sh, pad, pad + 2 + asc, w          # сурет, pad, сурет ішіндегі baseline, ені
 
 class Caption:
+    """Тегіс субтитр: барлық сөз ортақ baseline-да, масштабсыз жұмсақ пайда болу."""
     def __init__(self, c):
         self.start, self.end = c["start"], c["end"]
         lines = [ln.split() for ln in c["lines"]]
         flat = [w for ln in lines for w in ln]
         times = c["times"]; assert len(times) == len(flat), (c, len(flat))
-        px, py = c.get("pos", [0.5, 0.62]); gap = 16
-        rows, total = [], 0
+        px, py = c.get("pos", [0.5, 0.62])
+        rows = []
         for ln in lines:
-            items = []
-            for tok in ln:
-                text, size, col, st = word_style(tok)
-                img, pad = render_word(text, size, col, st)
-                items.append((img, pad, size, col, st))
-            lw = sum(i[0].width - 2 * i[1] for i in items) + gap * (len(items) - 1)
-            lh = int(max(i[2] for i in items) * 1.08)
-            rows.append((items, lw, lh)); total += lh
-        self.words = []; y = py * H - total / 2; k = 0
-        for items, lw, lh in rows:
+            items = [render_word(*word_style(tok)) + (word_style(tok)[1],) for tok in ln]
+            gap = int(max(i[4] for i in items) * 0.28)
+            lw = sum(i[3] for i in items) + gap * (len(items) - 1)
+            lh = int(max(i[4] for i in items) * 1.18)
+            rows.append((items, lw, lh, gap))
+        total = sum(r[2] for r in rows)
+        self.words = []; top = py * H - total / 2; k = 0
+        for items, lw, lh, gap in rows:
+            base = top + lh * 0.82
             x = px * W - lw / 2
-            for img, pad, size, col, st in items:
-                iw = img.width - 2 * pad
-                self.words.append(dict(img=img, x=x - pad, y=y + lh - size * 1.2 - pad, w=iw, size=size,
-                                       col=col, st=st, t=times[k], cache={}))
+            for img, pad, bl, iw, size in items:
+                self.words.append(dict(img=img, x=int(x - pad - 2), y=int(base - bl), t=times[k], cache={}))
                 x += iw + gap; k += 1
-            y += lh
+            top += lh
 
     def draw(self, canvas, t):
         if not (self.start <= t < self.end): return
         for wd in self.words:
             age = t - wd["t"]
             if age < 0: continue
-            p = min(age / 0.24, 1.0); q = int(p * 10)
+            p = min(age / 0.2, 1.0); q = int(p * 8)
             if q not in wd["cache"]:
-                pp = q / 10
-                s = 0.55 + 0.45 * back_out(pp)
-                im = wd["img"]
-                if s != 1.0:
-                    im = im.resize((max(1, int(im.width * s)), max(1, int(im.height * s))), Image.BILINEAR)
+                pp = q / 8; im = wd["img"]
                 if pp < 1:
-                    im = im.filter(ImageFilter.GaussianBlur(9 * (1 - pp)))
-                    al = im.split()[3].point(lambda v: int(v * min(1, 0.15 + pp * 1.4)))
-                    im.putalpha(al)
+                    im = im.filter(ImageFilter.GaussianBlur(6 * (1 - pp)))
+                    im.putalpha(im.split()[3].point(lambda v: int(v * pp)))
                 wd["cache"][q] = im
-            im = wd["cache"][q]
-            cx = wd["x"] + wd["img"].width / 2; cy = wd["y"] + wd["img"].height / 2
-            canvas.alpha_composite(im, (int(cx - im.width / 2), int(max(0, cy - im.height / 2))))
-            if wd["st"] in ("y", "p"):  # астын сызу жүгіреді
-                u = ease_out((age - 0.12) / 0.3)
-                if u > 0:
-                    d = ImageDraw.Draw(canvas)
-                    pad = (wd["img"].width - wd["w"]) / 2
-                    x0 = wd["x"] + pad; yb = wd["y"] + pad + wd["size"] * 1.22
-                    d.rounded_rectangle((x0, yb, x0 + max(8, wd["w"] * u), yb + 7), 3, fill=wd["col"] + (230,))
+            dy = int(10 * (1 - ease_out(p)))
+            canvas.alpha_composite(wd["cache"][q], (max(0, wd["x"]), max(0, wd["y"] + dy)))
 
 # ---------------- секция атауы ----------------
 def section_img(num, title):
