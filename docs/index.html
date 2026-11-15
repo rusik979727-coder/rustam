@@ -199,7 +199,29 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
 .backup-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .filebtn { position: relative; overflow: hidden; display: inline-block; }
 .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+
+html.locked .wrap { visibility: hidden; }
+.lock { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: grid; place-items: center; overflow: auto;
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(16px, env(safe-area-inset-left, 0px)); }
+.lock-in { width: 100%; max-width: 320px; display: grid; justify-items: center; gap: 16px; text-align: center; padding-block: 24px; }
+.lock-logo { height: 64px; width: auto; }
+.lock-title { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--navy); }
+.dots { display: flex; gap: 14px; }
+.dots span { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); }
+.dots span.on { background: var(--accent); }
+@media (prefers-reduced-motion: no-preference) { .dots.shake { animation: shake .35s; } }
+@keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.lock-msg { min-height: 1.3em; font-size: 13px; color: var(--bad); }
+.keys { display: grid; grid-template-columns: repeat(3, 72px); gap: 14px; }
+.keys button { width: 72px; height: 72px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; font-size: 26px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.keys button:active { background: var(--accent-soft); }
+.keys .ghost { border: 0; background: transparent; font-size: 15px; font-weight: 600; color: var(--muted); }
+.linkbtn { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; padding: 6px; }
+.forgot { display: grid; gap: 12px; font-size: 14px; color: var(--fg); justify-items: center; }
+:root[data-theme="dark"] .lock-logo { background: #fff; border-radius: 50%; padding: 6px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lock-logo { background: #fff; border-radius: 50%; padding: 6px; } }
 </style>
+<script>try { if (localStorage.getItem("clinic-cash-v1-pin")) document.documentElement.classList.add("locked"); } catch (e) {}</script>
 </head>
 <body>
 
@@ -346,6 +368,15 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
       <button type="button" data-j="expense" aria-pressed="false">Расход <span class="cnt" id="cntExp"></span></button>
     </div>
     <div id="journal"></div>
+  </section>
+  <section class="card">
+    <h2>Қауіпсіздік</h2>
+    <p class="hint" id="secInfo"></p>
+    <div class="backup-actions">
+      <button type="button" class="primary" id="pinSet">PIN-код қою</button>
+      <button type="button" class="mini" id="pinChange" hidden>PIN-кодты өзгерту</button>
+      <button type="button" class="mini danger" id="pinRemove" hidden>PIN-кодты алып тастау</button>
+    </div>
   </section>
   <section class="card">
     <h2>Сақтық көшірме</h2>
@@ -889,6 +920,124 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
   connect();
 })();
 </script>
+<div id="lock" class="lock" hidden role="dialog" aria-modal="true" aria-labelledby="lockTitle">
+  <div class="lock-in">
+    <img src="icons/logo-mark.png" alt="" class="lock-logo">
+    <div id="lockTitle" class="lock-title">PIN-кодты енгізіңіз</div>
+    <div class="dots" id="dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <div class="lock-msg" id="lockMsg" role="status"></div>
+    <div class="keys" id="keys">
+      <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+      <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+      <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+      <button type="button" class="ghost" id="lockCancel">Болдырмау</button><button type="button" data-k="0">0</button><button type="button" class="ghost" data-k="del" aria-label="Өшіру">⌫</button>
+    </div>
+    <button type="button" class="linkbtn" id="lockForgot">PIN-кодты ұмыттым</button>
+    <div class="forgot" id="forgotBox" hidden>
+      <p>PIN-кодты қалпына келтіру мүмкін емес. Жалғыз жолы: осы телефондағы барлық деректерді өшіріп, PIN-кодты алып тастау. Содан кейін «Көшірмеден қалпына келтіру» арқылы деректерді қайтарасыз.</p>
+      <button type="button" class="mini danger" id="wipeBtn">Барлық деректерді өшіру</button>
+      <button type="button" class="linkbtn" id="forgotBack">Артқа</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const DK = "clinic-cash-v1", PK = "clinic-cash-v1-pin";
+  const $ = (id) => document.getElementById(id);
+  const root = document.documentElement;
+  const enc = new TextEncoder();
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  async function derive(pin, salt) {
+    const key = await crypto.subtle.importKey("raw", enc.encode(pin), "PBKDF2", false, ["deriveBits"]);
+    return b64(await crypto.subtle.deriveBits({ name: "PBKDF2", salt: unb64(salt), iterations: 150000, hash: "SHA-256" }, key, 256));
+  }
+  const getPin = () => { try { return JSON.parse(localStorage.getItem(PK)); } catch { return null; } };
+  async function savePin(pin) {
+    const salt = b64(crypto.getRandomValues(new Uint8Array(16)));
+    localStorage.setItem(PK, JSON.stringify({ salt, hash: await derive(pin, salt) }));
+  }
+  async function checkPin(pin) { const p = getPin(); return !p || (await derive(pin, p.salt)) === p.hash; }
+
+  let mode = "unlock", entry = "", first = "", onOk = null, fails = 0, waitUntil = 0, busy = false, wipeArmed = false;
+  function drawDots() { [...$("dots").children].forEach((d, i) => d.classList.toggle("on", i < entry.length)); }
+  function shake() { const d = $("dots"); d.classList.remove("shake"); void d.offsetWidth; d.classList.add("shake"); }
+  function open(m, title, cb) {
+    mode = m; entry = ""; first = m === "confirm" ? first : ""; onOk = cb || null;
+    $("lockTitle").textContent = title; $("lockMsg").textContent = "";
+    $("lockCancel").style.visibility = m === "unlock" ? "hidden" : "visible";
+    $("lockForgot").hidden = m !== "unlock"; $("forgotBox").hidden = true; $("keys").hidden = false;
+    $("lock").hidden = false; drawDots();
+  }
+  function close() { $("lock").hidden = true; root.classList.remove("locked"); }
+  const lockNow = () => { root.classList.add("locked"); open("unlock", "PIN-кодты енгізіңіз"); };
+
+  async function submit() {
+    const e = entry; busy = true;
+    try {
+      if (mode === "unlock" || mode === "verify") {
+        if (await checkPin(e)) { fails = 0; const cb = onOk, m = mode; close(); if (m === "verify" && cb) cb(); return; }
+        fails++; entry = ""; drawDots(); shake();
+        if (fails >= 5) {
+          fails = 0; waitUntil = Date.now() + 30000;
+          const tick = () => { const s = Math.ceil((waitUntil - Date.now()) / 1000); if (s > 0) { $("lockMsg").textContent = "Тым көп қате. " + s + " секунд күтіңіз."; setTimeout(tick, 500); } else $("lockMsg").textContent = ""; };
+          tick();
+        } else $("lockMsg").textContent = "PIN-код қате. Қайта көріңіз.";
+      } else if (mode === "new") {
+        first = e; open("confirm", "PIN-кодты қайталаңыз");
+      } else if (mode === "confirm") {
+        if (e === first) { await savePin(e); close(); renderSec("PIN-код қойылды."); }
+        else { open("new", "Жаңа PIN-код (4 сан)"); $("lockMsg").textContent = "Екі код сәйкес келмеді. Қайта енгізіңіз."; shake(); }
+      }
+    } finally { busy = false; }
+  }
+  function press(k) {
+    if (busy || Date.now() < waitUntil) return;
+    if (k === "del") { entry = entry.slice(0, -1); drawDots(); return; }
+    if (entry.length >= 4) return;
+    entry += k; drawDots();
+    if (entry.length === 4) setTimeout(submit, 120);
+  }
+  $("keys").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-k]"); if (b) press(b.dataset.k); });
+  document.addEventListener("keydown", (ev) => {
+    if ($("lock").hidden || !$("forgotBox").hidden) return;
+    if (/^[0-9]$/.test(ev.key)) { ev.preventDefault(); press(ev.key); }
+    else if (ev.key === "Backspace") { ev.preventDefault(); press("del"); }
+  });
+  $("lockCancel").onclick = () => { if (mode !== "unlock") close(); };
+  $("lockForgot").onclick = () => { $("keys").hidden = true; $("lockForgot").hidden = true; $("forgotBox").hidden = false; wipeArmed = false; $("wipeBtn").textContent = "Барлық деректерді өшіру"; };
+  $("forgotBack").onclick = () => open("unlock", "PIN-кодты енгізіңіз");
+  $("wipeBtn").onclick = () => {
+    if (!wipeArmed) { wipeArmed = true; $("wipeBtn").textContent = "Нақты ма? Растау үшін тағы басыңыз"; return; }
+    try { localStorage.removeItem(DK); localStorage.removeItem(DK + "-lastBackup"); localStorage.removeItem(PK); } catch {}
+    location.reload();
+  };
+
+  function renderSec(note) {
+    const has = !!getPin();
+    $("secInfo").textContent = (note ? note + " " : "") + (has
+      ? "Қосымша ашылғанда және 1 минуттан артық жабық тұрғанда PIN-код сұралады. Ескерту: сақтық көшірме файлы PIN-кодпен қорғалмайды, оны сенімді жерде сақтаңыз."
+      : "PIN-код қойылмаған. Телефонды басқа біреу алса, деректерді көре алады.");
+    $("pinSet").hidden = has; $("pinChange").hidden = !has; $("pinRemove").hidden = !has;
+  }
+  $("pinSet").onclick = () => open("new", "Жаңа PIN-код (4 сан)");
+  $("pinChange").onclick = () => open("verify", "Қазіргі PIN-код", () => open("new", "Жаңа PIN-код (4 сан)"));
+  $("pinRemove").onclick = () => open("verify", "Қазіргі PIN-код", () => { try { localStorage.removeItem(PK); } catch {} renderSec("PIN-код алынды."); });
+
+  // Hide data while the app is in the background; ask for the PIN again after a minute away.
+  let hiddenAt = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (!getPin()) return;
+    if (document.hidden) { hiddenAt = Date.now(); if ($("lock").hidden) root.classList.add("locked"); }
+    else if ($("lock").hidden) { if (hiddenAt && Date.now() - hiddenAt > 60000) lockNow(); else root.classList.remove("locked"); }
+  });
+
+  renderSec();
+  if (getPin()) lockNow(); else root.classList.remove("locked");
+})();
+</script>
+
 <script>
 if ("serviceWorker" in navigator) {
   // Always look for a newer version and switch to it as soon as it is installed.
