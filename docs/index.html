@@ -75,6 +75,17 @@ h2 { font-family: var(--font-display); font-weight: 500; font-size: 14px; margin
 .tile .k { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .tile .v { font-size: 17px; margin-top: 4px; overflow-wrap: anywhere; }
 .tile.total { background: var(--accent-soft); border-color: transparent; }
+.split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.stile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; display: grid; gap: 4px; align-content: start; border-top: 4px solid var(--consult); }
+.stile.t { border-top-color: var(--treat); }
+.stile .k { font-size: 12px; color: var(--muted); }
+.stile .v { font-size: 20px; overflow-wrap: anywhere; }
+.stile .sub { font-size: 12px; color: var(--muted); }
+.stile .sub b { font-family: var(--font-num); font-weight: 500; color: var(--fg); }
+.stile .sub .owe b { color: var(--bad); }
+.tsum { display: flex; flex-wrap: wrap; gap: 4px 16px; background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--muted); }
+.tsum b { font-family: var(--font-num); font-weight: 600; color: var(--fg); }
+.tsum .owe b { color: var(--bad); }
 .sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 .sw.c { background: var(--consult); } .sw.t { background: var(--treat); }
 @media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -188,6 +199,18 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
     <div class="tile exp"><div class="k">Расход</div><div class="v num" id="tExp">0 ₸</div></div>
     <div class="tile total"><div class="k">Таза пайда</div><div class="v num" id="tProfit">0 ₸</div></div>
     <div class="tile"><div class="k">Пациент саны</div><div class="v num" id="tCount">0</div></div>
+  </section>
+  <section class="split" aria-label="Доход бөлек">
+    <div class="stile">
+      <div class="k">Консультациядан доход</div>
+      <div class="v num" id="sConsult">0 ₸</div>
+      <div class="sub" id="sConsultSub"></div>
+    </div>
+    <div class="stile t">
+      <div class="k">Емделген пациенттерден доход</div>
+      <div class="v num" id="sTreat">0 ₸</div>
+      <div class="sub" id="sTreatSub"></div>
+    </div>
   </section>
   <div class="methods" id="methods"></div>
 
@@ -455,8 +478,7 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
 
     const m = $("methods"); m.replaceChildren();
     const part = (label, v, cls) => { const sp = el("span", null, ""); if (cls) { const w = el("span", "sw " + cls); w.style.marginRight = "5px"; sp.append(w); } sp.append(document.createTextNode(label + ": ")); sp.append(el("b", "num", money(v))); m.append(sp); };
-    part("Консультация", sum((x) => x.kind === "consult"), "c");
-    part("Ем", sum((x) => x.kind === "treatment"), "t");
+    renderSplit(inP);
     ["Қолма-қол", "Kaspi", "Карта", "Аударым"].forEach((k) => { const v = sum((x) => x.method === k); if (v) part(k, v); });
 
     // expense categories
@@ -531,6 +553,22 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
     });
   }
 
+  function renderSplit(inP) {
+    const cons = inP.filter((x) => x.kind === "consult");
+    const treat = inP.filter((x) => x.kind === "treatment");
+    const tot = (l) => l.reduce((a, x) => a + Number(x.amount || 0), 0);
+    const sub = (box, parts) => { box.replaceChildren(); parts.forEach(([label, val, cls], i) => { if (i) box.append(document.createTextNode(" · ")); const sp = el("span", cls || null, label + " "); sp.append(el("b", null, val)); box.append(sp); }); };
+    $("sConsult").textContent = money(tot(cons));
+    sub($("sConsultSub"), [["Пациент", String(new Set(cons.map((x) => x.patientId)).size)], ["Төлем", String(cons.length)]]);
+    $("sTreat").textContent = money(tot(treat));
+    const ids = [...new Set(treat.map((x) => x.patientId))];
+    let left = 0;
+    ids.forEach((pid) => { const p = patients.find((q) => q.id === pid); const c = Number(p?.treatmentCost || 0); const paid = stats(pid).treatPaid; if (c > paid) left += c - paid; });
+    const parts = [["Пациент", String(ids.length)], ["Төлем", String(treat.length)]];
+    if (left > 0) parts.push(["Олардың қарызы", money(left), "owe"]);
+    sub($("sTreatSub"), parts);
+  }
+
   // Running treatment balance for each treatment payment: paid so far and debt left after it.
   function treatmentLedger() {
     const out = {};
@@ -591,6 +629,13 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
       const inPeriod = treat.filter((x) => x.patientId === pid).reduce((a, x) => a + Number(x.amount || 0), 0);
       return { name: p.name, cost, paid: st.treatPaid, inPeriod, left: cost > 0 ? cost - st.treatPaid : null };
     }).sort((a, b) => (b.left || 0) - (a.left || 0) || a.name.localeCompare(b.name));
+    {
+      const box = el("div", "tsum");
+      const item = (label, val, cls) => { const sp = el("span", cls || null, label + ": "); sp.append(el("b", null, val)); box.append(sp); };
+      item("Емнен түскен доход", money(treat.reduce((a, x) => a + Number(x.amount || 0), 0)));
+      item("Емделген пациент", String(ids.length));
+      j.append(box);
+    }
     j.append(el("div", "subh", "Емделген пациенттер"));
     const wrap = el("div", "tablewrap");
     const t = el("table", "tp");
