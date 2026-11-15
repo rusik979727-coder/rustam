@@ -842,5 +842,8 @@
    ]
   }
  ],
- "src": "src_beauty.mp4"
+ "src": "src_beauty.mp4",
+ "music_file": "music.mp3",
+ "music_start": 0,
+ "music_gain": 0.35
 }
