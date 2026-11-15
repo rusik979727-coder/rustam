@@ -56,7 +56,26 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: 
 .summary .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; }
 .total { font-family: var(--font-display); font-size: clamp(30px, 8vw, 42px); font-weight: 700; line-height: 1.1; }
 .total small { font-size: 0.55em; opacity: 0.7; margin-left: 4px; }
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.daily { display: flex; flex-direction: column; gap: 10px; }
+.daily-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.daily-head b { color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
+.chart { position: relative; height: 140px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; align-items: end; border-bottom: 1px solid var(--line); }
+.chart button { height: 100%; display: flex; align-items: flex-end; background: none; border: none; padding: 0; cursor: pointer; border-radius: 3px 3px 0 0; min-width: 0; }
+.chart button:hover { background: var(--accent-soft); }
+.chart button i { display: block; width: 100%; background: var(--accent); opacity: .55; border-radius: 3px 3px 0 0; min-height: 2px; }
+.chart button.zero i { background: var(--line); opacity: 1; }
+.chart button.over i { background: var(--gold); opacity: .8; }
+.chart button.today i { opacity: 1; }
+.chart button.sel i { opacity: 1; outline: 2px solid var(--ink); outline-offset: 1px; }
+.chart .limit { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--gold); pointer-events: none; }
+.chart .limit span { position: absolute; right: 0; top: -18px; font-size: 11px; color: var(--gold); background: var(--surface); padding: 0 4px; font-variant-numeric: tabular-nums; }
+.axis { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; font-size: 10px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--accent); }
+.legend .lg-over::before { background: var(--gold); }
+.legend .lg-limit::before { height: 0; border-top: 2px dashed var(--gold); vertical-align: 3px; background: none; }
+.day-filter { display: inline-flex; align-items: center; gap: 6px; }
 .stats div { display: flex; flex-direction: column; gap: 2px; }
 .stats b { font-size: 16px; font-variant-numeric: tabular-nums; }
 .stats span { font-size: 12px; opacity: 0.7; }
@@ -132,7 +151,6 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12
 @media (max-width: 420px) {
   form.add { grid-template-columns: 1fr; }
   .stats { grid-template-columns: 1fr 1fr; }
-  .stats div:last-child { grid-column: 1 / -1; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -156,6 +174,7 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12
       <div class="total num" id="total">0<small>₸</small></div>
     </div>
     <div class="stats">
+      <div><b id="statToday">0 ₸</b><span id="statTodayLabel">бүгін</span></div>
       <div><b id="statCount">0</b><span>жазба</span></div>
       <div><b id="statAvg">0 ₸</b><span>күніне орташа</span></div>
       <div><b id="statPrev">—</b><span>өткен аймен салыстыру</span></div>
@@ -186,6 +205,17 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12
     </form>
   </section>
 
+  <section class="panel daily">
+    <h2 style="margin:0">Күндік шығын</h2>
+    <div class="daily-head">
+      <span>Ең көп: <b id="dayMax">—</b></span>
+      <span>Шығынсыз күн: <b id="dayZero">0</b></span>
+    </div>
+    <div class="chart" id="chart" role="group" aria-label="Ай күндері бойынша шығын"></div>
+    <div class="axis" id="axis"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
   <section class="panel">
     <h2>Санаттар бойынша</h2>
     <div class="cats" id="cats"></div>
@@ -194,6 +224,7 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12
   <section class="panel">
     <div class="toolbar">
       <h2>Жазбалар</h2>
+      <span class="day-filter" id="dayFilter" hidden><span class="chip" aria-pressed="true" id="dayFilterLabel"></span><button class="del" type="button" id="dayFilterClear" aria-label="Күн сүзгісін алу">✕</button></span>
       <select id="filterCat" aria-label="Санат бойынша сүзу"></select>
     </div>
     <div id="list"></div>
@@ -245,6 +276,7 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12
   let view = new Date(); view.setDate(1);
   let selectedCat = "food";
   let filterCat = "all";
+  let selectedDay = null; // "YYYY-MM-DD" or null
   let pendingDelete = null;
 
   // ---------- storage (claude.ai db when available, localStorage otherwise) ----------
@@ -362,6 +394,55 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12
       $("budgetBtn").textContent = "Бюджет қою";
     }
 
+    // today
+    const tStr = todayStr();
+    $("statToday").textContent = `${fmt(expenses.filter(e => e.date === tStr).reduce((s, e) => s + e.amount, 0))} ₸`;
+
+    // daily chart
+    const byDay = new Array(daysInMonth + 1).fill(0);
+    inMonth.forEach(e => { byDay[Number(e.date.slice(8, 10))] += e.amount; });
+    const dayLimit = budget > 0 ? budget / daysInMonth : 0;
+    const maxDay = Math.max(...byDay.slice(1));
+    const scale = Math.max(maxDay, dayLimit) || 1;
+    const chart = $("chart"), axis = $("axis");
+    chart.innerHTML = ""; axis.innerHTML = "";
+    let zeroDays = 0, maxDayN = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const v = byDay[d];
+      const ds = `${mk}-${pad(d)}`;
+      const passed = !isFuture && (!isCurrent || d <= now.getDate());
+      if (passed && v === 0) zeroDays++;
+      if (v > 0 && v === maxDay) maxDayN = d;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = [v === 0 ? "zero" : "", dayLimit && v > dayLimit ? "over" : "", ds === tStr ? "today" : "", ds === selectedDay ? "sel" : ""].join(" ").trim();
+      b.title = `${d} ${MONTHS[view.getMonth()].toLowerCase()}: ${fmt(v)} ₸`;
+      b.setAttribute("aria-label", b.title);
+      b.innerHTML = `<i style="height:${v / scale * 100}%"></i>`;
+      b.onclick = () => { selectedDay = selectedDay === ds ? null : ds; render(); };
+      chart.append(b);
+      const lab = document.createElement("span");
+      lab.textContent = (d === 1 || d % 5 === 0) ? d : "";
+      axis.append(lab);
+    }
+    if (dayLimit) {
+      const line = document.createElement("div"); line.className = "limit";
+      line.style.bottom = (dayLimit / scale * 100) + "%";
+      line.innerHTML = `<span>${fmt(dayLimit)} ₸</span>`;
+      chart.append(line);
+    }
+    $("dayMax").textContent = maxDay > 0 ? `${fmt(maxDay)} ₸ (${maxDayN} ${MONTHS[view.getMonth()].toLowerCase()})` : "—";
+    $("dayZero").textContent = zeroDays;
+    $("legend").innerHTML = dayLimit
+      ? `<span>Күндік шығын</span><span class="lg-over">Күндік лимиттен асқан</span><span class="lg-limit">Күндік лимит (бюджет ÷ ${daysInMonth})</span>`
+      : `<span>Күндік шығын</span><span style="opacity:.8">Бағанды бассаңыз, сол күннің жазбалары ашылады</span>`;
+    if (selectedDay && monthKey(selectedDay) !== mk) selectedDay = null;
+    $("dayFilter").hidden = !selectedDay;
+    if (selectedDay) {
+      const sd = Number(selectedDay.slice(8, 10));
+      $("dayFilterLabel").textContent = `${sd} ${MONTHS[view.getMonth()].toLowerCase()}`;
+    }
+
     // categories
     const byCat = {};
     inMonth.forEach(e => byCat[e.cat] = (byCat[e.cat] || 0) + e.amount);
@@ -384,11 +465,13 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12
 
     // list
     const list = $("list"); list.innerHTML = "";
-    const shown = inMonth.filter(e => filterCat === "all" || e.cat === filterCat)
+    const shown = inMonth.filter(e => (filterCat === "all" || e.cat === filterCat) && (!selectedDay || e.date === selectedDay))
       .sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
     if (!loaded) { list.innerHTML = `<div class="empty">Жазбалар жүктелуде…</div>`; return; }
     if (!shown.length) {
-      list.innerHTML = filterCat === "all"
+      list.innerHTML = selectedDay
+        ? `<div class="empty">Бұл күні шығын жазылмаған.</div>`
+        : filterCat === "all"
         ? `<div class="empty"><b>Әзірге жазба жоқ</b>Жоғарыдағы формаға соманы енгізіп, «Қосу» батырмасын басыңыз.</div>`
         : `<div class="empty">Бұл санатта осы айда жазба жоқ.</div>`;
       return;
@@ -429,6 +512,7 @@ dialog .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12
   $("prevMonth").onclick = () => { view.setMonth(view.getMonth() - 1); render(); };
   $("nextMonth").onclick = () => { view.setMonth(view.getMonth() + 1); render(); };
   $("filterCat").onchange = e => { filterCat = e.target.value; render(); };
+  $("dayFilterClear").onclick = () => { selectedDay = null; render(); };
 
   $("addForm").addEventListener("submit", async ev => {
     ev.preventDefault();
