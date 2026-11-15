@@ -134,6 +134,8 @@ details.pt summary::-webkit-details-marker { display: none; }
 .chip.treatment { background: var(--treat); }
 .chip.expense { background: var(--bad); }
 .jtabs { justify-self: start; }
+.splitbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: -4px; }
+#splitToggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .jtabs .cnt { font-family: var(--font-num); font-size: 11px; opacity: .8; }
 .tm { font-family: var(--font-num); font-size: 12px; color: var(--muted); margin-right: 6px; }
 .tline { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -234,7 +236,7 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
     </div>
     <div class="row">
       <label for="emethod">Төлем тәсілі
-        <select id="emethod"><option>Қолма-қол</option><option>Kaspi</option><option>Карта</option><option>Аударым</option></select>
+        <select id="emethod"><option>Қолма-қол</option><option>Kaspi QR</option><option>Kaspi аударым</option><option>Карта</option><option>Аударым</option></select>
       </label>
       <label for="enote">Ескертпе<input id="enote" autocomplete="off" placeholder="мысалы, дәріхана атауы, не алынды"></label>
     </div>
@@ -259,10 +261,20 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
       <input id="cost" class="amount" inputmode="decimal" autocomplete="off" placeholder="мысалы, 250000">
     </label>
     <div class="row">
-      <label for="amount">Төлеген сомасы, ₸<input id="amount" class="amount" inputmode="decimal" autocomplete="off" placeholder="0"></label>
+      <label for="amount"><span id="amountLabel">Төлеген сомасы, ₸</span><input id="amount" class="amount" inputmode="decimal" autocomplete="off" placeholder="0"></label>
       <label for="method">Төлем тәсілі
-        <select id="method"><option>Қолма-қол</option><option>Kaspi</option><option>Карта</option><option>Аударым</option></select>
+        <select id="method"><option>Қолма-қол</option><option>Kaspi QR</option><option>Kaspi аударым</option><option>Карта</option><option>Аударым</option></select>
       </label>
+    </div>
+    <div class="row" id="splitRow" hidden>
+      <label for="amount2">2-сома, ₸<input id="amount2" class="amount" inputmode="decimal" autocomplete="off" placeholder="0"></label>
+      <label for="method2">2-тәсілі
+        <select id="method2"><option>Қолма-қол</option><option>Kaspi QR</option><option>Kaspi аударым</option><option>Карта</option><option>Аударым</option></select>
+      </label>
+    </div>
+    <div class="splitbar">
+      <button type="button" class="mini" id="splitToggle" aria-pressed="false">+ Екі тәсілмен бөліп төледі</button>
+      <span class="hint num" id="splitTotal"></span>
     </div>
     <div class="row">
       <label for="date">Күні<input id="date" type="date"></label>
@@ -332,6 +344,9 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
   const key = (name) => name.trim().replace(/\s+/g, " ").toLowerCase();
   const nowTime = () => { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
   const byWhen = (a, b) => (a.date || "").localeCompare(b.date || "") || (a.time || "").localeCompare(b.time || "") || (a.createdAt || 0) - (b.createdAt || 0);
+  const METHODS = ["Қолма-қол", "Kaspi QR", "Kaspi аударым", "Kaspi", "Карта", "Аударым"];
+  const partsOf = (x) => Array.isArray(x.split) && x.split.length ? x.split : [{ method: x.method, amount: Number(x.amount || 0) }];
+  const methodText = (x) => Array.isArray(x.split) && x.split.length ? x.split.map((q) => q.method + " " + money(q.amount)).join(" + ") : (x.method || "");
   const toNum = (v) => { const s = String(v).replace(/\s/g, "").replace(",", "."); return s ? Number(s) : NaN; };
 
   let patients = [], payments = [], expenses = [];
@@ -379,7 +394,7 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
     btn.onclick = () => {
       const rows = [["Күні", "Уақыты", "Пациент / санат", "Түрі", "Сома", "Тәсілі", "Ескертпе"]];
       const all = [
-        ...payments.map((p) => [p.date, p.time || "", p.patientName, KIND[p.kind] || p.kind, p.amount, p.method || "", p.note || ""]),
+        ...payments.map((p) => [p.date, p.time || "", p.patientName, KIND[p.kind] || p.kind, p.amount, methodText(p).replace(/\s₸/g, ""), p.note || ""]),
         ...expenses.map((x) => [x.date, "", x.category, "Расход", -Number(x.amount || 0), x.method || "", x.note || ""]),
       ].sort((a, b) => String(a[0]).localeCompare(String(b[0])) || String(a[1]).localeCompare(String(b[1])));
       all.forEach((r) => rows.push(r));
@@ -479,7 +494,9 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
     const m = $("methods"); m.replaceChildren();
     const part = (label, v, cls) => { const sp = el("span", null, ""); if (cls) { const w = el("span", "sw " + cls); w.style.marginRight = "5px"; sp.append(w); } sp.append(document.createTextNode(label + ": ")); sp.append(el("b", "num", money(v))); m.append(sp); };
     renderSplit(inP);
-    ["Қолма-қол", "Kaspi", "Карта", "Аударым"].forEach((k) => { const v = sum((x) => x.method === k); if (v) part(k, v); });
+    const byM = {};
+    inP.forEach((x) => partsOf(x).forEach((q) => { byM[q.method] = (byM[q.method] || 0) + Number(q.amount || 0); }));
+    METHODS.forEach((k) => { if (byM[k]) part(k, byM[k]); });
 
     // expense categories
     const bars = $("bars"); bars.replaceChildren();
@@ -699,7 +716,7 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
     what.append(el("span", "chip " + x.kind, KIND[x.kind] || x.kind));
     if (x.time) what.append(el("span", "tm", x.time));
     what.append(document.createTextNode(showName ? x.patientName : human(x.date)));
-    const sub = [x.method, x.note].filter(Boolean).join(" · ");
+    const sub = [methodText(x), x.note].filter(Boolean).join(" · ");
     if (sub) what.append(el("small", null, sub));
     const amt = el("span", "num plus", "+" + money(x.amount));
     const id = "y" + x.id;
@@ -747,6 +764,22 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
   $("date").value = iso(new Date());
   $("time").value = nowTime();
   $("edate").value = iso(new Date());
+  function setSplit(on) {
+    $("splitToggle").setAttribute("aria-pressed", String(on));
+    $("splitToggle").textContent = on ? "× Бір тәсілмен төледі" : "+ Екі тәсілмен бөліп төледі";
+    $("splitRow").hidden = !on;
+    $("amountLabel").textContent = on ? "1-сома, ₸" : "Төлеген сомасы, ₸";
+    if (on && $("method2").value === $("method").value) $("method2").value = $("method").value === "Қолма-қол" ? "Kaspi QR" : "Қолма-қол";
+    updateSplitTotal();
+  }
+  function updateSplitTotal() {
+    const on = $("splitToggle").getAttribute("aria-pressed") === "true";
+    const a = toNum($("amount").value), b = toNum($("amount2").value);
+    $("splitTotal").textContent = on && (isFinite(a) || isFinite(b)) ? "Барлығы: " + money((isFinite(a) ? a : 0) + (isFinite(b) ? b : 0)) : "";
+  }
+  $("splitToggle").onclick = () => setSplit($("splitToggle").getAttribute("aria-pressed") !== "true");
+  $("amount").addEventListener("input", updateSplitTotal);
+  $("amount2").addEventListener("input", updateSplitTotal);
   document.querySelectorAll("#jtabs button").forEach((b) => b.onclick = () => { jtab = b.dataset.j; render(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("pname").value) { $("time").value = nowTime(); $("date").value = iso(new Date()); } });
 
@@ -781,11 +814,16 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
     ev.preventDefault();
     const msg = $("msg"); msg.className = "msg";
     const name = $("pname").value.trim().replace(/\s+/g, " ");
-    const amount = toNum($("amount").value);
+    const splitOn = $("splitToggle").getAttribute("aria-pressed") === "true";
+    const a1 = toNum($("amount").value);
+    const a2 = splitOn ? toNum($("amount2").value) : 0;
+    const amount = splitOn ? a1 + a2 : a1;
     const costRaw = $("cost").value;
     const cost = toNum(costRaw);
     if (!name) { msg.textContent = "Пациенттің аты-жөнін жазыңыз."; return; }
-    if (!isFinite(amount) || amount <= 0) { msg.textContent = "Соманы сан түрінде жазыңыз, мысалы 15000."; return; }
+    if (!isFinite(a1) || a1 <= 0) { msg.textContent = "Соманы сан түрінде жазыңыз, мысалы 15000."; return; }
+    if (splitOn && (!isFinite(a2) || a2 <= 0)) { msg.textContent = "Екінші соманы да жазыңыз немесе бөліп төлеуді өшіріңіз."; return; }
+    if (splitOn && $("method").value === $("method2").value) { msg.textContent = "Екі тәсіл әртүрлі болуы керек."; return; }
     if (kind === "treatment" && costRaw && (!isFinite(cost) || cost < 0)) { msg.textContent = "Ем құнын сан түрінде жазыңыз."; return; }
     if (!store) { msg.textContent = "Әлі жүктелуде, бір сәт күтіңіз."; return; }
     msg.textContent = "";
@@ -800,11 +838,14 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
       } else if (kind === "treatment" && costRaw) {
         await store.updatePatient(pid, { treatmentCost: cost });
       }
-      await store.addPayment({ patientId: pid, patientName: name, kind, amount, date: $("date").value || iso(new Date()), time: $("time").value || "", method: $("method").value, note: $("note").value.trim(), createdAt: Date.now() });
+      const rec = { patientId: pid, patientName: name, kind, amount, date: $("date").value || iso(new Date()), time: $("time").value || "", method: $("method").value, note: $("note").value.trim(), createdAt: Date.now() };
+      if (splitOn) { rec.split = [{ method: $("method").value, amount: a1 }, { method: $("method2").value, amount: a2 }]; rec.method = rec.split.map((q) => q.method).join(" + "); }
+      await store.addPayment(rec);
       msg.className = "msg ok"; msg.textContent = name + ": " + money(amount) + " сақталды.";
       jtab = kind; render();
-      $("pname").value = ""; $("amount").value = ""; $("cost").value = ""; $("note").value = "";
+      $("pname").value = ""; $("amount").value = ""; $("amount2").value = ""; $("cost").value = ""; $("note").value = "";
       $("time").value = nowTime();
+      setSplit(false);
       updatePatientInfo();
       $("pname").focus();
     } catch (err) {

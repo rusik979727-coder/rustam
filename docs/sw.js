@@ -1,5 +1,5 @@
 // Clinic cash register: cache the app shell so it opens without internet.
-const CACHE = "klinika-kassasy-v3";
+const CACHE = "klinika-kassasy-v4";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
