@@ -12,6 +12,8 @@ TOTAL = SRC_DUR + END_DUR; NF = int(round(TOTAL * FPS))
 YELLOW, WHITE, TEAL, NAVY, TEAL_L = (255, 222, 40), (255, 255, 255), (47, 110, 110), (27, 42, 64), (95, 190, 185)
 FONT = "/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf"
 FONT_B = "/usr/share/fonts/opentype/inter/Inter-Bold.otf"
+FONT_SB = "/usr/share/fonts/opentype/inter/Inter-SemiBold.otf"
+PINK = (255, 95, 200)
 _fc = {}
 def font(sz, p=FONT):
     if (sz, p) not in _fc: _fc[(sz, p)] = ImageFont.truetype(p, sz)
@@ -59,19 +61,19 @@ def shadowed(img, rad=8, off=4, op=160):
 
 # ---------------- субтитр ----------------
 def word_style(tok):
-    st = {"*": "y", "!": "B", "~": "BY"}.get(tok[0], "w")
+    st = {"*": "y", "^": "p", "!": "B", "~": "BY"}.get(tok[0], "w")
     t = tok[1:] if st != "w" else tok
-    return {"w": (t.lower(), 54, WHITE), "y": (t.lower(), 62, YELLOW),
-            "B": (t.upper(), 86, WHITE), "BY": (t.upper(), 86, YELLOW)}[st] + (st,)
+    return {"w": (t.lower(), 52, WHITE), "y": (t.lower(), 58, YELLOW), "p": (t.lower(), 58, PINK),
+            "B": (t.upper(), 80, WHITE), "BY": (t.upper(), 80, YELLOW)}[st] + (st,)
 
 def render_word(text, size, col, st):
-    f = font(size); b = f.getbbox(text)
+    f = font(size, FONT_SB if st == "w" else FONT); b = f.getbbox(text)
     w, h = b[2] - b[0], b[3] - b[1]
     img = Image.new("RGBA", (w + 4, int(size * 1.25)), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.text((2 - b[0], int(size * 0.12) - b[1] + int(size * 0.05)), text, font=f, fill=col + (255,),
-           stroke_width=2 if st in ("B", "BY") else 0, stroke_fill=(0, 0, 0, 90))
-    return shadowed(img, 7, 4, 170)
+           stroke_width=0)
+    return shadowed(img, 9, 3, 150)
 
 class Caption:
     def __init__(self, c):
@@ -120,7 +122,7 @@ class Caption:
             im = wd["cache"][q]
             cx = wd["x"] + wd["img"].width / 2; cy = wd["y"] + wd["img"].height / 2
             canvas.alpha_composite(im, (int(cx - im.width / 2), int(max(0, cy - im.height / 2))))
-            if wd["st"] in ("y", "BY"):  # астын сызу жүгіреді
+            if wd["st"] in ("y", "p"):  # астын сызу жүгіреді
                 u = ease_out((age - 0.12) / 0.3)
                 if u > 0:
                     d = ImageDraw.Draw(canvas)
@@ -134,8 +136,6 @@ def section_img(num, title):
     wn = f.getbbox(n)[2]; wt = f.getbbox(T)[2]
     pw, ph = wn + wt + 70, 98
     img = Image.new("RGBA", (pw, ph), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
-    d.rounded_rectangle((0, 0, pw - 1, ph - 1), 22, fill=NAVY + (190,))
-    d.rounded_rectangle((0, 0, 10, ph - 1), 5, fill=TEAL_L + (255,))
     d.text((36, 20), n, font=f, fill=YELLOW + (255,)); d.text((36 + wn, 20), T, font=f, fill=WHITE + (255,))
     return shadowed(img, 10, 5, 140)[0]
 
@@ -252,10 +252,8 @@ def grade(f):
     if VIG is None:
         yy, xx = np.ogrid[:H, :W]
         d = ((xx - W / 2) / (W / 1.25)) ** 2 + ((yy - H / 2) / (H / 1.25)) ** 2
-        VIG = (1 - 0.32 * np.clip(d, 0, 1))[..., None].astype(np.float32)
-    g = f.astype(np.float32)
-    g = (g - 128) * 1.06 + 126
-    g[..., 2] *= 1.03; g[..., 0] *= 0.97
+        VIG = (1 - 0.22 * np.clip(d, 0, 1))[..., None].astype(np.float32)
+    g = f.astype(np.float32)  # негізгі грейд beauty.py-да; мұнда тек виньетка
     return np.clip(g * VIG, 0, 255).astype(np.uint8)
 
 TR = 5
@@ -370,7 +368,7 @@ def end_card(last_bgr, te):
 def main():
     caps = [Caption(c) for c in SPEC["captions"]]
     secs = [(s, section_img(s["num"], s["title"])) for s in SPEC["sections"]]
-    cap = cv2.VideoCapture(os.path.join(WD, "src.mp4"))
+    cap = cv2.VideoCapture(os.path.join(WD, SPEC.get("src", "src.mp4")))
     cmd = ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}", "-r", str(FPS),
            "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", OUT]
     ff = subprocess.Popen(cmd, stdin=subprocess.PIPE)
