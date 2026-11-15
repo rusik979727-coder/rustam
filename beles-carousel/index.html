@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BELES — Грыжа каруселі</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@300..800&display=swap" rel="stylesheet" crossorigin="anonymous">
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --green-900:#0B3326;   /* deep brand green */
+  --green-800:#0F4232;
+  --green-600:#1E6B53;
+  --green-300:#9DBFB1;
+  --green-100:#E3EEE9;
+  --gray-50:#F6F8F7;
+  --gray-100:#EDF1EF;
+  --gray-300:#C9D2CE;
+  --gray-500:#6B7A74;
+  --ink:#10251E;
+  --white:#FFFFFF;
+  --alert:#E0614A;       /* used only for pathology */
+  --alert-soft:#F8D9D1;
+  --nerve:#D7A548;
+
+  --shell-bg:#E7ECEA;
+  --shell-ink:#10251E;
+  --shell-muted:#5F6E68;
+  --shell-panel:#FFFFFF;
+  --shell-line:#D3DBD7;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --shell-bg:#0C1713; --shell-ink:#E8F0EC; --shell-muted:#9DB0A8; --shell-panel:#13221C; --shell-line:#22362E;
+  }
+}
+:root[data-theme="dark"]{
+  --shell-bg:#0C1713; --shell-ink:#E8F0EC; --shell-muted:#9DB0A8; --shell-panel:#13221C; --shell-line:#22362E;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Onest',system-ui,sans-serif;
+  background:var(--shell-bg);
+  color:var(--shell-ink);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* ============ SHELL (preview UI) ============ */
+.app{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr auto;gap:16px;padding:20px 16px 24px;max-width:1280px;margin:0 auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.topbar .brand{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.14em;font-size:15px}
+.topbar .brand svg{width:34px;height:34px}
+.topbar .brand small{display:block;font-weight:400;letter-spacing:0;color:var(--shell-muted);font-size:13px;margin-top:2px}
+.btn{
+  font:inherit;font-size:14px;font-weight:600;cursor:pointer;border-radius:999px;
+  padding:11px 18px;border:1px solid var(--shell-line);background:var(--shell-panel);color:var(--shell-ink);
+  display:inline-flex;align-items:center;gap:8px;transition:background .2s,border-color .2s,transform .1s;
+}
+.btn:hover{border-color:var(--green-600)}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--green-900);color:#fff;border-color:var(--green-900)}
+.btn.primary:hover{background:var(--green-600);border-color:var(--green-600)}
+.btn[disabled]{opacity:.55;cursor:progress}
+.btn:focus-visible,.arrow:focus-visible,.dot:focus-visible{outline:3px solid var(--green-600);outline-offset:3px}
+.btn svg{width:16px;height:16px}
+
+.stage{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;min-height:0}
+.arrow{
+  width:52px;height:52px;border-radius:50%;border:1px solid var(--shell-line);background:var(--shell-panel);
+  color:var(--shell-ink);display:grid;place-items:center;cursor:pointer;transition:border-color .2s,opacity .2s
+}
+.arrow:hover{border-color:var(--green-600)}
+.arrow[disabled]{opacity:.35;cursor:default}
+.arrow svg{width:22px;height:22px}
+.viewport{position:relative;width:100%;display:flex;justify-content:center;touch-action:pan-y}
+.stage > *{min-width:0}
+.frame{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 30px 60px -30px rgba(8,30,22,.45),0 0 0 1px rgba(0,0,0,.04)}
+.scaler{position:absolute;left:0;top:0;width:1080px;height:1350px;transform-origin:0 0}
+
+.controls{display:flex;flex-direction:column;align-items:center;gap:14px}
+.dots{display:flex;gap:10px}
+.dot{width:10px;height:10px;border-radius:999px;border:0;background:var(--shell-line);cursor:pointer;transition:width .3s,background .3s}
+.dot.on{width:30px;background:var(--green-600)}
+.exports{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.exports .btn{padding:9px 14px;font-size:13px}
+.exports .btn.current{border-color:var(--green-600);box-shadow:inset 0 0 0 1px var(--green-600)}
+.hint{font-size:13px;color:var(--shell-muted);text-align:center}
+
+@media (max-width:640px){
+  .stage{grid-template-columns:1fr}
+  .arrow{display:none}
+  .topbar .actions .btn span.long{display:none}
+}
+
+/* ============ SLIDE BASE (1080×1350 canvas) ============ */
+.slide{
+  position:absolute;inset:0;width:1080px;height:1350px;overflow:hidden;
+  background:var(--white);color:var(--ink);
+  font-family:'Onest',sans-serif;
+  opacity:0;visibility:hidden;transition:opacity .5s ease,visibility 0s linear .5s;
+}
+.slide.is-active{opacity:1;visibility:visible;transition:opacity .5s ease}
+.slide svg{display:block}
+
+.s-top{position:absolute;left:72px;right:72px;top:64px;display:flex;justify-content:space-between;align-items:center;z-index:5}
+.logo{display:flex;align-items:center;gap:14px;font-weight:700;font-size:26px;letter-spacing:.2em;color:var(--green-900)}
+.logo svg{width:46px;height:46px}
+.count{font-size:22px;font-weight:500;color:var(--gray-500);letter-spacing:.04em}
+.count b{color:var(--green-900);font-weight:700}
+.s-bottom{position:absolute;left:72px;right:72px;bottom:60px;display:flex;justify-content:space-between;align-items:center;z-index:5;font-size:21px;color:var(--gray-500)}
+.progress{display:flex;gap:8px}
+.progress i{display:block;width:34px;height:4px;border-radius:4px;background:var(--gray-300)}
+.progress i.on{background:var(--green-600)}
+
+.h1{font-weight:800;letter-spacing:-.02em;line-height:1.02;color:var(--green-900)}
+.lead{font-size:36px;line-height:1.42;font-weight:400;color:#2E4239}
+.glass{
+  background:linear-gradient(135deg,rgba(255,255,255,.82),rgba(255,255,255,.55));
+  border:1.5px solid rgba(255,255,255,.9);
+  box-shadow:0 24px 60px -28px rgba(11,51,38,.35),inset 0 1px 0 rgba(255,255,255,.9);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-radius:36px;
+}
+.tag{
+  display:inline-flex;align-items:center;gap:12px;font-size:23px;font-weight:600;color:var(--green-900);
+  padding:12px 20px;border-radius:999px;white-space:nowrap
+}
+.tag .pin{width:12px;height:12px;border-radius:50%;background:var(--green-600);box-shadow:0 0 0 6px rgba(30,107,83,.15)}
+.tag.alert .pin{background:var(--alert);box-shadow:0 0 0 6px rgba(224,97,74,.18)}
+
+/* ============ ENTRANCE ANIMATION (only on active slide) ============ */
+@keyframes rise{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes float{from{opacity:0;transform:translateY(40px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes pulse{0%{transform:scale(.8);opacity:.7}100%{transform:scale(1.9);opacity:0}}
+@keyframes scan{0%{transform:translateY(0)}100%{transform:translateY(620px)}}
+.is-active .a-rise{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
+.is-active .a-fade{animation:fade 1.2s ease both}
+.is-active .a-float{animation:float 1.3s cubic-bezier(.2,.7,.2,1) both}
+.d1{animation-delay:.08s!important}.d2{animation-delay:.18s!important}.d3{animation-delay:.3s!important}
+.d4{animation-delay:.42s!important}.d5{animation-delay:.54s!important}.d6{animation-delay:.66s!important}
+.pulse-ring{transform-box:fill-box;transform-origin:center;opacity:.35}
+.is-active .pulse-ring{animation:pulse 2.6s ease-out infinite}
+.scanline{opacity:.9}
+.is-active .scanline{animation:scan 4.5s ease-in-out infinite alternate}
+@media (prefers-reduced-motion:reduce){
+  .slide *{animation:none!important}
+  .slide{transition:none}
+}
+/* export: freeze everything in its final state */
+.exporting *{animation:none!important;transition:none!important}
+.slide.exporting{visibility:visible;opacity:1;transition:none;z-index:-1}
+.slide.exporting.is-active{z-index:auto}
+
+/* ============ SLIDE 1 — COVER ============ */
+.s1{background:radial-gradient(900px 900px at 78% 30%,#FFFFFF 0%,#F3F6F5 55%,#E6ECE9 100%)}
+.s1 .rings{position:absolute;left:0;top:0}
+.s1 .spine{position:absolute;left:330px;top:-150px;width:760px;height:1180px}
+.s1 .fade-bottom{position:absolute;left:0;right:0;bottom:0;height:640px;background:linear-gradient(180deg,rgba(240,244,242,0) 0%,rgba(240,244,242,.92) 38%,#EFF3F1 60%)}
+.s1 .callout{position:absolute;left:72px;top:210px;z-index:4}
+.s1 .callout-line{position:absolute;left:0;top:0}
+.s1 .copy{position:absolute;left:72px;right:72px;bottom:150px;z-index:4}
+.s1 .h1{font-size:104px;max-width:900px}
+.s1 .lead{margin-top:36px;max-width:780px;font-size:37px}
+.s1 .rule{width:96px;height:6px;border-radius:6px;background:var(--green-600);margin-bottom:40px}
+
+/* ============ SLIDE 2 — MISTAKES ============ */
+.s2{background:linear-gradient(170deg,#FFFFFF 0%,#F2F5F4 60%,#E8EEEB 100%)}
+.s2 .ghost{position:absolute;right:-180px;top:-120px;width:640px;opacity:.5}
+.s2 .head{position:absolute;left:72px;right:72px;top:176px}
+.s2 .h1{font-size:90px}
+.s2 .list{position:absolute;left:72px;right:72px;top:420px;display:grid;gap:26px}
+.s2 .item{display:grid;grid-template-columns:172px 1fr;align-items:center;gap:40px;padding:24px 40px 24px 24px;min-height:220px}
+.s2 .icon{width:172px;height:172px;border-radius:30px;position:relative;
+  background:radial-gradient(120% 120% at 25% 15%,#FFFFFF 0%,#EEF3F1 55%,#DCE6E1 100%);
+  box-shadow:inset 0 2px 0 #fff,inset 0 -10px 24px rgba(11,51,38,.08),0 18px 30px -18px rgba(11,51,38,.4)}
+.s2 .icon svg{position:absolute;inset:0;width:100%;height:100%}
+.s2 .num{font-size:22px;font-weight:700;color:var(--alert);letter-spacing:.06em;margin-bottom:12px}
+.s2 .txt{font-size:38px;line-height:1.28;font-weight:600;color:var(--green-900)}
+
+/* ============ SLIDE 3 — PAINKILLERS ============ */
+.s3{background:radial-gradient(800px 700px at 62% 58%,#FFFFFF 0%,#F1F5F3 60%,#E5ECE8 100%)}
+.s3 .head{position:absolute;left:72px;right:72px;top:176px}
+.s3 .h1{font-size:80px;max-width:940px}
+.s3 .visual{position:absolute;left:0;top:440px;width:1080px;height:480px}
+.s3 .spine{position:absolute;left:560px;top:-10px;width:434px;height:480px}
+.s3 .capsule{position:absolute;left:80px;top:0;width:360px;height:284px}
+.s3 .t1{position:absolute;left:72px;top:300px}
+.s3 .t2{position:absolute;left:72px;top:376px}
+.s3 .panel{position:absolute;left:72px;right:72px;bottom:150px;padding:44px 52px}
+.s3 .panel p{font-size:36px;line-height:1.42;color:#2E4239}
+.s3 .panel p + p{margin-top:14px;font-weight:600;color:var(--green-900)}
+
+/* ============ SLIDE 4 — MASSAGE & EXERCISE ============ */
+.s4{background:linear-gradient(180deg,#F4F7F6 0%,#FFFFFF 45%,#EEF3F0 100%)}
+.s4 .head{position:absolute;left:72px;right:72px;top:176px}
+.s4 .h1{font-size:82px;max-width:940px}
+.s4 .visual{position:absolute;left:0;top:430px;width:1080px;height:450px}
+.s4 .panel{position:absolute;left:72px;right:72px;bottom:150px;padding:44px 52px;display:grid;grid-template-columns:8px 1fr;gap:36px}
+.s4 .panel .bar{border-radius:8px;background:linear-gradient(180deg,var(--green-600),var(--green-300))}
+.s4 .panel p{font-size:34px;line-height:1.42;color:#2E4239}
+.s4 .panel p + p{margin-top:16px;color:var(--green-900);font-weight:600}
+
+/* ============ SLIDE 5 — DIAGNOSIS ============ */
+.s5{background:linear-gradient(160deg,#FFFFFF 0%,#F2F6F4 50%,#E4ECE8 100%)}
+.s5 .head{position:absolute;left:72px;right:72px;top:176px}
+.s5 .h1{font-size:84px;max-width:900px}
+.s5 .grid{position:absolute;left:72px;right:72px;top:450px;bottom:150px;display:grid;grid-template-columns:1fr 430px;gap:48px}
+.s5 .steps{list-style:none;display:flex;flex-direction:column;justify-content:space-between;position:relative;padding:14px 0}
+.s5 .steps::before{content:"";position:absolute;left:39px;top:60px;bottom:60px;width:2px;background:linear-gradient(180deg,var(--green-600),var(--green-300))}
+.s5 .step{display:grid;grid-template-columns:80px 1fr;gap:28px;align-items:center;position:relative}
+.s5 .step .n{width:80px;height:80px;border-radius:50%;display:grid;place-items:center;font-size:32px;font-weight:700;color:var(--green-900);
+  background:radial-gradient(circle at 30% 25%,#fff,#E3EEE9);border:2px solid #fff;box-shadow:0 12px 24px -12px rgba(11,51,38,.45),0 0 0 1.5px rgba(30,107,83,.35)}
+.s5 .step:last-child .n{background:radial-gradient(circle at 30% 25%,#2B8467,#0F4232);color:#fff;box-shadow:0 14px 26px -12px rgba(11,51,38,.7)}
+.s5 .step .t{font-size:36px;line-height:1.25;font-weight:600;color:var(--green-900)}
+.s5 .mri{position:relative;border-radius:34px;overflow:hidden;background:#07130F;
+  box-shadow:0 40px 70px -30px rgba(7,25,19,.75),0 0 0 1px rgba(255,255,255,.06)}
+.s5 .mri svg{width:100%;height:100%}
+
+/* ============ SLIDE 6 — CTA ============ */
+.s6{background:radial-gradient(1100px 900px at 85% 10%,#1F6B53 0%,#0F4232 45%,#082A1F 100%);color:#fff}
+.s6 .logo{color:#fff}
+.s6 .count{color:rgba(255,255,255,.6)}.s6 .count b{color:#fff}
+.s6 .s-bottom{color:rgba(255,255,255,.6)}
+.s6 .s-bottom > span:first-child{visibility:hidden}
+.s6 .progress i{background:rgba(255,255,255,.22)}.s6 .progress i.on{background:#fff}
+.s6 .art{position:absolute;right:-230px;top:110px;width:640px;height:1100px;opacity:.75}
+.s6 .copy{position:absolute;left:72px;right:72px;top:250px}
+.s6 .h1{color:#fff;font-size:96px;max-width:760px}
+.s6 .about{margin-top:44px;max-width:600px;font-size:36px;line-height:1.4;color:rgba(255,255,255,.82)}
+.s6 .about b{color:#fff;font-weight:700;letter-spacing:.06em}
+.s6 .cta-block{position:absolute;left:72px;right:72px;bottom:150px;display:grid;gap:22px}
+.s6 .cta{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:34px 34px 34px 48px;border-radius:999px;
+  background:linear-gradient(180deg,#FFFFFF,#E9F2EE);color:var(--green-900);font-size:35px;white-space:nowrap;font-weight:700;
+  box-shadow:0 30px 60px -24px rgba(0,0,0,.55),inset 0 -3px 0 rgba(11,51,38,.08)}
+.s6 .cta .go{width:84px;height:84px;border-radius:50%;background:var(--green-900);display:grid;place-items:center;flex:none}
+.s6 .cta .go svg{width:36px;height:36px}
+.s6 .addr{display:flex;align-items:center;gap:20px;padding:26px 36px;border-radius:999px;font-size:32px;font-weight:500;
+  background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.05));border:1.5px solid rgba(255,255,255,.22);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.s6 .addr svg{width:40px;height:40px;flex:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><use href="#logo-mark"/></svg>
+      <div>BELES<small>Грыжа туралы карусель · 6 слайд · 1080 × 1350</small></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="exportAll">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+        <span>Барлығын жүктеу</span><span class="long">&nbsp;(6 PNG)</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <button class="arrow" id="prev" aria-label="Алдыңғы слайд">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="viewport" id="viewport">
+      <div class="frame" id="frame">
+        <div class="scaler" id="scaler">
+
+<!-- ================= SLIDE 1 ================= -->
+<section class="slide s1" data-title="Мұқаба" aria-label="Слайд 1">
+  <svg class="rings a-fade" width="1080" height="1350" viewBox="0 0 1080 1350" aria-hidden="true">
+    <g fill="none" stroke="#1E6B53">
+      <circle cx="590" cy="265" r="150" stroke-opacity=".10"/>
+      <circle cx="590" cy="265" r="260" stroke-opacity=".08" stroke-dasharray="2 10"/>
+      <circle cx="590" cy="265" r="390" stroke-opacity=".06"/>
+      <circle cx="590" cy="265" r="540" stroke-opacity=".05" stroke-dasharray="2 10"/>
+    </g>
+  </svg>
+  <div class="spine a-float d1" data-spine='{"n":4,"hi":1,"side":-1,"W0":290,"dW":10,"H":138,"disc":42,"tilt":-7,"sacrum":false,"top":40,"vb":[760,1180],"cx":400}'></div>
+  <div class="fade-bottom"></div>
+  <div class="callout a-rise d4">
+    <svg class="callout-line" width="480" height="120" viewBox="0 0 480 120" aria-hidden="true">
+      <path d="M200 55 H440" fill="none" stroke="#E0614A" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="446" cy="55" r="9" fill="#fff" stroke="#E0614A" stroke-width="3"/>
+    </svg>
+    <div class="tag alert glass" style="position:absolute;left:-6px;top:30px;border-radius:999px">
+      <span class="pin"></span>Диск грыжасы
+    </div>
+  </div>
+  <div class="copy">
+    <div class="rule a-rise d2"></div>
+    <h1 class="h1 a-rise d2">ГРЫЖАНЫ ӨЗ БЕТІҢІЗШЕ ЕМДЕУГЕ БОЛМАЙДЫ!</h1>
+    <p class="lead a-rise d3">Өз бетіңізше емделу жағдайыңызды қиындатуы мүмкін.</p>
+  </div>
+</section>
+
+<!-- ================= SLIDE 2 ================= -->
+<section class="slide s2" data-title="Қателіктер" aria-label="Слайд 2">
+  <div class="ghost a-fade" data-spine='{"n":3,"hi":-1,"W0":260,"dW":8,"H":130,"disc":38,"tilt":12,"sacrum":false,"top":20,"vb":[640,700],"cx":330,"mono":true}'></div>
+  <div class="head"><h2 class="h1 a-rise d1">ГРЫЖА КЕЗІНДЕГІ<br>3 ҚАТЕЛІК</h2></div>
+  <div class="list">
+    <div class="item glass a-rise d2">
+      <div class="icon"><svg viewBox="0 0 200 200" aria-hidden="true"><use href="#ic-pill"/></svg></div>
+      <div><div class="num">1-ҚАТЕЛІК</div><div class="txt">Дәрігерсіз дәрі қабылдау.</div></div>
+    </div>
+    <div class="item glass a-rise d3">
+      <div class="icon"><svg viewBox="0 0 200 200" aria-hidden="true"><use href="#ic-massage"/></svg></div>
+      <div><div class="num">2-ҚАТЕЛІК</div><div class="txt">Ауырсынған жерді қарқынды уқалау.</div></div>
+    </div>
+    <div class="item glass a-rise d4">
+      <div class="icon"><svg viewBox="0 0 200 200" aria-hidden="true"><use href="#ic-video"/></svg></div>
+      <div><div class="num">3-ҚАТЕЛІК</div><div class="txt">Интернеттен көрген жаттығуларды бақылаусыз орындау.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SLIDE 3 ================= -->
+<section class="slide s3" data-title="Дәрілер" aria-label="Слайд 3">
+  <div class="head"><h2 class="h1 a-rise d1">АУЫРСЫНУДЫ БАСАТЫН ДӘРІЛЕР ГРЫЖАНЫ ЕМДЕЙ МЕ?</h2></div>
+  <div class="visual">
+    <div class="spine a-float d2" data-spine='{"n":3,"hi":1,"side":-1,"W0":250,"dW":8,"H":124,"disc":38,"tilt":-4,"sacrum":false,"top":40,"vb":[560,620],"cx":280}'></div>
+    <svg class="capsule a-float d3" viewBox="0 0 380 300" aria-hidden="true"><use href="#capsule3d"/></svg>
+    <div class="tag glass t1 a-rise d4"><span class="pin"></span>Ауырсыну уақытша басылуы мүмкін</div>
+    <div class="tag glass alert t2 a-rise d5"><span class="pin"></span>Диск өздігінен қалпына келмейді</div>
+  </div>
+  <div class="panel glass a-rise d4">
+    <p>Ауырсынуды уақытша азайтуы мүмкін.</p>
+    <p>Бірақ дискінің жағдайын өздігінен қалпына келтірмейді.</p>
+  </div>
+</section>
+
+<!-- ================= SLIDE 4 ================= -->
+<section class="slide s4" data-title="Массаж бен жаттығу" aria-label="Слайд 4">
+  <div class="head"><h2 class="h1 a-rise d1">МАССАЖ БЕН ЖАТТЫҒУ ӘРҚАШАН ҚАУІПСІЗ ЕМЕС</h2></div>
+  <div class="visual a-float d2" id="nerveVisual"></div>
+  <div class="panel glass a-rise d4">
+    <div class="bar"></div>
+    <div>
+      <p>Емдеу әдісі науқастың жағдайына байланысты таңдалады.</p>
+      <p>Дәрігер кеңесінсіз қарқынды массаж немесе жаттығу жасауға болмайды.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SLIDE 5 ================= -->
+<section class="slide s5" data-title="Диагностика" aria-label="Слайд 5">
+  <div class="head"><h2 class="h1 a-rise d1">ДҰРЫС ЕМ НЕДЕН БАСТАЛАДЫ?</h2></div>
+  <div class="grid">
+    <ol class="steps">
+      <li class="step a-rise d2"><span class="n">1</span><span class="t">Дәрігер консультациясы.</span></li>
+      <li class="step a-rise d3"><span class="n">2</span><span class="t">Неврологиялық тексеру.</span></li>
+      <li class="step a-rise d4"><span class="n">3</span><span class="t">МРТ нәтижесін бағалау.</span></li>
+      <li class="step a-rise d5"><span class="n">4</span><span class="t">Жеке емдеу жоспарын құру.</span></li>
+    </ol>
+    <div class="mri a-float d3" id="mri"></div>
+  </div>
+</section>
+
+<!-- ================= SLIDE 6 ================= -->
+<section class="slide s6" data-title="Жазылу" aria-label="Слайд 6">
+  <div class="art a-fade d1" id="lineSpine"></div>
+  <div class="copy">
+    <h2 class="h1 a-rise d1">ОМЫРТҚА САУЛЫҒЫН КЕЙІНГЕ ҚАЛДЫРМАҢЫЗ!</h2>
+    <p class="about a-rise d2"><b>BELES</b> — омыртқа мен буындарды сауықтыру орталығы.</p>
+  </div>
+  <div class="cta-block">
+    <div class="cta a-rise d3">
+      <span>Дәрігер консультациясына жазылыңыз!</span>
+      <span class="go"><svg viewBox="0 0 36 36" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h18M19 10l8 8-8 8"/></svg></span>
+    </div>
+    <div class="addr a-rise d4">
+      <svg viewBox="0 0 40 40" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"><path d="M20 36s11-10.2 11-19a11 11 0 1 0-22 0c0 8.8 11 19 11 19Z"/><circle cx="20" cy="17" r="4"/></svg>
+      Шернияз көшесі, 68
+    </div>
+  </div>
+</section>
+
+        </div>
+      </div>
+    </div>
+    <button class="arrow" id="next" aria-label="Келесі слайд">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </main>
+
+  <footer class="controls">
+    <div class="dots" id="dots" role="tablist" aria-label="Слайдтар"></div>
+    <div class="exports" id="exports"></div>
+    <p class="hint" id="hint">Әр слайд 1080 × 1350 px PNG болып жүктеледі. Ауыстыру: көрсеткілер, пернетақта немесе саусақпен сырғыту.</p>
+  </footer>
+</div>
+
+<!-- Shared symbols for the shell only (slides inline their own graphics so exports are self-contained) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo-mark" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="23" fill="#0B3326"/>
+    <rect x="15" y="10" width="18" height="7" rx="3.5" fill="#fff"/>
+    <rect x="13.5" y="20.5" width="21" height="7" rx="3.5" fill="#fff"/>
+    <rect x="12" y="31" width="24" height="7" rx="3.5" fill="#9DBFB1"/>
+  </symbol>
+</svg>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+<script>
+if(!window.htmlToImage){document.write('<script src="https://unpkg.com/html-to-image@1.11.11/dist/html-to-image.js"><\/script>')}
+</script>
+<script>
+(function(){
+'use strict';
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+let uid = 0;
+
+/* ---------- Brand logo (inline per slide) ---------- */
+const LOGO = (light)=>`<svg viewBox="0 0 48 48" aria-hidden="true">
+  <circle cx="24" cy="24" r="23" fill="${light?'#FFFFFF':'#0B3326'}"/>
+  <rect x="15" y="10" width="18" height="7" rx="3.5" fill="${light?'#0B3326':'#fff'}"/>
+  <rect x="13.5" y="20.5" width="21" height="7" rx="3.5" fill="${light?'#0B3326':'#fff'}"/>
+  <rect x="12" y="31" width="24" height="7" rx="3.5" fill="${light?'#1E6B53':'#9DBFB1'}"/></svg>`;
+
+/* ---------- 3D lumbar spine generator (anterior 3/4 view) ---------- */
+function spineSVG(o){
+  const p = 'sp'+(++uid);
+  const [VW,VH] = o.vb;
+  const cx = o.cx;
+  const mono = !!o.mono;
+  const items = [];
+  let y = o.top;
+  for(let i=0;i<o.n;i++){
+    const W = o.W0 + i*o.dW, H = o.H;
+    items.push({type:'v', i, W, H, y:y+H/2});
+    y += H;
+    if(i<o.n-1 || o.sacrum){
+      items.push({type:'d', i, W:W*0.97+o.dW/2, H:o.disc, y:y+o.disc/2 - 6, hi:i===o.hi});
+      y += o.disc - 12;
+    }
+  }
+  const total = y;
+  const xAt = (yy)=> cx + Math.sin((yy/total)*Math.PI)*18;
+  const rotAt = (yy)=> Math.cos((yy/total)*Math.PI)*3;
+
+  const bone = mono
+    ? ['#C9D3CE','#E3E9E6','#F3F6F4','#E8EDEA','#CFD8D4','#BAC5C0']
+    : ['#7E8C85','#C3CBC5','#F5F3EC','#E7E4DA','#AEB7B0','#6F7D76'];
+
+  const defs = `
+  <defs>
+    <linearGradient id="${p}b" x1="0" x2="1">
+      <stop offset="0" stop-color="${bone[0]}"/><stop offset=".2" stop-color="${bone[1]}"/>
+      <stop offset=".44" stop-color="${bone[2]}"/><stop offset=".62" stop-color="${bone[3]}"/>
+      <stop offset=".86" stop-color="${bone[4]}"/><stop offset="1" stop-color="${bone[5]}"/>
+    </linearGradient>
+    <linearGradient id="${p}bv" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".8" stop-color="#3A4A43" stop-opacity="0"/><stop offset="1" stop-color="#3A4A43" stop-opacity=".35"/>
+    </linearGradient>
+    <radialGradient id="${p}cap" cx=".42" cy=".4" r=".7">
+      <stop offset="0" stop-color="#FFFEFA"/><stop offset=".7" stop-color="#E4E4DC"/><stop offset="1" stop-color="#C3C8C1"/>
+    </radialGradient>
+    <linearGradient id="${p}pr" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${mono?'#E9EEEB':'#E9E8E0'}"/><stop offset=".55" stop-color="${mono?'#D3DCD8':'#C5CBC4'}"/><stop offset="1" stop-color="${mono?'#BCC7C2':'#8E9993'}"/>
+    </linearGradient>
+    <linearGradient id="${p}d" x1="0" x2="1">
+      <stop offset="0" stop-color="${mono?'#C8D6D2':'#8EA7AA'}"/><stop offset=".25" stop-color="${mono?'#E7EFEC':'#D7E6E6'}"/>
+      <stop offset=".46" stop-color="#FFFFFF"/><stop offset=".7" stop-color="${mono?'#E1EAE7':'#CFE0DF'}"/><stop offset="1" stop-color="${mono?'#BFCECA':'#7F989C'}"/>
+    </linearGradient>
+    <linearGradient id="${p}dh" x1="0" x2="1">
+      <stop offset="0" stop-color="#A9402D"/><stop offset=".25" stop-color="#E9735B"/>
+      <stop offset=".46" stop-color="#FFC9BA"/><stop offset=".72" stop-color="#EE765E"/><stop offset="1" stop-color="#B13F2B"/>
+    </linearGradient>
+    <radialGradient id="${p}bulge" cx=".38" cy=".38" r=".7">
+      <stop offset="0" stop-color="#FFE0D7"/><stop offset=".45" stop-color="#F07B63"/><stop offset="1" stop-color="#B53A27"/>
+    </radialGradient>
+    <radialGradient id="${p}glow"><stop offset="0" stop-color="#F26B52" stop-opacity=".55"/><stop offset="1" stop-color="#F26B52" stop-opacity="0"/></radialGradient>
+    <filter id="${p}sh" x="-30%" y="-10%" width="160%" height="130%">
+      <feDropShadow dx="18" dy="28" stdDeviation="22" flood-color="#0B3326" flood-opacity="${mono?.06:.22}"/>
+    </filter>
+  </defs>`;
+
+  // Vertebra
+  const vert = (W,H)=>{
+    const e = W*0.17, a=W/2, h=H/2, k=W*0.075;
+    const wing = `M ${-W*0.32} ${-h*0.55}
+      C ${-W*0.55} ${-h*0.78} ${-W*0.82} ${-h*0.62} ${-W*0.93} ${-h*0.42}
+      C ${-W*1.0} ${-h*0.25} ${-W*0.92} ${-h*0.08} ${-W*0.8} ${-h*0.14}
+      C ${-W*0.64} ${-h*0.22} ${-W*0.48} ${-h*0.02} ${-W*0.32} ${h*0.1} Z`;
+    const art = `M ${-W*0.24} ${-h*0.9} c ${-W*0.05} ${-h*0.32} ${W*0.05} ${-h*0.5} ${W*0.1} ${-h*0.3} l ${W*0.03} ${h*0.4} Z`;
+    const inf = `M ${-W*0.26} ${h*0.55} c ${-W*0.02} ${h*0.35} ${W*0.06} ${h*0.55} ${W*0.12} ${h*0.35} l ${-W*0.02} ${-h*0.4} Z`;
+    return `
+      <path d="${wing}" fill="url(#${p}pr)" stroke="#6F7D76" stroke-opacity=".22" stroke-width="1.5"/>
+      <path d="${wing}" fill="url(#${p}pr)" stroke="#6F7D76" stroke-opacity=".22" stroke-width="1.5" transform="scale(-1,1)"/>
+      <path d="${art}" fill="url(#${p}pr)"/><path d="${art}" fill="url(#${p}pr)" transform="scale(-1,1)"/>
+      <path d="${inf}" fill="url(#${p}pr)"/><path d="${inf}" fill="url(#${p}pr)" transform="scale(-1,1)"/>
+      <path d="M ${-a} ${-h} C ${-a+k} ${-h*0.3} ${-a+k} ${h*0.3} ${-a} ${h}
+               A ${a} ${e} 0 0 0 ${a} ${h}
+               C ${a-k} ${h*0.3} ${a-k} ${-h*0.3} ${a} ${-h}
+               A ${a} ${e} 0 0 0 ${-a} ${-h} Z" fill="url(#${p}b)"/>
+      <path d="M ${-a} ${-h} C ${-a+k} ${-h*0.3} ${-a+k} ${h*0.3} ${-a} ${h}
+               A ${a} ${e} 0 0 0 ${a} ${h}
+               C ${a-k} ${h*0.3} ${a-k} ${-h*0.3} ${a} ${-h}
+               A ${a} ${e} 0 0 0 ${-a} ${-h} Z" fill="url(#${p}bv)"/>
+      <ellipse cx="0" cy="${-h}" rx="${a}" ry="${e}" fill="url(#${p}cap)"/>
+      <ellipse cx="0" cy="${-h}" rx="${a*0.78}" ry="${e*0.72}" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5"/>
+      <path d="M ${-a*0.62} ${-h*0.2} Q 0 ${h*0.05} ${a*0.5} ${-h*0.25}" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>
+      <path d="M ${-a*0.5} ${h*0.45} Q 0 ${h*0.65} ${a*0.55} ${h*0.42}" fill="none" stroke="#56645D" stroke-opacity=".18" stroke-width="2"/>`;
+  };
+  // Disc
+  const side = o.side||1;
+  const disc = (W,H,hi)=>{
+    const e=W*0.17, a=W/2, h=H/2;
+    const g = hi ? `${p}dh` : `${p}d`;
+    let s = `
+      <path d="M ${-a} ${-h} L ${-a} ${h} A ${a} ${e} 0 0 0 ${a} ${h} L ${a} ${-h} A ${a} ${e} 0 0 0 ${-a} ${-h} Z" fill="url(#${g})"/>
+      <path d="M ${-a*0.9} ${0} A ${a*0.9} ${e*0.9} 0 0 0 ${a*0.9} 0" fill="none" stroke="#fff" stroke-opacity="${hi?.35:.55}" stroke-width="1.5"/>
+      <path d="M ${-a*0.95} ${h*0.55} A ${a*0.95} ${e*0.95} 0 0 0 ${a*0.95} ${h*0.55}" fill="none" stroke="#fff" stroke-opacity="${hi?.25:.4}" stroke-width="1.2"/>`;
+    if(hi){
+      const bx=a*0.86, by=h*0.9+e*0.35;
+      const flip = side<0 ? ' transform="scale(-1,1)"' : '';
+      s = `<g${flip}>
+      <ellipse cx="${bx}" cy="${by}" rx="${W*0.42}" ry="${W*0.32}" fill="url(#${p}glow)"/>
+      <circle class="pulse-ring" cx="${bx}" cy="${by}" r="${W*0.13}" fill="none" stroke="#E0614A" stroke-width="3"/>` + s + `
+      <path d="M ${bx-W*0.17} ${by-H*0.55} C ${bx-W*0.05} ${by-H*1.0} ${bx+W*0.2} ${by-H*0.7} ${bx+W*0.19} ${by}
+               C ${bx+W*0.18} ${by+H*0.7} ${bx-W*0.06} ${by+H*0.95} ${bx-W*0.17} ${by+H*0.5} Z" fill="url(#${p}bulge)"/>
+      <ellipse cx="${bx+W*0.02}" cy="${by-H*0.2}" rx="${W*0.05}" ry="${H*0.18}" fill="#fff" fill-opacity=".55"/></g>`;
+    }
+    return s;
+  };
+  // Nerve roots
+  const nerves = (W,yy,hi)=>{
+    const L = (side,hot)=>{
+      const sx = side*W*0.36, col = hot?'#E0614A':'#D7A548', lite = hot?'#FFC3B4':'#F6DC9A';
+      const d = `M ${sx} ${-4} C ${side*W*0.7} ${10} ${side*W*0.85} ${70} ${side*W*1.02} ${190}`;
+      return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${hot?13:10}" stroke-linecap="round" ${hot?'opacity=".95"':''}/>
+              <path d="${d}" fill="none" stroke="${lite}" stroke-width="3.5" stroke-linecap="round" opacity=".9"/>`;
+    };
+    return L(-1,hi&&side<0)+L(1,hi&&side>0);
+  };
+
+  // Build order: bottom to top (upper pieces overlap lower ones)
+  let back='', front='';
+  if(o.nerves){
+    items.filter(it=>it.type==='d').forEach(it=>{
+      back += `<g transform="translate(${xAt(it.y)},${it.y}) rotate(${rotAt(it.y)})">${nerves(it.W,it.y,it.hi)}</g>`;
+    });
+  }
+  for(let j=items.length-1;j>=0;j--){
+    const it = items[j];
+    const t = `translate(${xAt(it.y).toFixed(1)},${it.y.toFixed(1)}) rotate(${rotAt(it.y).toFixed(2)})`;
+    front += `<g transform="${t}">${it.type==='v'?vert(it.W,it.H):disc(it.W,it.H,it.hi)}</g>`;
+  }
+  return `<svg viewBox="0 0 ${VW} ${VH}" width="100%" height="100%" aria-hidden="true">${defs}
+    <g transform="rotate(${o.tilt} ${cx} ${VH/2})" filter="url(#${p}sh)">${back}${front}</g></svg>`;
+}
+
+$$('[data-spine]').forEach(el=>{ el.innerHTML = spineSVG(JSON.parse(el.dataset.spine)); });
+
+/* ---------- Slide 4: close-up with nerve roots + annotations ---------- */
+(function(){
+  const host = $('#nerveVisual');
+  const sp = spineSVG({n:2,hi:0,W0:300,dW:6,H:140,disc:50,tilt:0,sacrum:false,top:60,vb:[1080,450],cx:520,nerves:true});
+  const lab = (x,y,tx,ty,text,alert)=>`
+    <path d="M ${x} ${y} L ${tx} ${ty}" stroke="${alert?'#E0614A':'#1E6B53'}" stroke-width="2.5" fill="none"/>
+    <circle cx="${x}" cy="${y}" r="8" fill="#fff" stroke="${alert?'#E0614A':'#1E6B53'}" stroke-width="3"/>`;
+  host.innerHTML = `
+  <div style="position:absolute;inset:0">${sp}</div>
+  <svg style="position:absolute;inset:0" width="1080" height="450" viewBox="0 0 1080 450" aria-hidden="true">
+    ${lab(420,130,300,130,'',false)}
+    ${lab(400,222,300,222,'',false)}
+    ${lab(712,262,860,200,'',true)}
+    ${lab(792,330,860,372,'',false)}
+  </svg>
+  <div class="tag glass" style="position:absolute;left:72px;top:104px">Омыртқа денесі</div>
+  <div class="tag glass" style="position:absolute;left:72px;top:196px">Диск</div>
+  <div class="tag glass alert" style="position:absolute;left:836px;top:154px"><span class="pin"></span>Грыжа</div>
+  <div class="tag glass" style="position:absolute;left:770px;top:368px"><span class="pin" style="background:#D7A548;box-shadow:0 0 0 6px rgba(215,165,72,.2)"></span>Жүйке түбірі</div>`;
+})();
+
+/* ---------- Slide 5: sagittal MRI ---------- */
+(function(){
+  const host = $('#mri');
+  const W=430, H=750; const p='mri'+(++uid);
+  let bodies='', discs='', post='';
+  const n=6;
+  for(let i=0;i<n;i++){
+    const y = 120 + i*96;
+    const x = 150 + Math.sin(((i+0.5)/n)*Math.PI)*-22 + i*4;
+    const r = -6 + i*3.2;
+    bodies += `<g transform="translate(${x},${y}) rotate(${r})">
+      <rect x="-62" y="-36" width="124" height="72" rx="16" fill="url(#${p}v)"/>
+      <rect x="-50" y="-26" width="100" height="52" rx="12" fill="#fff" opacity=".06"/></g>`;
+    post += `<g transform="translate(${x+150},${y+6}) rotate(${r+12})"><ellipse rx="34" ry="24" fill="#5E6863" opacity=".55"/></g>`;
+    if(i<n-1){
+      const yd = y+48, xd = x+3, hot = i===3;
+      discs += `<g transform="translate(${xd},${yd}) rotate(${r+1.6})">
+        <rect x="-60" y="-10" width="120" height="20" rx="10" fill="${hot?'#7D8A85':'#E9F2EF'}" opacity="${hot?1:.92}"/>
+        <ellipse cx="0" cy="0" rx="36" ry="6" fill="#fff" opacity="${hot?.15:.85}"/>
+        ${hot?`<path d="M 56 -9 C 86 -12 94 12 56 10 Z" fill="#8F9C97"/>`:''}
+      </g>`;
+    }
+  }
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="${p}v" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C7CEC9"/><stop offset="1" stop-color="#6E7A74"/></linearGradient>
+      <radialGradient id="${p}bg" cx=".45" cy=".5" r=".75"><stop offset="0" stop-color="#1A2B25"/><stop offset="1" stop-color="#040B08"/></radialGradient>
+      <linearGradient id="${p}scan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FE0BC" stop-opacity="0"/><stop offset="1" stop-color="#7FE0BC" stop-opacity=".35"/></linearGradient>
+      <linearGradient id="${p}band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#040B08" stop-opacity="0"/><stop offset=".6" stop-color="#040B08" stop-opacity=".92"/></linearGradient>
+      <filter id="${p}blur"><feGaussianBlur stdDeviation="2.2"/></filter>
+      <filter id="${p}soft"><feGaussianBlur stdDeviation="7"/></filter>
+      <filter id="${p}noise" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4"/>
+        <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .07 0"/>
+      </filter>
+      <clipPath id="${p}clip"><rect x="0" y="0" width="${W}" height="${H}"/></clipPath>
+    </defs>
+    <rect width="${W}" height="${H}" fill="url(#${p}bg)"/>
+    <g clip-path="url(#${p}clip)">
+      <ellipse cx="210" cy="380" rx="230" ry="420" fill="#2A3A34" opacity=".55" filter="url(#${p}soft)"/>
+      <path d="M 250 40 C 232 230 240 470 262 690" stroke="#E9F5F1" stroke-width="30" fill="none" opacity=".85" filter="url(#${p}blur)"/>
+      <path d="M 250 40 C 232 230 240 470 262 690" stroke="#9CB0A9" stroke-width="10" fill="none" opacity=".55" filter="url(#${p}blur)"/>
+      <g filter="url(#${p}blur)">${post}${bodies}${discs}</g>
+      <circle cx="232" cy="478" r="42" fill="none" stroke="#E0614A" stroke-width="3"/>
+      <circle class="pulse-ring" cx="232" cy="478" r="42" fill="none" stroke="#E0614A" stroke-width="2"/>
+      <rect class="scanline" x="0" y="-60" width="${W}" height="60" fill="url(#${p}scan)"/>
+      <rect x="0" y="0" width="${W}" height="2" fill="#7FE0BC" opacity=".6" class="scanline"/>
+      <rect width="${W}" height="${H}" filter="url(#${p}noise)"/>
+    </g>
+    <g stroke="#CFE7DE" stroke-width="2.5" fill="none" opacity=".7">
+      <path d="M 26 64 V 26 H 64"/><path d="M ${W-64} 26 H ${W-26} V 64"/>
+      <path d="M 26 ${H-64} V ${H-26} H 64"/><path d="M ${W-64} ${H-26} H ${W-26} V ${H-64}"/>
+    </g>
+    <g stroke="#CFE7DE" opacity=".35">
+      ${Array.from({length:17},(_,i)=>`<line x1="${W-30}" x2="${W-(i%4?40:52)}" y1="${140+i*30}" y2="${140+i*30}" stroke-width="1.5"/>`).join('')}
+    </g>
+    <line x1="232" y1="420" x2="232" y2="436" stroke="#E0614A" stroke-width="2"/>
+    <line x1="232" y1="520" x2="232" y2="536" stroke="#E0614A" stroke-width="2"/>
+    <rect x="0" y="${H-120}" width="${W}" height="120" fill="url(#${p}band)"/>
+    <text x="40" y="${H-44}" font-family="Onest, sans-serif" font-size="22" font-weight="600" fill="#E6F2EE" opacity=".9">МРТ</text>
+    <text x="96" y="${H-44}" font-family="Onest, sans-serif" font-size="20" fill="#A8BDB5">сагиттал кескін, мысал</text>
+  </svg>`;
+})();
+
+/* ---------- Slide 6: line-art spine ---------- */
+(function(){
+  const host = $('#lineSpine');
+  let s='';
+  for(let i=0;i<6;i++){
+    const y=120+i*150, w=200+i*12, x=330+Math.sin(i/5*Math.PI)*40;
+    s+=`<g transform="translate(${x},${y}) rotate(${-6+i*2.4})" fill="none" stroke="#fff">
+      <rect x="${-w/2}" y="-50" width="${w}" height="100" rx="34" stroke-opacity=".38" stroke-width="2"/>
+      <ellipse cx="0" cy="-50" rx="${w/2-6}" ry="16" stroke-opacity=".22" stroke-width="1.5"/>
+      <path d="M ${-w/2} -20 C ${-w*0.85} -40 ${-w*1.05} -10 ${-w*1.1} 20" stroke-opacity=".2" stroke-width="2"/>
+      <path d="M ${w/2} -20 C ${w*0.85} -40 ${w*1.05} -10 ${w*1.1} 20" stroke-opacity=".2" stroke-width="2"/>
+      ${i<5?`<rect x="${-w/2+6}" y="58" width="${w-12}" height="28" rx="14" stroke-opacity=".5" stroke-width="2" fill="#fff" fill-opacity=".04"/>`:''}
+    </g>`;
+  }
+  host.innerHTML = `<svg viewBox="0 0 640 1100" width="100%" height="100%" aria-hidden="true">
+    <defs><radialGradient id="l6g" cx=".5" cy=".42" r=".55"><stop offset="0" stop-color="#3FA07F" stop-opacity=".35"/><stop offset="1" stop-color="#3FA07F" stop-opacity="0"/></radialGradient></defs>
+    <ellipse cx="330" cy="470" rx="330" ry="520" fill="url(#l6g)"/>${s}</svg>`;
+})();
+
+/* ---------- Slide 2 icons + Slide 3 capsule (inlined into each use so exports stay self-contained) ---------- */
+const SYMBOLS = {
+  'ic-pill': `
+    <defs>
+      <linearGradient id="ipA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#D5DFDA"/></linearGradient>
+      <linearGradient id="ipB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F8A6C"/><stop offset="1" stop-color="#0B3326"/></linearGradient>
+      <radialGradient id="ipT" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#CFDAD5"/></radialGradient>
+    </defs>
+    <ellipse cx="100" cy="150" rx="58" ry="9" fill="#0B3326" opacity=".12"/>
+    <g transform="rotate(-35 92 96)">
+      <rect x="44" y="76" width="96" height="40" rx="20" fill="url(#ipA)" stroke="#0B3326" stroke-opacity=".15"/>
+      <path d="M92 76 H120 a20 20 0 0 1 0 40 H92 Z" fill="url(#ipB)"/>
+      <rect x="54" y="82" width="70" height="7" rx="3.5" fill="#fff" opacity=".8"/>
+    </g>
+    <circle cx="136" cy="128" r="22" fill="url(#ipT)" stroke="#0B3326" stroke-opacity=".15"/>
+    <path d="M124 128 H148" stroke="#0B3326" stroke-opacity=".25" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="156" cy="48" r="20" fill="#E0614A"/>
+    <path d="M149 41 L163 55 M163 41 L149 55" stroke="#fff" stroke-width="4" stroke-linecap="round"/>`,
+  'ic-massage': `
+    <defs><linearGradient id="imA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#CBD8D2"/></linearGradient></defs>
+    <path d="M58 168 C 54 120 50 92 66 70 C 78 56 122 56 134 70 C 150 92 146 120 142 168 Z" fill="url(#imA)" stroke="#0B3326" stroke-opacity=".18" stroke-width="2"/>
+    <path d="M100 66 V 160" stroke="#1E6B53" stroke-width="3" stroke-dasharray="6 7" stroke-linecap="round"/>
+    <circle cx="100" cy="132" r="14" fill="#E0614A" opacity=".9"/>
+    <circle cx="100" cy="132" r="26" fill="none" stroke="#E0614A" stroke-width="3" opacity=".55"/>
+    <circle cx="100" cy="132" r="38" fill="none" stroke="#E0614A" stroke-width="2" opacity=".28"/>
+    <path d="M56 104 c 10 -6 22 -2 26 8 l 6 14" fill="none" stroke="#0B3326" stroke-width="7" stroke-linecap="round"/>
+    <path d="M144 104 c -10 -6 -22 -2 -26 8 l -6 14" fill="none" stroke="#0B3326" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="156" cy="48" r="20" fill="#E0614A"/>
+    <path d="M149 41 L163 55 M163 41 L149 55" stroke="#fff" stroke-width="4" stroke-linecap="round"/>`,
+  'ic-video': `
+    <defs><linearGradient id="ivA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1E6B53"/><stop offset="1" stop-color="#0B3326"/></linearGradient></defs>
+    <ellipse cx="100" cy="172" rx="44" ry="7" fill="#0B3326" opacity=".12"/>
+    <rect x="62" y="34" width="76" height="132" rx="16" fill="url(#ivA)"/>
+    <rect x="68" y="46" width="64" height="104" rx="9" fill="#F2F7F5"/>
+    <circle cx="100" cy="72" r="6" fill="#0B3326"/>
+    <path d="M100 79 L 98 104 M 99 86 L 84 96 M 99 86 L 116 80 M 98 104 L 86 122 M 98 104 L 114 120" stroke="#0B3326" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <path d="M78 136 H122" stroke="#C9D2CE" stroke-width="4" stroke-linecap="round"/>
+    <path d="M78 136 H104" stroke="#1E6B53" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="156" cy="48" r="20" fill="#E0614A"/>
+    <path d="M149 41 L163 55 M163 41 L149 55" stroke="#fff" stroke-width="4" stroke-linecap="round"/>`,
+  'capsule3d': `
+    <defs>
+      <linearGradient id="cA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".55" stop-color="#E9EFEC"/><stop offset="1" stop-color="#B9C8C1"/></linearGradient>
+      <linearGradient id="cB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A9A79"/><stop offset=".5" stop-color="#145A44"/><stop offset="1" stop-color="#082A1F"/></linearGradient>
+      <radialGradient id="cS"><stop offset="0" stop-color="#0B3326" stop-opacity=".28"/><stop offset="1" stop-color="#0B3326" stop-opacity="0"/></radialGradient>
+      <radialGradient id="cT" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#E6ECE9"/><stop offset="1" stop-color="#B8C6BF"/></radialGradient>
+    </defs>
+    <ellipse cx="190" cy="262" rx="150" ry="22" fill="url(#cS)"/>
+    <g transform="rotate(-28 190 140)">
+      <path d="M190 92 H110 a48 48 0 0 0 0 96 H190 Z" fill="url(#cA)"/>
+      <path d="M190 92 H270 a48 48 0 0 1 0 96 H190 Z" fill="url(#cB)"/>
+      <rect x="190" y="92" width="4" height="96" fill="#082A1F" opacity=".25"/>
+      <rect x="86" y="104" width="190" height="14" rx="7" fill="#fff" opacity=".7"/>
+      <rect x="210" y="108" width="70" height="6" rx="3" fill="#fff" opacity=".35"/>
+    </g>
+    <g transform="translate(300 222)">
+      <ellipse rx="44" ry="16" cy="14" fill="#8FA49A"/>
+      <ellipse rx="44" ry="16" fill="url(#cT)"/>
+      <path d="M-30 0 H30" stroke="#0B3326" stroke-opacity=".18" stroke-width="3" stroke-linecap="round"/>
+    </g>`
+};
+// Replace <use> with inline copies; give each copy unique gradient ids
+$$('.slide svg use').forEach(u=>{
+  const key = u.getAttribute('href').slice(1);
+  const svg = u.closest('svg');
+  const pre = 'u'+(++uid)+'_';
+  const markup = SYMBOLS[key].replace(/id="([^"]+)"/g,`id="${pre}$1"`).replace(/url\(#([^)]+)\)/g,`url(#${pre}$1)`);
+  svg.innerHTML = markup;
+});
+
+/* ---------- Chrome per slide (logo, counter, progress) ---------- */
+const slides = $$('.slide');
+slides.forEach((s,i)=>{
+  const light = s.classList.contains('s6');
+  const top = document.createElement('div'); top.className='s-top';
+  top.innerHTML = `<div class="logo">${LOGO(light)}BELES</div><div class="count"><b>${i+1}</b> / ${slides.length}</div>`;
+  const bot = document.createElement('div'); bot.className='s-bottom';
+  bot.innerHTML = `<span>Омыртқа мен буындарды сауықтыру орталығы</span>
+    <span class="progress">${slides.map((_,k)=>`<i class="${k===i?'on':''}"></i>`).join('')}</span>`;
+  s.prepend(top); s.append(bot);
+});
+
+/* ---------- Navigation ---------- */
+let cur = 0;
+const dots = $('#dots'), exp = $('#exports');
+slides.forEach((s,i)=>{
+  const d = document.createElement('button'); d.className='dot'; d.setAttribute('role','tab');
+  d.setAttribute('aria-label',`${i+1}-слайд: ${s.dataset.title}`); d.onclick=()=>go(i); dots.append(d);
+  const b = document.createElement('button'); b.className='btn';
+  b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>${i+1} · ${s.dataset.title} — PNG`;
+  b.onclick = ()=>exportSlide(i, b); exp.append(b);
+});
+function go(i){
+  cur = Math.max(0, Math.min(slides.length-1, i));
+  slides.forEach((s,k)=>{ s.classList.toggle('is-active', k===cur); s.setAttribute('aria-hidden', k!==cur); });
+  $$('.dot',dots).forEach((d,k)=>{ d.classList.toggle('on',k===cur); d.setAttribute('aria-selected',k===cur); });
+  $$('.btn',exp).forEach((b,k)=>b.classList.toggle('current',k===cur));
+  $('#prev').disabled = cur===0; $('#next').disabled = cur===slides.length-1;
+}
+$('#prev').onclick=()=>go(cur-1); $('#next').onclick=()=>go(cur+1);
+document.addEventListener('keydown',e=>{ if(e.key==='ArrowRight') go(cur+1); if(e.key==='ArrowLeft') go(cur-1); });
+let sx=null;
+const vp = $('#viewport');
+vp.addEventListener('pointerdown',e=>{sx=e.clientX});
+vp.addEventListener('pointerup',e=>{ if(sx===null) return; const dx=e.clientX-sx; if(Math.abs(dx)>50) go(cur+(dx<0?1:-1)); sx=null; });
+
+/* ---------- Responsive scale ---------- */
+function fit(){
+  const stage = $('.stage');
+  const arrows = window.innerWidth>640 ? 2*(52+16) : 0;
+  const availW = Math.min(stage.clientWidth - arrows, 1080);
+  const availH = Math.max(320, window.innerHeight - 260);
+  const sc = Math.min(availW/1080, availH/1350);
+  $('#scaler').style.transform = `scale(${sc})`;
+  $('#frame').style.width = (1080*sc)+'px';
+  $('#frame').style.height = (1350*sc)+'px';
+}
+window.addEventListener('resize',fit);
+
+/* ---------- PNG export ---------- */
+let fontCSS = null;
+// Inline the Onest webfont as data URLs so exported PNGs keep the brand typeface
+async function buildFontCSS(){
+  try{
+    const link = document.querySelector('link[href*="fonts.googleapis.com/css2"]');
+    let css = await (await fetch(link.href)).text();
+    const urls = [...new Set(css.match(/https:[^)'"]+/g) || [])];
+    const toData = async u=>{
+      const blob = await (await fetch(u)).blob();
+      return await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); });
+    };
+    const pairs = await Promise.all(urls.map(async u=>[u, await toData(u)]));
+    pairs.forEach(([u,d])=>{ css = css.split(u).join(d); });
+    return css;
+  }catch(e){ console.warn('Font embed failed',e); return ''; }
+}
+async function exportSlide(i, btn){
+  if(!window.htmlToImage){ alert('Экспорт кітапханасы жүктелмеді. Интернет байланысын тексеріп, бетті қайта ашыңыз.'); return; }
+  const s = slides[i];
+  const label = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.lastChild.textContent = ' Дайындалуда…'; }
+  try{
+    await document.fonts.ready;
+    s.classList.add('exporting');
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    if(fontCSS===null) fontCSS = await buildFontCSS();
+    const url = await htmlToImage.toPng(s,{
+      width:1080, height:1350, pixelRatio:1, cacheBust:false, fontEmbedCSS: fontCSS || undefined,
+      style:{opacity:'1', visibility:'visible', transform:'none', left:'0', top:'0', transition:'none'}
+    });
+    const a = document.createElement('a');
+    a.href = url; a.download = `beles-grizha-${String(i+1).padStart(2,'0')}.png`;
+    document.body.append(a); a.click(); a.remove();
+  }catch(err){
+    console.error(err); alert('PNG жасау мүмкін болмады. Бетті жаңартып, қайталап көріңіз.');
+  }finally{
+    s.classList.remove('exporting');
+    if(btn){ btn.disabled=false; btn.innerHTML = label; }
+  }
+}
+$('#exportAll').onclick = async (e)=>{
+  const b = e.currentTarget; b.disabled = true;
+  for(let i=0;i<slides.length;i++){ await exportSlide(i, $$('.btn',exp)[i]); await new Promise(r=>setTimeout(r,350)); }
+  b.disabled = false;
+};
+window.__exportSlide = exportSlide;
+
+fit(); go(0);
+})();
+</script>
+</body>
+</html>
