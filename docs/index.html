@@ -195,6 +195,7 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
 .bar .amt { font-size: 13px; }
 @media (max-width: 420px) { .bar { grid-template-columns: minmax(0, 100px) 1fr auto; } }
 .hint.warn { color: var(--bad); }
+.updbar { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20; font: inherit; font-weight: 700; border: 0; border-radius: 999px; padding: 12px 18px; background: var(--grad); color: #fff; box-shadow: 0 8px 24px -8px rgba(0,0,0,.4); cursor: pointer; }
 .backup-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .filebtn { position: relative; overflow: hidden; display: inline-block; }
 .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
@@ -891,8 +892,19 @@ table.tp tfoot td { font-weight: 600; border-bottom: 0; }
 <script>
 if ("serviceWorker" in navigator) {
   // Always look for a newer version and switch to it as soon as it is installed.
+  // Reload into a new version only when one replaces an older one, and never while a form is being filled.
+  const ctl = navigator.serviceWorker.controller;
+  const hadController = !!ctl && ctl.scriptURL === new URL("sw.js", location.href).href;
   let reloaded = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => { if (!reloaded) { reloaded = true; location.reload(); } });
+  const busy = () => ["pname", "amount", "amount2", "cost", "note", "eamount", "enote"].some((id) => { const e = document.getElementById(id); return e && e.value.trim(); });
+  const doReload = () => { if (!reloaded) { reloaded = true; location.reload(); } };
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController) return;
+    if (!busy()) return doReload();
+    const bar = document.createElement("button");
+    bar.type = "button"; bar.className = "updbar"; bar.textContent = "Жаңа нұсқа дайын — жаңарту үшін басыңыз";
+    bar.onclick = doReload; document.body.append(bar);
+  });
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((reg) => {
       reg.update().catch(() => {});

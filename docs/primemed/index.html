@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prime Med · Касса</title>
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Prime Med">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<style>
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/nunito-cyrillic-ext-500-normal.woff2) format("woff2"); unicode-range: U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/nunito-cyrillic-ext-700-normal.woff2) format("woff2"); unicode-range: U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 800; font-display: swap; src: url(fonts/nunito-cyrillic-ext-800-normal.woff2) format("woff2"); unicode-range: U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/nunito-cyrillic-500-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/nunito-cyrillic-700-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 800; font-display: swap; src: url(fonts/nunito-cyrillic-800-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/nunito-latin-500-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/nunito-latin-700-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 800; font-display: swap; src: url(fonts/nunito-latin-800-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+/* Layout: Prime Med reception register — brand header, gradient profit tile, then form, patients and journals. Palette from the Prime Med+ logo: petrol blue + bright cyan cross. */
+:root {
+  --bg: #f2f8fa;
+  --surface: #ffffff;
+  --line: #d3e4ea;
+  --fg: #0d3a4a;
+  --muted: #557784;
+  --navy: #046a88;
+  --teal: #06b9c4;
+  --teal-2: #06b9c4;
+  --accent: #046a88;
+  --accent-soft: #dff3f6;
+  --on-accent: #ffffff;
+  --grad: linear-gradient(135deg, #07bcc6 0%, #0592a8 50%, #046a88 100%);
+  --treat: #05a7b4;
+  --consult: #046a88;
+  --good: #16865a;
+  --bad: #c0392f;
+  --bad-soft: #fbe6e3;
+  --font-display: "Nunito", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-body: "Nunito", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-num: "Nunito", -apple-system, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #071d26; --surface: #0c2a36; --line: #17404f; --fg: #e6f4f7; --muted: #8fb0bc;
+    --navy: #e6f4f7; --teal: #2fd3dc; --teal-2: #2fd3dc; --accent: #2fd3dc; --accent-soft: #0f3f4b; --on-accent: #04161d;
+    --grad: linear-gradient(135deg, #06a9b4 0%, #05809a 55%, #045a74 100%);
+    --treat: #2fd3dc; --consult: #7cc3e0; --good: #5fd39f; --bad: #f07b6e; --bad-soft: #3a1f1c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #071d26; --surface: #0c2a36; --line: #17404f; --fg: #e6f4f7; --muted: #8fb0bc;
+  --navy: #e6f4f7; --teal: #2fd3dc; --teal-2: #2fd3dc; --accent: #2fd3dc; --accent-soft: #0f3f4b; --on-accent: #04161d;
+  --grad: linear-gradient(135deg, #06a9b4 0%, #05809a 55%, #045a74 100%);
+  --treat: #2fd3dc; --consult: #7cc3e0; --good: #5fd39f; --bad: #f07b6e; --bad-soft: #3a1f1c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+.brand { display: flex; align-items: center; gap: 14px; padding-bottom: 4px; }
+.brand img { width: 56px; height: 56px; flex: none; }
+.brand-text { min-width: 0; }
+.wordmark { font-family: var(--font-display); font-weight: 800; font-size: 28px; letter-spacing: 0.14em; line-height: 1; color: var(--navy); }
+.wordmark .t { color: var(--teal); }
+.tagline { font-family: var(--font-display); font-weight: 500; font-size: 13px; color: var(--navy); margin-top: 4px; letter-spacing: 0.01em; }
+.brand { flex-wrap: wrap; }
+.brand .pm-logo { width: auto; height: 72px; }
+.tagline { font-weight: 800; font-size: 18px; color: var(--navy); }
+.brand-text .status { margin-top: 2px; }
+:root[data-theme="dark"] .brand .pm-logo { background: #fff; border-radius: 12px; padding: 6px 10px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand .pm-logo { background: #fff; border-radius: 12px; padding: 6px 10px; } }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+h2 { font-family: var(--font-display); font-weight: 700; font-size: 13px; margin: 0; text-transform: uppercase; letter-spacing: 0.08em; color: var(--navy); }
+.status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.dot.ok { background: var(--good); }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+.period { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 7px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--navy); color: var(--surface); font-weight: 600; }
+.nav { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+.nav button { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; font-size: 16px; }
+.nav button:disabled { opacity: .4; cursor: default; }
+.nav span { min-width: 120px; text-align: center; font-weight: 600; font-size: 14px; }
+
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+.tile .k { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.tile .v { font-size: 17px; margin-top: 4px; overflow-wrap: anywhere; }
+.tile.total { background: var(--grad); border-color: transparent; color: #fff; box-shadow: 0 6px 18px -8px rgba(4,106,136,.6); }
+.tile.total .k { color: rgba(255,255,255,.85); }
+.tile.total .v, .tile.total .v.neg { color: #fff; }
+.tile .v { font-weight: 700; }
+.split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.stile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; display: grid; gap: 4px; align-content: start; border-top: 4px solid var(--consult); }
+.stile.t { border-top-color: var(--treat); }
+.stile .k { font-size: 12px; color: var(--muted); }
+.stile .v { font-size: 20px; overflow-wrap: anywhere; }
+.stile .sub { font-size: 12px; color: var(--muted); }
+.stile .sub b { font-family: var(--font-num); font-weight: 500; color: var(--fg); }
+.stile .sub .owe b { color: var(--bad); }
+.tsum { display: flex; flex-wrap: wrap; gap: 4px 16px; background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--muted); }
+.tsum b { font-family: var(--font-num); font-weight: 600; color: var(--fg); }
+.tsum .owe b { color: var(--bad); }
+.sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.sw.c { background: var(--consult); } .sw.t { background: var(--treat); }
+@media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.methods { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); }
+.methods b { color: var(--fg); font-weight: 500; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pills button { font: inherit; font-size: 13px; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.pills button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) { .row { grid-template-columns: 1fr; } }
+label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
+input, select { font: inherit; font-size: 16px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; width: 100%; min-width: 0; }
+input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.amount { font-family: var(--font-num); font-size: 18px; }
+.hint { font-size: 12px; color: var(--muted); }
+.primary { font: inherit; font-weight: 700; border: 0; border-radius: 999px; padding: 12px 22px; background: var(--grad); color: #fff; cursor: pointer; box-shadow: 0 6px 16px -8px rgba(4,106,136,.7); }
+.primary:disabled { opacity: .5; cursor: default; }
+.msg { font-size: 13px; color: var(--bad); min-height: 1em; }
+.msg.ok { color: var(--good); }
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.empty { color: var(--muted); font-size: 14px; }
+.mini { font: inherit; font-size: 12px; border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 7px; padding: 4px 8px; cursor: pointer; white-space: nowrap; }
+.mini.danger { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
+
+.patients { display: grid; }
+details.pt { border-top: 1px solid var(--line); }
+details.pt summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 0; }
+details.pt summary::-webkit-details-marker { display: none; }
+.pname { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.pmeta { font-size: 12px; color: var(--muted); grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.pmeta .owe { color: var(--bad); font-weight: 600; }
+.pmeta .paid-off { color: var(--good); }
+.pbody { padding: 0 0 12px; display: grid; gap: 10px; }
+.costrow { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.costrow label { flex: 1 1 180px; }
+
+.day { display: grid; }
+.dayhead { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; padding: 10px 0 6px; border-bottom: 1px solid var(--line); }
+.entry { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.entry .what { min-width: 0; overflow-wrap: anywhere; }
+.entry .what small { display: block; color: var(--muted); font-size: 12px; }
+.chip { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; margin-right: 6px; color: var(--on-accent); }
+.chip.consult { background: var(--consult); }
+.chip.treatment { background: var(--treat); }
+.chip.expense { background: var(--bad); }
+.jtabs { justify-self: start; }
+.splitbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: -4px; }
+#splitToggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.jtabs .cnt { font-family: var(--font-num); font-size: 11px; opacity: .8; }
+.tm { font-family: var(--font-num); font-size: 12px; color: var(--muted); margin-right: 6px; }
+.tline { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.tline b { font-weight: 600; color: var(--fg); font-family: var(--font-num); }
+.tline .owe b { color: var(--bad); }
+.tline .ok b { color: var(--good); }
+.tablewrap { overflow-x: auto; margin-bottom: 6px; }
+.card > * { min-width: 0; }
+#journal { min-width: 0; display: grid; }
+table.tp { width: 100%; border-collapse: collapse; font-size: 13px; }
+@media (max-width: 430px) { table.tp { font-size: 12px; } table.tp td, table.tp th { padding-inline: 3px; } }
+table.tp th { text-align: right; font-weight: 500; color: var(--muted); font-size: 12px; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+table.tp th:first-child, table.tp td:first-child { text-align: left; }
+table.tp td { text-align: right; padding: 7px 4px; border-bottom: 1px solid var(--line); font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+table.tp td, table.tp th { white-space: nowrap; }
+table.tp td:first-child { font-family: var(--font-body); font-weight: 600; white-space: normal; min-width: 90px; }
+table.tp td.owe { color: var(--bad); font-weight: 600; }
+table.tp td.ok { color: var(--good); }
+table.tp tfoot td { font-weight: 600; border-bottom: 0; }
+.subh { font-size: 13px; font-weight: 600; margin: 6px 0 2px; }
+.plus { color: var(--good); }
+.minus { color: var(--bad); }
+.tile .v.neg { color: var(--bad); }
+.tile.exp .v { color: var(--bad); }
+.modes { justify-self: start; }
+.bars { display: grid; gap: 8px; }
+.bar { display: grid; grid-template-columns: minmax(0, 150px) 1fr auto; gap: 10px; align-items: center; font-size: 14px; }
+.bar > span:first-child { overflow-wrap: anywhere; }
+.bar .track { height: 8px; border-radius: 4px; background: var(--bg); overflow: hidden; }
+.bar .fill { height: 100%; background: var(--bad); border-radius: 4px; opacity: .8; }
+.bar .amt { font-size: 13px; }
+@media (max-width: 420px) { .bar { grid-template-columns: minmax(0, 100px) 1fr auto; } }
+.hint.warn { color: var(--bad); }
+.updbar { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20; font: inherit; font-weight: 700; border: 0; border-radius: 999px; padding: 12px 18px; background: var(--grad); color: #fff; box-shadow: 0 8px 24px -8px rgba(0,0,0,.4); cursor: pointer; }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.filebtn { position: relative; overflow: hidden; display: inline-block; }
+.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="brand">
+    <img class="pm-logo" src="icons/logo.png" alt="Prime Med+ медицина орталығы" width="245" height="160">
+    <div class="brand-text">
+      <div class="tagline">Касса</div>
+      <div class="status"><span class="dot" id="dot"></span><span id="status">Жүктелуде…</span></div>
+    </div>
+  </header>
+
+  <section class="period" aria-label="Кезең">
+    <div class="seg" id="periodSeg">
+      <button type="button" data-p="day" aria-pressed="true">Күн</button>
+      <button type="button" data-p="week" aria-pressed="false">Апта</button>
+      <button type="button" data-p="month" aria-pressed="false">Ай</button>
+      <button type="button" data-p="all" aria-pressed="false">Барлығы</button>
+    </div>
+    <div class="nav">
+      <button type="button" id="prev" aria-label="Алдыңғы">‹</button>
+      <span id="periodLabel"></span>
+      <button type="button" id="next" aria-label="Келесі">›</button>
+    </div>
+  </section>
+
+  <section class="tiles" aria-label="Қорытынды">
+    <div class="tile"><div class="k">Түскен ақша</div><div class="v num" id="tTotal">0 ₸</div></div>
+    <div class="tile exp"><div class="k">Расход</div><div class="v num" id="tExp">0 ₸</div></div>
+    <div class="tile total"><div class="k">Таза пайда</div><div class="v num" id="tProfit">0 ₸</div></div>
+    <div class="tile"><div class="k">Пациент саны</div><div class="v num" id="tCount">0</div></div>
+  </section>
+  <section class="split" aria-label="Доход бөлек">
+    <div class="stile">
+      <div class="k">Консультациядан доход</div>
+      <div class="v num" id="sConsult">0 ₸</div>
+      <div class="sub" id="sConsultSub"></div>
+    </div>
+    <div class="stile t">
+      <div class="k">Емделген пациенттерден доход</div>
+      <div class="v num" id="sTreat">0 ₸</div>
+      <div class="sub" id="sTreatSub"></div>
+    </div>
+  </section>
+  <div class="methods" id="methods"></div>
+
+  <div class="seg modes" id="modeSeg" role="group" aria-label="Не жазасыз">
+    <button type="button" data-m="pay" aria-pressed="true">Төлем қабылдау</button>
+    <button type="button" data-m="exp" aria-pressed="false">Расход қосу</button>
+  </div>
+
+  <form class="card" id="expForm" novalidate hidden>
+    <h2>Расход қосу</h2>
+    <label for="ecat">Санат
+      <select id="ecat">
+        <option>Дәрі-дәрмек</option><option>Медициналық материалдар</option><option>Жалақы</option>
+        <option>Аренда</option><option>Коммуналдық</option><option>Құрал-жабдық</option>
+        <option>Жарнама</option><option>Салық</option><option>Басқа</option>
+      </select>
+    </label>
+    <div class="row">
+      <label for="eamount">Сома, ₸<input id="eamount" class="amount" inputmode="decimal" autocomplete="off" placeholder="0"></label>
+      <label for="edate">Күні<input id="edate" type="date"></label>
+    </div>
+    <div class="row">
+      <label for="emethod">Төлем тәсілі
+        <select id="emethod"><option>Қолма-қол</option><option>Kaspi QR</option><option>Kaspi аударым</option><option>Карта</option><option>Аударым</option></select>
+      </label>
+      <label for="enote">Ескертпе<input id="enote" autocomplete="off" placeholder="мысалы, дәріхана атауы, не алынды"></label>
+    </div>
+    <div class="toolbar">
+      <span class="msg" id="emsg" role="status"></span>
+      <button class="primary" id="esave" type="submit">Расходты сақтау</button>
+    </div>
+  </form>
+
+  <form class="card" id="form" novalidate>
+    <h2>Төлем қабылдау</h2>
+    <label for="pname">Пациенттің аты-жөні
+      <input id="pname" list="plist" autocomplete="off" placeholder="мысалы, Сейітова Айгерім">
+    </label>
+    <datalist id="plist"></datalist>
+    <div class="hint" id="pinfo"></div>
+    <div class="pills" id="kinds" role="group" aria-label="Төлем түрі">
+      <button type="button" data-k="consult" aria-pressed="true">Консультация</button>
+      <button type="button" data-k="treatment" aria-pressed="false">Ем</button>
+    </div>
+    <label for="cost" id="costWrap" hidden>Емнің жалпы құны, ₸
+      <input id="cost" class="amount" inputmode="decimal" autocomplete="off" placeholder="мысалы, 250000">
+    </label>
+    <div class="row">
+      <label for="amount"><span id="amountLabel">Төлеген сомасы, ₸</span><input id="amount" class="amount" inputmode="decimal" autocomplete="off" placeholder="0"></label>
+      <label for="method">Төлем тәсілі
+        <select id="method"><option>Қолма-қол</option><option>Kaspi QR</option><option>Kaspi аударым</option><option>Карта</option><option>Аударым</option></select>
+      </label>
+    </div>
+    <div class="row" id="splitRow" hidden>
+      <label for="amount2">2-сома, ₸<input id="amount2" class="amount" inputmode="decimal" autocomplete="off" placeholder="0"></label>
+      <label for="method2">2-тәсілі
+        <select id="method2"><option>Қолма-қол</option><option>Kaspi QR</option><option>Kaspi аударым</option><option>Карта</option><option>Аударым</option></select>
+      </label>
+    </div>
+    <div class="splitbar">
+      <button type="button" class="mini" id="splitToggle" aria-pressed="false">+ Екі тәсілмен бөліп төледі</button>
+      <span class="hint num" id="splitTotal"></span>
+    </div>
+    <div class="row">
+      <label for="date">Күні<input id="date" type="date"></label>
+      <label for="time">Келген уақыты<input id="time" type="time"></label>
+    </div>
+    <label for="note">Ескертпе<input id="note" autocomplete="off" placeholder="мысалы, 1-сеанс, дәрігер аты"></label>
+    <div class="toolbar">
+      <span class="msg" id="msg" role="status"></span>
+      <button class="primary" id="save" type="submit">Төлемді сақтау</button>
+    </div>
+  </form>
+
+  <section class="card">
+    <div class="toolbar">
+      <h2>Расход санаттары бойынша</h2>
+      <span class="hint num" id="expHint"></span>
+    </div>
+    <div class="bars" id="bars"></div>
+  </section>
+
+  <section class="card">
+    <div class="toolbar">
+      <h2>Пациенттер</h2>
+      <span class="hint" id="debtTotal"></span>
+    </div>
+    <input id="search" type="search" placeholder="Аты бойынша іздеу" aria-label="Пациентті іздеу">
+    <div class="patients" id="patients"></div>
+  </section>
+
+  <section class="card">
+    <div class="toolbar">
+      <h2>Журналдар</h2>
+      <button type="button" class="mini" id="export" hidden>CSV жүктеу</button>
+    </div>
+    <div class="seg jtabs" id="jtabs" role="tablist" aria-label="Журнал түрі">
+      <button type="button" data-j="consult" aria-pressed="true">Консультация <span class="cnt" id="cntConsult"></span></button>
+      <button type="button" data-j="treatment" aria-pressed="false">Ем <span class="cnt" id="cntTreat"></span></button>
+      <button type="button" data-j="expense" aria-pressed="false">Расход <span class="cnt" id="cntExp"></span></button>
+    </div>
+    <div id="journal"></div>
+  </section>
+  <section class="card">
+    <h2>Сақтық көшірме</h2>
+    <div class="hint" id="binfo"></div>
+    <p class="hint">Деректер тек осы телефонда тұрады. Аптасына бір рет көшірме жасап, файлды iCloud Drive-қа, «Файлы» қолданбасына немесе өзіңізге WhatsApp-пен жіберіп қойыңыз. Жаңа телефонда сол файлмен қалпына келтіресіз.</p>
+    <div class="backup-actions">
+      <button type="button" class="primary" id="backup">Сақтық көшірме жасау</button>
+      <span class="mini filebtn">Көшірмеден қалпына келтіру<input type="file" id="restoreFile" accept="application/json,.json" aria-label="Көшірме файлын таңдау"></span>
+      <button type="button" class="mini danger" id="restoreConfirm" hidden>Иә, қалпына келтіру</button>
+    </div>
+    <span class="msg" id="bmsg" role="status"></span>
+  </section>
+</div>
+
+<script>
+(() => {
+  const KIND = { consult: "Консультация", treatment: "Ем" };
+  const ECATS = ["Дәрі-дәрмек","Медициналық материалдар","Жалақы","Аренда","Коммуналдық","Құрал-жабдық","Жарнама","Салық","Басқа"];
+  const MONTHS = ["қаңтар","ақпан","наурыз","сәуір","мамыр","маусым","шілде","тамыз","қыркүйек","қазан","қараша","желтоқсан"];
+  const $ = (id) => document.getElementById(id);
+  const fmt = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
+  const money = (n) => fmt.format(n) + " ₸";
+  const pad = (n) => String(n).padStart(2, "0");
+  const iso = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const parseISO = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const human = (s) => { const d = parseISO(s); return d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear(); };
+  const key = (name) => name.trim().replace(/\s+/g, " ").toLowerCase();
+  const nowTime = () => { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+  const byWhen = (a, b) => (a.date || "").localeCompare(b.date || "") || (a.time || "").localeCompare(b.time || "") || (a.createdAt || 0) - (b.createdAt || 0);
+  const METHODS = ["Қолма-қол", "Kaspi QR", "Kaspi аударым", "Kaspi", "Карта", "Аударым"];
+  const partsOf = (x) => Array.isArray(x.split) && x.split.length ? x.split : [{ method: x.method, amount: Number(x.amount || 0) }];
+  const methodText = (x) => Array.isArray(x.split) && x.split.length ? x.split.map((q) => q.method + " " + money(q.amount)).join(" + ") : (x.method || "");
+  const toNum = (v) => { const s = String(v).replace(/\s/g, "").replace(",", "."); return s ? Number(s) : NaN; };
+
+  let patients = [], payments = [], expenses = [];
+  let period = "day", anchor = new Date(), kind = "consult";
+  let store = null, pendingDelete = null, openPatient = null, jtab = "consult";
+
+  // ---------- storage ----------
+  const LS = "primemed-cash-v1";
+  const local = {
+    read() { let s; try { s = JSON.parse(localStorage.getItem(LS)); } catch {} s = s || {}; return { patients: s.patients || [], payments: s.payments || [], expenses: s.expenses || [] }; },
+    save(s) { localStorage.setItem(LS, JSON.stringify(s)); patients = s.patients; payments = s.payments; expenses = s.expenses; render(); },
+    async addExpense(x) { const s = this.read(); s.expenses.push({ id: this.newId(), ...x }); this.save(s); },
+    async removeExpense(id) { const s = this.read(); s.expenses = s.expenses.filter((x) => x.id !== id); this.save(s); },
+    newId() { return "l" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); },
+    async addPatient(p) { const s = this.read(); const id = this.newId(); s.patients.push({ id, ...p }); this.save(s); return id; },
+    async updatePatient(id, patch) { const s = this.read(); s.patients = s.patients.map((x) => x.id === id ? { ...x, ...patch } : x); this.save(s); },
+    async removePatient(id) { const s = this.read(); s.patients = s.patients.filter((x) => x.id !== id); this.save(s); },
+    async addPayment(p) { const s = this.read(); s.payments.push({ id: this.newId(), ...p }); this.save(s); },
+    async removePayment(id) { const s = this.read(); s.payments = s.payments.filter((x) => x.id !== id); this.save(s); },
+  };
+
+  function setStatus(t, ok) { $("status").textContent = t; $("dot").className = "dot" + (ok ? " ok" : ""); }
+
+  function shareOrDownload(filename, text, mime) {
+    const blob = new Blob([text], { type: mime });
+    const file = new File([blob], filename, { type: mime });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      return navigator.share({ files: [file], title: filename }).catch(() => {});
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+
+  function connect() {
+    store = local;
+    const s = local.read(); patients = s.patients; payments = s.payments; expenses = s.expenses;
+    setStatus("Офлайн · деректер осы телефонда", true);
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    render();
+    renderBackupInfo();
+
+    const btn = $("export"); btn.hidden = false;
+    btn.onclick = () => {
+      const rows = [["Күні", "Уақыты", "Пациент / санат", "Түрі", "Сома", "Тәсілі", "Ескертпе"]];
+      const all = [
+        ...payments.map((p) => [p.date, p.time || "", p.patientName, KIND[p.kind] || p.kind, p.amount, methodText(p).replace(/\s₸/g, ""), p.note || ""]),
+        ...expenses.map((x) => [x.date, "", x.category, "Расход", -Number(x.amount || 0), x.method || "", x.note || ""]),
+      ].sort((a, b) => String(a[0]).localeCompare(String(b[0])) || String(a[1]).localeCompare(String(b[1])));
+      all.forEach((r) => rows.push(r));
+      const csv = "﻿" + rows.map((r) => r.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(";")).join("\n");
+      shareOrDownload("primemed-" + iso(new Date()) + ".csv", csv, "text/csv");
+    };
+
+    $("backup").onclick = () => {
+      const data = { app: "primemed-kassasy", version: 1, savedAt: new Date().toISOString(), ...local.read() };
+      shareOrDownload("primemed-koshirme-" + iso(new Date()) + ".json", JSON.stringify(data), "application/json");
+      try { localStorage.setItem(LS + "-lastBackup", new Date().toISOString()); } catch {}
+      renderBackupInfo();
+    };
+
+    let pendingImport = null;
+    $("restoreFile").addEventListener("change", async (ev) => {
+      const f = ev.target.files && ev.target.files[0];
+      ev.target.value = "";
+      const msg = $("bmsg"); msg.className = "msg";
+      if (!f) return;
+      try {
+        const d = JSON.parse(await f.text());
+        if (!d || !Array.isArray(d.patients) || !Array.isArray(d.payments)) throw new Error("bad");
+        pendingImport = { patients: d.patients, payments: d.payments, expenses: Array.isArray(d.expenses) ? d.expenses : [] };
+        msg.textContent = "Файлда " + pendingImport.patients.length + " пациент, " + pendingImport.payments.length + " төлем, " + pendingImport.expenses.length + " расход бар. Қазіргі деректердің орнына қою үшін «Иә, қалпына келтіру» батырмасын басыңыз.";
+        $("restoreConfirm").hidden = false;
+      } catch { msg.textContent = "Бұл файл көшірме файлы емес. «Сақтық көшірме жасау» арқылы сақталған .json файлын таңдаңыз."; }
+    });
+    $("restoreConfirm").onclick = () => {
+      if (!pendingImport) return;
+      try { local.save(pendingImport); $("bmsg").className = "msg ok"; $("bmsg").textContent = "Деректер қалпына келтірілді."; }
+      catch { $("bmsg").textContent = "Сақтау мүмкін болмады: телефонда орын жетпеуі мүмкін."; }
+      pendingImport = null; $("restoreConfirm").hidden = true;
+    };
+  }
+
+  function renderBackupInfo() {
+    let last = null; try { last = localStorage.getItem(LS + "-lastBackup"); } catch {}
+    const n = payments.length + expenses.length;
+    let t = "Барлығы " + patients.length + " пациент, " + n + " жазба. ";
+    if (!last) t += "Әлі көшірме жасалған жоқ.";
+    else { const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000); t += "Соңғы көшірме: " + (days <= 0 ? "бүгін" : days + " күн бұрын") + "."; }
+    $("binfo").textContent = t;
+    $("binfo").className = "hint" + ((!last && n > 0) || (last && Date.now() - new Date(last).getTime() > 7 * 86400000) ? " warn" : "");
+  }
+
+  // ---------- period ----------
+  function range() {
+    const a = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+    if (period === "day") return [iso(a), iso(a)];
+    if (period === "week") { const s = new Date(a); s.setDate(a.getDate() - (a.getDay() + 6) % 7); const e = new Date(s); e.setDate(s.getDate() + 6); return [iso(s), iso(e)]; }
+    if (period === "month") return [iso(new Date(a.getFullYear(), a.getMonth(), 1)), iso(new Date(a.getFullYear(), a.getMonth() + 1, 0))];
+    return ["0000-01-01", "9999-12-31"];
+  }
+  function periodLabel() {
+    const [s, e] = range();
+    if (period === "all") return "Барлық уақыт";
+    if (period === "day") return s === iso(new Date()) ? "Бүгін" : human(s);
+    if (period === "month") { const d = parseISO(s); return MONTHS[d.getMonth()] + " " + d.getFullYear(); }
+    const ds = parseISO(s), de = parseISO(e); return ds.getDate() + "–" + de.getDate() + " " + MONTHS[de.getMonth()];
+  }
+  function shift(dir) {
+    if (period === "day") anchor.setDate(anchor.getDate() + dir);
+    else if (period === "week") anchor.setDate(anchor.getDate() + 7 * dir);
+    else if (period === "month") anchor = new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
+    render();
+  }
+
+  // ---------- helpers ----------
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const findPatient = (name) => patients.find((p) => key(p.name) === key(name));
+  function stats(pid) {
+    const list = payments.filter((x) => x.patientId === pid);
+    const paid = list.reduce((a, x) => a + Number(x.amount || 0), 0);
+    const treatPaid = list.filter((x) => x.kind === "treatment").reduce((a, x) => a + Number(x.amount || 0), 0);
+    const last = list.reduce((m, x) => (x.date > m ? x.date : m), "");
+    return { list, paid, treatPaid, last };
+  }
+
+  // ---------- render ----------
+  function render() {
+    $("periodLabel").textContent = periodLabel();
+    $("prev").disabled = $("next").disabled = period === "all";
+    const [s, e] = range();
+    const inP = payments.filter((x) => x.date >= s && x.date <= e);
+    const sum = (f) => inP.filter(f).reduce((a, x) => a + Number(x.amount || 0), 0);
+    const inE = expenses.filter((x) => x.date >= s && x.date <= e);
+    const income = sum(() => true);
+    const spent = inE.reduce((a, x) => a + Number(x.amount || 0), 0);
+    const profit = income - spent;
+    $("tTotal").textContent = money(income);
+    $("tExp").textContent = money(spent);
+    $("tProfit").textContent = money(profit);
+    $("tProfit").className = "v num" + (profit < 0 ? " neg" : "");
+    $("tCount").textContent = new Set(inP.map((x) => x.patientId)).size;
+
+    const m = $("methods"); m.replaceChildren();
+    const part = (label, v, cls) => { const sp = el("span", null, ""); if (cls) { const w = el("span", "sw " + cls); w.style.marginRight = "5px"; sp.append(w); } sp.append(document.createTextNode(label + ": ")); sp.append(el("b", "num", money(v))); m.append(sp); };
+    renderSplit(inP);
+    const byM = {};
+    inP.forEach((x) => partsOf(x).forEach((q) => { byM[q.method] = (byM[q.method] || 0) + Number(q.amount || 0); }));
+    METHODS.forEach((k) => { if (byM[k]) part(k, byM[k]); });
+
+    // expense categories
+    const bars = $("bars"); bars.replaceChildren();
+    const byCat = ECATS.map((c) => [c, inE.filter((x) => x.category === c).reduce((a, x) => a + Number(x.amount || 0), 0)]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]);
+    $("expHint").textContent = spent ? "Барлығы " + money(spent) : "";
+    if (!byCat.length) bars.append(el("div", "empty", "Бұл кезеңде расход жоқ. «Расход қосу» батырмасын басып, мысалы дәрі-дәрмекке кеткен соманы жазыңыз."));
+    else { const max = byCat[0][1]; byCat.forEach(([c, v]) => {
+      const r = el("div", "bar"); r.append(el("span", null, c));
+      const tr = el("div", "track"); const f = el("div", "fill"); f.style.width = (v / max * 100) + "%"; tr.append(f);
+      r.append(tr, el("span", "amt num", money(v))); bars.append(r);
+    }); }
+
+    // datalist
+    const dl = $("plist"); dl.replaceChildren();
+    patients.forEach((p) => { const o = document.createElement("option"); o.value = p.name; dl.append(o); });
+    updatePatientInfo();
+
+    renderPatients();
+    renderJournal(inP, inE);
+    renderBackupInfo();
+  }
+
+  function renderPatients() {
+    const box = $("patients"); box.replaceChildren();
+    const q = key($("search").value || "");
+    let totalDebt = 0;
+    const rows = patients.map((p) => ({ p, st: stats(p.id) }));
+    rows.forEach(({ p, st }) => { const c = Number(p.treatmentCost || 0); if (c > st.treatPaid) totalDebt += c - st.treatPaid; });
+    $("debtTotal").textContent = totalDebt > 0 ? "Ем бойынша барлық қалдық: " + money(totalDebt) : "";
+    const shown = rows.filter(({ p }) => !q || key(p.name).includes(q)).sort((a, b) => b.st.last.localeCompare(a.st.last) || a.p.name.localeCompare(b.p.name));
+    if (!patients.length) { box.append(el("div", "empty", "Әзірге пациент жоқ. Жоғарыдағы формаға пациенттің аты-жөнін және төлеген сомасын жазыңыз — ол осы тізімге қосылады.")); return; }
+    if (!shown.length) { box.append(el("div", "empty", "Мұндай атпен пациент табылмады.")); return; }
+    shown.forEach(({ p, st }) => {
+      const d = el("details", "pt");
+      if (openPatient === p.id) d.open = true;
+      d.addEventListener("toggle", () => { openPatient = d.open ? p.id : (openPatient === p.id ? null : openPatient); });
+      const sm = document.createElement("summary");
+      sm.append(el("span", "pname", p.name), el("span", "num", money(st.paid)));
+      const meta = el("div", "pmeta");
+      meta.append(el("span", null, st.list.length + " төлем" + (st.last ? " · соңғысы " + human(st.last) : "")));
+      const cost = Number(p.treatmentCost || 0);
+      if (cost > 0) {
+        meta.append(el("span", null, "Ем құны " + money(cost)));
+        const left = cost - st.treatPaid;
+        meta.append(left > 0 ? el("span", "owe", "Қалды " + money(left)) : el("span", "paid-off", "Ем толық төленді"));
+      }
+      sm.append(meta);
+      d.append(sm);
+
+      const body = el("div", "pbody");
+      const cr = el("div", "costrow");
+      const lab = el("label", null, "Емнің жалпы құны, ₸");
+      const inp = document.createElement("input"); inp.className = "amount"; inp.inputMode = "decimal"; inp.id = "cost-" + p.id;
+      inp.value = cost || ""; inp.placeholder = "белгіленбеген";
+      lab.htmlFor = inp.id; lab.append(inp);
+      const sv = el("button", "mini", "Сақтау"); sv.type = "button";
+      sv.onclick = async () => { const v = toNum(inp.value); if (inp.value && (!isFinite(v) || v < 0)) return; await store.updatePatient(p.id, { treatmentCost: inp.value ? v : 0 }).catch(() => {}); };
+      cr.append(lab, sv);
+      if (!st.list.length) {
+        const del = el("button", "mini" + (pendingDelete === "p" + p.id ? " danger" : ""), pendingDelete === "p" + p.id ? "Өшіру?" : "Пациентті өшіру"); del.type = "button";
+        del.onclick = () => confirmDel("p" + p.id, () => store.removePatient(p.id));
+        cr.append(del);
+      }
+      body.append(cr);
+      const pay = el("button", "mini", "Осы пациентке төлем қосу"); pay.type = "button";
+      pay.onclick = () => { $("pname").value = p.name; updatePatientInfo(); $("amount").focus(); $("form").scrollIntoView({ behavior: "smooth", block: "start" }); };
+      body.append(pay);
+      [...st.list].sort((a, b) => byWhen(b, a)).forEach((x) => body.append(paymentRow(x, false)));
+      d.append(body);
+      box.append(d);
+    });
+  }
+
+  function renderSplit(inP) {
+    const cons = inP.filter((x) => x.kind === "consult");
+    const treat = inP.filter((x) => x.kind === "treatment");
+    const tot = (l) => l.reduce((a, x) => a + Number(x.amount || 0), 0);
+    const sub = (box, parts) => { box.replaceChildren(); parts.forEach(([label, val, cls], i) => { if (i) box.append(document.createTextNode(" · ")); const sp = el("span", cls || null, label + " "); sp.append(el("b", null, val)); box.append(sp); }); };
+    $("sConsult").textContent = money(tot(cons));
+    sub($("sConsultSub"), [["Пациент", String(new Set(cons.map((x) => x.patientId)).size)], ["Төлем", String(cons.length)]]);
+    $("sTreat").textContent = money(tot(treat));
+    const ids = [...new Set(treat.map((x) => x.patientId))];
+    let left = 0;
+    ids.forEach((pid) => { const p = patients.find((q) => q.id === pid); const c = Number(p?.treatmentCost || 0); const paid = stats(pid).treatPaid; if (c > paid) left += c - paid; });
+    const parts = [["Пациент", String(ids.length)], ["Төлем", String(treat.length)]];
+    if (left > 0) parts.push(["Олардың қарызы", money(left), "owe"]);
+    sub($("sTreatSub"), parts);
+  }
+
+  // Running treatment balance for each treatment payment: paid so far and debt left after it.
+  function treatmentLedger() {
+    const out = {};
+    const byP = {};
+    payments.filter((x) => x.kind === "treatment").forEach((x) => (byP[x.patientId] ||= []).push(x));
+    Object.keys(byP).forEach((pid) => {
+      const p = patients.find((q) => q.id === pid);
+      const cost = Number(p?.treatmentCost || 0);
+      let run = 0;
+      byP[pid].sort(byWhen).forEach((x) => { run += Number(x.amount || 0); out[x.id] = { cost, paidSoFar: run, left: cost > 0 ? cost - run : null }; });
+    });
+    return out;
+  }
+
+  function dayGroups(list, sign) {
+    const days = {};
+    list.forEach((x) => (days[x.date] ||= []).push(x));
+    return Object.keys(days).sort().reverse().map((d) => {
+      const items = days[d].sort((a, b) => byWhen(b, a));
+      const box = el("div", "day");
+      const head = el("div", "dayhead");
+      head.append(el("span", null, human(d) + " · " + items.length), el("span", "num", (sign < 0 ? "−" : "+") + money(items.reduce((a, x) => a + Number(x.amount || 0), 0))));
+      box.append(head);
+      return { box, items };
+    });
+  }
+
+  function renderJournal(inP, inE) {
+    const j = $("journal"); j.replaceChildren();
+    const cons = inP.filter((x) => x.kind === "consult");
+    const treat = inP.filter((x) => x.kind === "treatment");
+    $("cntConsult").textContent = cons.length ? "(" + cons.length + ")" : "";
+    $("cntTreat").textContent = treat.length ? "(" + treat.length + ")" : "";
+    $("cntExp").textContent = inE.length ? "(" + inE.length + ")" : "";
+    document.querySelectorAll("#jtabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.j === jtab)));
+
+    if (jtab === "consult") {
+      if (!cons.length) { j.append(el("div", "empty", "Бұл кезеңде консультация жоқ.")); return; }
+      dayGroups(cons, 1).forEach(({ box, items }) => { items.forEach((x) => box.append(paymentRow(x, true))); j.append(box); });
+      return;
+    }
+
+    if (jtab === "expense") {
+      if (!inE.length) { j.append(el("div", "empty", "Бұл кезеңде расход жоқ.")); return; }
+      dayGroups(inE, -1).forEach(({ box, items }) => { items.forEach((x) => box.append(expenseRow(x))); j.append(box); });
+      return;
+    }
+
+    // treatment
+    if (!treat.length) { j.append(el("div", "empty", "Бұл кезеңде ем үшін төлем жоқ.")); return; }
+    const ledger = treatmentLedger();
+    // summary table of patients treated in this period
+    const ids = [...new Set(treat.map((x) => x.patientId))];
+    const rows = ids.map((pid) => {
+      const p = patients.find((q) => q.id === pid) || { name: treat.find((x) => x.patientId === pid).patientName };
+      const st = stats(pid);
+      const cost = Number(p.treatmentCost || 0);
+      const inPeriod = treat.filter((x) => x.patientId === pid).reduce((a, x) => a + Number(x.amount || 0), 0);
+      return { name: p.name, cost, paid: st.treatPaid, inPeriod, left: cost > 0 ? cost - st.treatPaid : null };
+    }).sort((a, b) => (b.left || 0) - (a.left || 0) || a.name.localeCompare(b.name));
+    {
+      const box = el("div", "tsum");
+      const item = (label, val, cls) => { const sp = el("span", cls || null, label + ": "); sp.append(el("b", null, val)); box.append(sp); };
+      item("Емнен түскен доход", money(treat.reduce((a, x) => a + Number(x.amount || 0), 0)));
+      item("Емделген пациент", String(ids.length));
+      j.append(box);
+    }
+    j.append(el("div", "subh", "Емделген пациенттер"));
+    const wrap = el("div", "tablewrap");
+    const t = el("table", "tp");
+    const th = el("thead"); const hr = el("tr");
+    ["Пациент", "Ем құны", "Төледі", "Қарыз"].forEach((h) => hr.append(el("th", null, h)));
+    th.append(hr); t.append(th);
+    const tb = el("tbody");
+    let sCost = 0, sPaid = 0, sLeft = 0;
+    rows.forEach((r) => {
+      const tr = el("tr");
+      tr.append(el("td", null, r.name), el("td", null, r.cost ? money(r.cost) : "—"), el("td", null, money(r.paid)));
+      const lt = r.left == null ? el("td", null, "—") : r.left > 0 ? el("td", "owe", money(r.left)) : el("td", "ok", "төленді");
+      tr.append(lt); tb.append(tr);
+      sCost += r.cost; sPaid += r.paid; if (r.left > 0) sLeft += r.left;
+    });
+    t.append(tb);
+    const tf = el("tfoot"); const fr = el("tr");
+    fr.append(el("td", null, "Барлығы"), el("td", null, money(sCost)), el("td", null, money(sPaid)), el("td", sLeft > 0 ? "owe" : "ok", money(sLeft)));
+    tf.append(fr); t.append(tf);
+    wrap.append(t); j.append(wrap);
+    if (rows.some((r) => r.left == null)) j.append(el("div", "hint", "«—» — ем құны жазылмаған. Оны Пациенттер бөлімінде пациентті ашып жазуға болады."));
+
+    j.append(el("div", "subh", "Ем төлемдері"));
+    dayGroups(treat, 1).forEach(({ box, items }) => {
+      items.forEach((x) => {
+        const row = paymentRow(x, true);
+        const L = ledger[x.id];
+        if (L) {
+          const line = el("div", "tline");
+          const part = (label, val, cls) => { const sp = el("span", cls || null, label + " "); sp.append(el("b", null, val)); line.append(sp); };
+          if (L.cost) part("Ем құны", money(L.cost));
+          part("Барлығы төледі", money(L.paidSoFar));
+          if (L.left != null) L.left > 0 ? part("Қарыз", money(L.left), "owe") : part("Қарыз", "жоқ", "ok");
+          row.querySelector(".what").append(line);
+        }
+        box.append(row);
+      });
+      j.append(box);
+    });
+  }
+
+  function expenseRow(x) {
+    const r = el("div", "entry");
+    const what = el("div", "what");
+    what.append(el("span", "chip expense", "Расход"));
+    what.append(document.createTextNode(x.category));
+    const sub = [x.method, x.note].filter(Boolean).join(" · ");
+    if (sub) what.append(el("small", null, sub));
+    const amt = el("span", "num minus", "−" + money(x.amount));
+    const id = "x" + x.id;
+    const del = el("button", "mini" + (pendingDelete === id ? " danger" : ""), pendingDelete === id ? "Өшіру?" : "×");
+    del.type = "button"; del.setAttribute("aria-label", "Расходты өшіру");
+    del.onclick = () => confirmDel(id, () => store.removeExpense(x.id));
+    r.append(what, amt, del);
+    return r;
+  }
+
+  function paymentRow(x, showName) {
+    const r = el("div", "entry");
+    const what = el("div", "what");
+    what.append(el("span", "chip " + x.kind, KIND[x.kind] || x.kind));
+    if (x.time) what.append(el("span", "tm", x.time));
+    what.append(document.createTextNode(showName ? x.patientName : human(x.date)));
+    const sub = [methodText(x), x.note].filter(Boolean).join(" · ");
+    if (sub) what.append(el("small", null, sub));
+    const amt = el("span", "num plus", "+" + money(x.amount));
+    const id = "y" + x.id;
+    const del = el("button", "mini" + (pendingDelete === id ? " danger" : ""), pendingDelete === id ? "Өшіру?" : "×");
+    del.type = "button"; del.setAttribute("aria-label", "Төлемді өшіру");
+    del.onclick = () => confirmDel(id, () => store.removePayment(x.id));
+    r.append(what, amt, del);
+    return r;
+  }
+
+  function confirmDel(id, fn) {
+    if (pendingDelete === id) { pendingDelete = null; fn().catch(() => {}); render(); }
+    else { pendingDelete = id; render(); setTimeout(() => { if (pendingDelete === id) { pendingDelete = null; render(); } }, 4000); }
+  }
+
+  function updatePatientInfo() {
+    const name = $("pname").value;
+    const info = $("pinfo");
+    if (!name.trim()) { info.textContent = ""; return; }
+    const p = findPatient(name);
+    if (!p) { info.textContent = "Жаңа пациент — сақтағанда тізімге қосылады."; return; }
+    const st = stats(p.id);
+    const cost = Number(p.treatmentCost || 0);
+    let t = "Бұрын төлегені: " + money(st.paid);
+    if (cost > 0) t += " · ем құны " + money(cost) + " · қалды " + money(Math.max(0, cost - st.treatPaid));
+    info.textContent = t;
+  }
+
+  // ---------- form ----------
+  function setKind(k) {
+    kind = k;
+    document.querySelectorAll("#kinds button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === k)));
+    $("costWrap").hidden = k !== "treatment";
+  }
+  document.querySelectorAll("#kinds button").forEach((b) => b.onclick = () => setKind(b.dataset.k));
+  document.querySelectorAll("#periodSeg button").forEach((b) => b.onclick = () => {
+    period = b.dataset.p; anchor = new Date();
+    document.querySelectorAll("#periodSeg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    render();
+  });
+  $("prev").onclick = () => shift(-1);
+  $("next").onclick = () => shift(1);
+  $("search").addEventListener("input", renderPatients);
+  $("pname").addEventListener("input", updatePatientInfo);
+  $("date").value = iso(new Date());
+  $("time").value = nowTime();
+  $("edate").value = iso(new Date());
+  function setSplit(on) {
+    $("splitToggle").setAttribute("aria-pressed", String(on));
+    $("splitToggle").textContent = on ? "× Бір тәсілмен төледі" : "+ Екі тәсілмен бөліп төледі";
+    $("splitRow").hidden = !on;
+    $("amountLabel").textContent = on ? "1-сома, ₸" : "Төлеген сомасы, ₸";
+    if (on && $("method2").value === $("method").value) $("method2").value = $("method").value === "Қолма-қол" ? "Kaspi QR" : "Қолма-қол";
+    updateSplitTotal();
+  }
+  function updateSplitTotal() {
+    const on = $("splitToggle").getAttribute("aria-pressed") === "true";
+    const a = toNum($("amount").value), b = toNum($("amount2").value);
+    $("splitTotal").textContent = on && (isFinite(a) || isFinite(b)) ? "Барлығы: " + money((isFinite(a) ? a : 0) + (isFinite(b) ? b : 0)) : "";
+  }
+  $("splitToggle").onclick = () => setSplit($("splitToggle").getAttribute("aria-pressed") !== "true");
+  $("amount").addEventListener("input", updateSplitTotal);
+  $("amount2").addEventListener("input", updateSplitTotal);
+  document.querySelectorAll("#jtabs button").forEach((b) => b.onclick = () => { jtab = b.dataset.j; render(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("pname").value) { $("time").value = nowTime(); $("date").value = iso(new Date()); } });
+
+  document.querySelectorAll("#modeSeg button").forEach((b) => b.onclick = () => {
+    const m = b.dataset.m;
+    document.querySelectorAll("#modeSeg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    $("form").hidden = m !== "pay";
+    $("expForm").hidden = m !== "exp";
+  });
+
+  $("expForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const msg = $("emsg"); msg.className = "msg";
+    const amount = toNum($("eamount").value);
+    if (!isFinite(amount) || amount <= 0) { msg.textContent = "Соманы сан түрінде жазыңыз, мысалы 15000."; return; }
+    if (!store) { msg.textContent = "Әлі жүктелуде, бір сәт күтіңіз."; return; }
+    msg.textContent = "";
+    $("esave").disabled = true;
+    try {
+      const category = $("ecat").value;
+      await store.addExpense({ category, amount, date: $("edate").value || iso(new Date()), method: $("emethod").value, note: $("enote").value.trim(), createdAt: Date.now() });
+      msg.className = "msg ok"; msg.textContent = category + ": " + money(amount) + " расход сақталды.";
+      jtab = "expense"; render();
+      $("eamount").value = ""; $("enote").value = "";
+      $("eamount").focus();
+    } catch (err) {
+      msg.textContent = err?.code === "quota_exceeded" ? "Орын толды: ескі жазбаларды өшіріңіз." : "Сақталмады. Қайта көріңіз.";
+    } finally { $("esave").disabled = false; }
+  });
+
+  $("form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const msg = $("msg"); msg.className = "msg";
+    const name = $("pname").value.trim().replace(/\s+/g, " ");
+    const splitOn = $("splitToggle").getAttribute("aria-pressed") === "true";
+    const a1 = toNum($("amount").value);
+    const a2 = splitOn ? toNum($("amount2").value) : 0;
+    const amount = splitOn ? a1 + a2 : a1;
+    const costRaw = $("cost").value;
+    const cost = toNum(costRaw);
+    if (!name) { msg.textContent = "Пациенттің аты-жөнін жазыңыз."; return; }
+    if (!isFinite(a1) || a1 <= 0) { msg.textContent = "Соманы сан түрінде жазыңыз, мысалы 15000."; return; }
+    if (splitOn && (!isFinite(a2) || a2 <= 0)) { msg.textContent = "Екінші соманы да жазыңыз немесе бөліп төлеуді өшіріңіз."; return; }
+    if (splitOn && $("method").value === $("method2").value) { msg.textContent = "Екі тәсіл әртүрлі болуы керек."; return; }
+    if (kind === "treatment" && costRaw && (!isFinite(cost) || cost < 0)) { msg.textContent = "Ем құнын сан түрінде жазыңыз."; return; }
+    if (!store) { msg.textContent = "Әлі жүктелуде, бір сәт күтіңіз."; return; }
+    msg.textContent = "";
+    $("save").disabled = true;
+    try {
+      let p = findPatient(name);
+      let pid = p?.id;
+      if (!pid) {
+        const np = { name, createdAt: Date.now(), treatmentCost: 0 };
+        if (kind === "treatment" && costRaw) np.treatmentCost = cost;
+        pid = await store.addPatient(np);
+      } else if (kind === "treatment" && costRaw) {
+        await store.updatePatient(pid, { treatmentCost: cost });
+      }
+      const rec = { patientId: pid, patientName: name, kind, amount, date: $("date").value || iso(new Date()), time: $("time").value || "", method: $("method").value, note: $("note").value.trim(), createdAt: Date.now() };
+      if (splitOn) { rec.split = [{ method: $("method").value, amount: a1 }, { method: $("method2").value, amount: a2 }]; rec.method = rec.split.map((q) => q.method).join(" + "); }
+      await store.addPayment(rec);
+      msg.className = "msg ok"; msg.textContent = name + ": " + money(amount) + " сақталды.";
+      jtab = kind; render();
+      $("pname").value = ""; $("amount").value = ""; $("amount2").value = ""; $("cost").value = ""; $("note").value = "";
+      $("time").value = nowTime();
+      setSplit(false);
+      updatePatientInfo();
+      $("pname").focus();
+    } catch (err) {
+      msg.textContent = err?.code === "quota_exceeded" ? "Орын толды: ескі жазбаларды өшіріңіз." : "Сақталмады. Қайта көріңіз.";
+    } finally { $("save").disabled = false; }
+  });
+
+  setKind("consult");
+  render();
+  connect();
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  // Always look for a newer version and switch to it as soon as it is installed.
+  // Reload into a new version only when one replaces an older one, and never while a form is being filled.
+  const ctl = navigator.serviceWorker.controller;
+  const hadController = !!ctl && ctl.scriptURL === new URL("sw.js", location.href).href;
+  let reloaded = false;
+  const busy = () => ["pname", "amount", "amount2", "cost", "note", "eamount", "enote"].some((id) => { const e = document.getElementById(id); return e && e.value.trim(); });
+  const doReload = () => { if (!reloaded) { reloaded = true; location.reload(); } };
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController) return;
+    if (!busy()) return doReload();
+    const bar = document.createElement("button");
+    bar.type = "button"; bar.className = "updbar"; bar.textContent = "Жаңа нұсқа дайын — жаңарту үшін басыңыз";
+    bar.onclick = doReload; document.body.append(bar);
+  });
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((reg) => {
+      reg.update().catch(() => {});
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) reg.update().catch(() => {}); });
+    }).catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
