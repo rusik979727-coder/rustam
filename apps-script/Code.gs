@@ -263,7 +263,10 @@ function moveAppointment(fromSheet, fromRow, toSheet, toRow, prev) {
   });
 }
 
-/** Физио орнына жазу; data.name бос болса — орын босатылады. */
+/**
+ * Ем орнына жазу: аты, ем түрі, курс неше күн, нешінші күн (K–N).
+ * data.name мен data.proc бос болса — орын толық босатылады.
+ */
 function savePhysio(sheetName, row, data, prev) {
   return withLock_(function () {
     var sh = sheet_(sheetName);
@@ -271,10 +274,41 @@ function savePhysio(sheetName, row, data, prev) {
     assertUnchanged_(sh, row, 'physio', prev);
     var name = cleanText_(data && data.name, 120);
     var proc = cleanText_(data && data.proc, 120);
-    var range = sh.getRange(row, LAYOUT.physio.name, 1, 2);
-    if (!name && !proc) range.clearContent(); else range.setValues([[safeCell_(name), safeCell_(proc)]]);
+    var range = sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physioFields.length);
+    if (!name && !proc) {
+      range.clearContent();
+    } else {
+      var course = parseCourse(data && data.total, data && data.day);
+      range.setValues([[safeCell_(name), safeCell_(proc), course.total, course.day]]);
+    }
     return getDay(sheetName);
   });
+}
+
+/**
+ * Пациенттің осы күнге дейінгі соңғы ем жазбасы — келесі күнді ұсыну үшін.
+ * Аты бойынша (кіші-үлкен әріп пен артық бос орынға қарамай) соңғы 60 күн парағынан іздейді.
+ * Қайтарады: { date, sheet, time, proc, total, day } немесе null.
+ */
+function lastTreatment(name, beforeIso) {
+  var key = normalizeName(name);
+  if (key.length < 2) return null;
+  var days = dateSheets_().filter(function (d) { return d.date < beforeIso; }).reverse().slice(0, 60);
+  for (var i = 0; i < days.length; i++) {
+    var data = readSheet_(sheet_(days[i].sheet));
+    var day = parseDay(data.values, data.merges);
+    for (var b = day.physio.length - 1; b >= 0; b--) {
+      var block = day.physio[b];
+      for (var p = 0; p < block.places.length; p++) {
+        var place = block.places[p];
+        if (normalizeName(place.name) === key) {
+          return { date: days[i].date, sheet: days[i].sheet, time: block.time,
+            proc: place.proc, total: place.total, day: place.day };
+        }
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -308,7 +342,7 @@ function createDay(iso) {
     });
     var last = data.values.length;
     if (last > day.headerRow) {
-      sh.getRange(day.headerRow + 1, LAYOUT.physio.name, last - day.headerRow, 2).clearContent();
+      sh.getRange(day.headerRow + 1, LAYOUT.physio.name, last - day.headerRow, LAYOUT.physioFields.length).clearContent();
     }
     return { sheet: name, created: true };
   });
@@ -333,7 +367,7 @@ function searchPatient(query) {
       b.places.forEach(function (p) {
         if (p.name && matchesQuery(q, p.name, '')) {
           results.push({ kind: 'physio', sheet: d.sheet, date: d.date, time: b.time, row: p.row,
-            name: p.name, service: p.proc });
+            name: p.name, service: p.proc, total: p.total, day: p.day });
         }
       });
     });

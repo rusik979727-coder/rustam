@@ -38,7 +38,7 @@ function page() {
 }
 
 const PUBLIC = ['getBootstrap', 'getDay', 'saveAppointment', 'clearAppointment', 'setAttendance',
-  'moveAppointment', 'savePhysio', 'createDay', 'searchPatient', 'getStats'];
+  'moveAppointment', 'savePhysio', 'createDay', 'searchPatient', 'getStats', 'lastTreatment'];
 
 http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/rpc') {

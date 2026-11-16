@@ -221,7 +221,7 @@ test('статистика кезең бойынша', () => {
   assert.equal(st.came, 1);
   assert.equal(st.missed, 1);
   assert.equal(st.unmarked, 1);
-  assert.equal(st.physio, 5);
+  assert.equal(st.physio, 7); // 5.11: 2, 10.11: 2, 16.11: 3
   assert.equal(st.bySource['2ГИС'], 1);
   assert.equal(st.days.length, 3);
   assert.equal(app.getStats('2026-11-17', '2026-11-30').total, 0);
@@ -266,4 +266,64 @@ test('соңғы ем уақыты (19:30) төменгі бос жолдары�
   const last = app.getDay('16.11.2026').physio.at(-1);
   assert.equal(last.time, '19:30');
   assert.equal(last.places.length, 3);
+});
+
+// ───────── Ем курсы: неше күнге кірді, нешінші күн ─────────
+
+test('ем курсы M–N бағандарынан оқылады', () => {
+  const { app } = setup();
+  const place = app.getDay('16.11.2026').physio.find((b) => b.time === '10:00').places[2];
+  assert.equal(place.name, 'Жұмахан аға');
+  assert.equal(place.total, '10');
+  assert.equal(place.day, '2');
+});
+
+test('ем курсын сақтау және тексеру', () => {
+  const { app, ss } = setup();
+  const place = app.getDay('16.11.2026').physio.find((b) => b.time === '12:00').places[0];
+  const day = app.savePhysio('16.11.2026', place.row, { name: 'Дана', proc: 'Плазма', total: '5', day: '1' }, place.prev);
+  const saved = day.physio.find((b) => b.time === '12:00').places[0];
+  assert.equal(saved.total, '5');
+  assert.equal(saved.day, '1');
+  assert.equal(ss.getSheetByName('16.11.2026')._get(place.row, 14), 1);
+
+  assert.throws(() => app.savePhysio('16.11.2026', saved.row, { name: 'Дана', proc: 'Плазма', total: '5', day: '7' }, saved.prev), /аспауы керек/);
+  assert.throws(() => app.savePhysio('16.11.2026', saved.row, { name: 'Дана', proc: 'Плазма', total: 'он', day: '' }, saved.prev), /Курс неше күн/);
+  // Курссыз да сақталады
+  const p2 = app.savePhysio('16.11.2026', saved.row, { name: 'Дана', proc: 'Плазма', total: '', day: '' }, saved.prev)
+    .physio.find((b) => b.time === '12:00').places[0];
+  assert.equal(p2.total, '');
+  // Босатқанда курс та өшеді
+  const freed = app.savePhysio('16.11.2026', p2.row, { name: '', proc: '' }, p2.prev)
+    .physio.find((b) => b.time === '12:00').places[0];
+  assert.deepEqual([freed.name, freed.proc, freed.total, freed.day], ['', '', '', '']);
+});
+
+test('алдыңғы ем жазбасын аты бойынша табу (әріп пен бос орынға қарамай)', () => {
+  const { app } = setup();
+  const last = app.lastTreatment('жұмахан АҒА', '2026-11-18');
+  assert.equal(last.date, '2026-11-16');
+  assert.equal(last.day, '2');
+  assert.equal(last.total, '10');
+  // 16-сынан бұрын — 10 қарашадағы жазба («Жумахан  ага» — басқа жазылуы, бірақ ұ/у әртүрлі → табылмайды)
+  assert.equal(app.lastTreatment('Жұмахан аға', '2026-11-16'), null);
+  const prev = app.lastTreatment('жумахан ага', '2026-11-16');
+  assert.equal(prev.date, '2026-11-10');
+  assert.equal(prev.day, '1');
+  assert.equal(app.lastTreatment('Белгісіз адам', '2026-11-30'), null);
+  assert.equal(app.lastTreatment('а', '2026-11-30'), null);
+});
+
+test('жаңа күн парағында курс бағандары да тазаланады', () => {
+  const { app } = setup();
+  app.createDay('2026-11-17');
+  const day = app.getDay('17.11.2026');
+  assert.ok(day.physio.every((b) => b.places.every((p) => !p.total && !p.day)));
+});
+
+test('іздеуде ем курсы көрінеді', () => {
+  const { app } = setup();
+  const r = app.searchPatient('Жұмахан').find((x) => x.kind === 'physio');
+  assert.equal(r.total, '10');
+  assert.equal(r.day, '2');
 });

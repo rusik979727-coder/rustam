@@ -246,6 +246,10 @@
   .seg button:hover { border-color: var(--accent); }
   .seg button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .proc-other { margin-top: 8px; }
+  .course-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .course-hint { margin: 10px 0 0; padding: 8px 10px; border-radius: var(--radius); background: var(--accent-soft); color: var(--ink); font-size: 13.5px; }
+  .place .course { color: var(--accent); font-weight: 600; }
+  .place.plasma .course { color: var(--plasma); }
   .sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
   .sheet-actions .primary { flex: 1 1 100%; }
 
@@ -467,6 +471,17 @@
         <span>Аты</span>
         <input name="name" autocomplete="off" required>
       </label>
+      <p class="course-hint" id="courseHint" hidden></p>
+      <div class="course-row">
+        <label class="field">
+          <span>Курс неше күн</span>
+          <input name="total" type="number" inputmode="numeric" min="1" max="99" placeholder="мысалы 10">
+        </label>
+        <label class="field">
+          <span>Бүгін нешінші күн</span>
+          <input name="day" type="number" inputmode="numeric" min="1" max="99" placeholder="мысалы 1">
+        </label>
+      </div>
       <fieldset class="field">
         <legend>Ем түрі</legend>
         <div class="seg" id="procChips"></div>
@@ -685,7 +700,9 @@
         var cls = 'place' + (has ? ' taken' : '') + (p.extra ? ' extra' : '') + (isPlasma(p.proc) ? ' plasma' : '');
         var title = p.extra ? ' title="Қосымша жол (біріктірілген блоктан тыс)"' : '';
         return '<button class="' + cls + '" data-prow="' + p.row + '" data-block="' + i + '"' + title + '>' +
-          (has ? '<b>' + esc(p.name || '—') + '</b><small>' + esc(p.proc) + '</small>' : '<span class="c-empty">+</span>') + '</button>';
+          (has ? '<b>' + esc(p.name || '—') + '</b><small>' + esc(p.proc) +
+            (courseText(p) ? ' <span class="course">' + esc(courseText(p)) + '</span>' : '') + '</small>'
+            : '<span class="c-empty">+</span>') + '</button>';
       }).join('');
       return '<li class="row block' + (isNow ? ' now' : '') + (isToday && !isNow && b.minutes < now ? ' past' : '') + '" id="block-' + b.startRow + '">' +
         '<span class="c-time">' + esc(b.time) + '</span><div class="places">' + places + '</div></li>';
@@ -832,6 +849,10 @@
     state.physioEdit = { sheet: state.day.sheet, row: row, prev: place.prev, time: block.time };
     var f = $('#physioForm');
     f.name.value = place.name;
+    f.total.value = place.total;
+    f.day.value = place.day;
+    state.physioEdit.isNew = !place.name;
+    showCourseHint('');
     renderProcChips(place.proc || (place.name ? '' : state.day.procedures[0]));
     $('#physioTitle').textContent = (place.name ? 'Ем, ' : 'Емге жазу, ') + block.time;
     $('#physioFree').hidden = !(place.name || place.proc);
@@ -840,6 +861,43 @@
   }
 
   function isPlasma(proc) { return /плазм/i.test(proc || ''); }
+
+  // «3/10» — курстың нешінші күні; тек біреуі белгілі болса, соны ғана көрсетеміз.
+  function courseText(p) {
+    if (p.day && p.total) return p.day + '/' + p.total;
+    if (p.day) return p.day + '-күн';
+    if (p.total) return p.total + ' күн';
+    return '';
+  }
+
+  function showCourseHint(html) {
+    var el = $('#courseHint');
+    el.innerHTML = html;
+    el.hidden = !html;
+  }
+
+  // Жаңа жазбада атын жазғанда — пациенттің алдыңғы ем жазбасын тауып, келесі күнді ұсынамыз.
+  var courseTimer, courseSeq = 0;
+  function lookupCourse() {
+    var ed = state.physioEdit, f = $('#physioForm');
+    var name = f.name.value.trim();
+    if (!ed || !ed.isNew || name.length < 2) { showCourseHint(''); return; }
+    var seq = ++courseSeq;
+    call('lastTreatment', name, state.day.date).then(function (last) {
+      if (seq !== courseSeq || !$('#physioDialog').open) return;
+      if (!last) { showCourseHint('Бұл пациент бұрын емге жазылмаған. Курс күндерін жазыңыз.'); return; }
+      var prevDay = Number(last.day) || 0, total = Number(last.total) || 0;
+      var finished = total && prevDay >= total;
+      if (!finished) {
+        if (!f.total.value && total) f.total.value = total;
+        if (!f.day.value && prevDay) f.day.value = prevDay + 1;
+        if (last.proc) renderProcChips(last.proc);
+      }
+      showCourseHint('Соңғы рет: <b>' + esc(humanDate(last.date)) + '</b>, ' + esc(last.proc || 'ем') +
+        (courseText(last) ? ', <b>' + esc(courseText(last)) + '</b>' : '') +
+        (finished ? '. Курс аяқталған — жаңа курс болса, күндерін жазыңыз.' : '. Келесі күн толтырылды.'));
+    }).catch(function () { showCourseHint(''); });
+  }
 
   // Ем түрі батырмамен таңдалады; тізімде жоқ түрді төмендегі өріске жазуға болады.
   function renderProcChips(value) {
@@ -888,7 +946,8 @@
       $('#searchHint').textContent = rows.length ? 'Табылды: ' + rows.length : '«' + q + '» бойынша ештеңе табылмады. Атын қысқартып немесе нөмірдің соңғы цифрларын жазып көріңіз.';
       list.innerHTML = rows.map(function (r) {
         var att = r.attended === '✅' ? '<span class="came">келді</span>' : r.attended === '❌' ? '<span class="missed">келмеді</span>' : '';
-        var meta = [r.kind === 'physio' ? 'ем' : 'консультация', r.service, r.phone].filter(Boolean).map(esc).join(', ');
+        var meta = [r.kind === 'physio' ? 'ем' : 'консультация', r.service, r.kind === 'physio' ? courseText(r) : '', r.phone]
+          .filter(Boolean).map(esc).join(', ');
         return '<li><button data-date="' + r.date + '" data-kind="' + r.kind + '" data-row="' + r.row + '">' +
           '<span class="r-date">' + esc(humanDate(r.date)) + ' <small>' + esc(r.time) + ', ' + esc(weekday(r.date)) + '</small></span>' +
           '<span><span class="r-name">' + esc(r.name) + '</span><br><span class="r-meta">' + meta + (att ? ', ' + att : '') + '</span></span>' +
@@ -1036,7 +1095,13 @@
       var f = e.target;
       if (!f.name.value.trim()) { toast('Атын енгізіңіз.', true); return; }
       if (!f.proc.value.trim()) { toast('Ем түрін таңдаңыз: физио немесе плазма.', true); return; }
-      savePhysio({ name: f.name.value, proc: f.proc.value }, 'Емге жазылды');
+      var t = Number(f.total.value), d = Number(f.day.value);
+      if (f.total.value && f.day.value && d > t) { toast('Нешінші күн курс ұзақтығынан аспауы керек.', true); return; }
+      savePhysio({ name: f.name.value, proc: f.proc.value, total: f.total.value, day: f.day.value }, 'Емге жазылды');
+    });
+    $('#physioForm').name.addEventListener('input', function () {
+      clearTimeout(courseTimer);
+      courseTimer = setTimeout(lookupCourse, 500);
     });
     $('#procChips').addEventListener('click', function (e) {
       var b = e.target.closest('button');

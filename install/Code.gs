@@ -267,7 +267,10 @@ function moveAppointment(fromSheet, fromRow, toSheet, toRow, prev) {
   });
 }
 
-/** Физио орнына жазу; data.name бос болса — орын босатылады. */
+/**
+ * Ем орнына жазу: аты, ем түрі, курс неше күн, нешінші күн (K–N).
+ * data.name мен data.proc бос болса — орын толық босатылады.
+ */
 function savePhysio(sheetName, row, data, prev) {
   return withLock_(function () {
     var sh = sheet_(sheetName);
@@ -275,10 +278,41 @@ function savePhysio(sheetName, row, data, prev) {
     assertUnchanged_(sh, row, 'physio', prev);
     var name = cleanText_(data && data.name, 120);
     var proc = cleanText_(data && data.proc, 120);
-    var range = sh.getRange(row, LAYOUT.physio.name, 1, 2);
-    if (!name && !proc) range.clearContent(); else range.setValues([[safeCell_(name), safeCell_(proc)]]);
+    var range = sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physioFields.length);
+    if (!name && !proc) {
+      range.clearContent();
+    } else {
+      var course = parseCourse(data && data.total, data && data.day);
+      range.setValues([[safeCell_(name), safeCell_(proc), course.total, course.day]]);
+    }
     return getDay(sheetName);
   });
+}
+
+/**
+ * Пациенттің осы күнге дейінгі соңғы ем жазбасы — келесі күнді ұсыну үшін.
+ * Аты бойынша (кіші-үлкен әріп пен артық бос орынға қарамай) соңғы 60 күн парағынан іздейді.
+ * Қайтарады: { date, sheet, time, proc, total, day } немесе null.
+ */
+function lastTreatment(name, beforeIso) {
+  var key = normalizeName(name);
+  if (key.length < 2) return null;
+  var days = dateSheets_().filter(function (d) { return d.date < beforeIso; }).reverse().slice(0, 60);
+  for (var i = 0; i < days.length; i++) {
+    var data = readSheet_(sheet_(days[i].sheet));
+    var day = parseDay(data.values, data.merges);
+    for (var b = day.physio.length - 1; b >= 0; b--) {
+      var block = day.physio[b];
+      for (var p = 0; p < block.places.length; p++) {
+        var place = block.places[p];
+        if (normalizeName(place.name) === key) {
+          return { date: days[i].date, sheet: days[i].sheet, time: block.time,
+            proc: place.proc, total: place.total, day: place.day };
+        }
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -312,7 +346,7 @@ function createDay(iso) {
     });
     var last = data.values.length;
     if (last > day.headerRow) {
-      sh.getRange(day.headerRow + 1, LAYOUT.physio.name, last - day.headerRow, 2).clearContent();
+      sh.getRange(day.headerRow + 1, LAYOUT.physio.name, last - day.headerRow, LAYOUT.physioFields.length).clearContent();
     }
     return { sheet: name, created: true };
   });
@@ -337,7 +371,7 @@ function searchPatient(query) {
       b.places.forEach(function (p) {
         if (p.name && matchesQuery(q, p.name, '')) {
           results.push({ kind: 'physio', sheet: d.sheet, date: d.date, time: b.time, row: p.row,
-            name: p.name, service: p.proc });
+            name: p.name, service: p.proc, total: p.total, day: p.day });
         }
       });
     });
@@ -370,7 +404,8 @@ function getStats(fromIso, toIso) {
  *   2-жол — тақырып: | (уақыт) | ФИ пациента | номер | коммент | записал | источник | услуга | пд |
  *   A бағаны — дәрігер қабылдауының 20 минуттық слоттары (9:00 … 18:30, 19).
  *   J бағаны — физио уақыты (8:30 … 19:30), әр уақыт 3 жолға біріктірілген → 3 орын.
- *   K — физиоға жазылған адамның аты, L — процедура.
+ *   K — емге жазылған адамның аты, L — ем түрі,
+ *   M — курс неше күн, N — бүгін нешінші күн (мысалы 10 және 3 → «3/10»).
  */
 
 var LAYOUT = {
@@ -378,10 +413,10 @@ var LAYOUT = {
   defaultHeaderRow: 2,
   doctor: { time: 1, name: 2, phone: 3, comment: 4, recorder: 5, source: 6, service: 7, attended: 8 },
   doctorFields: ['name', 'phone', 'comment', 'recorder', 'source', 'service', 'attended'],
-  physio: { time: 10, name: 11, proc: 12 },
-  physioFields: ['name', 'proc'],
+  physio: { time: 10, name: 11, proc: 12, total: 13, day: 14 },
+  physioFields: ['name', 'proc', 'total', 'day'],
   physioBlockSize: 3,
-  readCols: 12
+  readCols: 14
 };
 
 // Ем түрлері: батырма ретінде әрқашан көрсетіледі. Таблицада кездескен басқа түрлер соңынан қосылады.
@@ -462,9 +497,12 @@ function parsePhysioBlocks(values, headerRow, merges) {
     for (var r = t.row; r < nextStart; r++) {
       var name = cell_(values, r, C.name);
       var proc = cell_(values, r, C.proc);
+      var total = cell_(values, r, C.total);
+      var dayNo = cell_(values, r, C.day);
       var inBlock = r <= end;
       if (!inBlock && !name && !proc) continue;
-      places.push({ row: r, name: name, proc: proc, extra: !inBlock, prev: rowSnapshot(values, r, 'physio') });
+      places.push({ row: r, name: name, proc: proc, total: total, day: dayNo, extra: !inBlock,
+        prev: rowSnapshot(values, r, 'physio') });
     }
     return {
       time: formatMinutes(t.minutes),
@@ -499,6 +537,28 @@ function parseDay(values, merges) {
     doctor: parseDoctorSlots(values, headerRow),
     physio: parsePhysioBlocks(values, headerRow, merges)
   };
+}
+
+/** Аттарды салыстыру үшін: кіші әріп, артық бос орынсыз ("Жумахан  Ага " → "жумахан ага"). */
+function normalizeName(name) {
+  return String(name || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Курс күндерін тексеру: екеуі де бос болуы мүмкін, болмаса 1–99 аралығындағы бүтін сан,
+ * және «нешінші күн» курс ұзақтығынан аспайды. Қате болса, түсінікті хабармен Error лақтырады.
+ */
+function parseCourse(total, day) {
+  function num(v, label) {
+    var s = String(v == null ? '' : v).trim();
+    if (!s) return '';
+    if (!/^\d{1,2}$/.test(s) || Number(s) < 1) throw new Error('«' + label + '» өрісіне 1-ден 99-ға дейінгі сан жазыңыз.');
+    return Number(s);
+  }
+  var t = num(total, 'Курс неше күн');
+  var d = num(day, 'Нешінші күн');
+  if (t !== '' && d !== '' && d > t) throw new Error('Нешінші күн (' + d + ') курс ұзақтығынан (' + t + ') аспауы керек.');
+  return { total: t, day: d };
 }
 
 /** Пациентті іздеу сұранысына сәйкестік. */
