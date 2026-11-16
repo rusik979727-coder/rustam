@@ -1,0 +1,588 @@
+<script>
+(function () {
+  'use strict';
+
+  // ───────── Көмекшілер ─────────
+  var $ = function (sel, root) { return (root || document).querySelector(sel); };
+  var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var runner = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+      runner[fn].apply(runner, args);
+    });
+  }
+
+  function errText(err) {
+    var msg = (err && err.message) || String(err);
+    return msg.replace(/^(Exception|Error|ScriptError):\s*/i, '').replace(/^CONFLICT:\s*/, '');
+  }
+  function isConflict(err) { return /CONFLICT/.test((err && err.message) || String(err)); }
+
+  var store = {
+    get: function (k) { try { return localStorage.getItem('beles.' + k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem('beles.' + k, v); } catch (e) { /* жоқ болса — маңызды емес */ } }
+  };
+
+  var WEEKDAYS = ['жексенбі', 'дүйсенбі', 'сейсенбі', 'сәрсенбі', 'бейсенбі', 'жұма', 'сенбі'];
+  var MONTHS = ['қаңтар', 'ақпан', 'наурыз', 'сәуір', 'мамыр', 'маусым', 'шілде', 'тамыз', 'қыркүйек', 'қазан', 'қараша', 'желтоқсан'];
+
+  function isoToDate(iso) { var p = iso.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])); }
+  function dateToIso(d) { return d.toISOString().slice(0, 10); }
+  function addDays(iso, n) { var d = isoToDate(iso); d.setUTCDate(d.getUTCDate() + n); return dateToIso(d); }
+  function humanDate(iso) { var d = isoToDate(iso); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()]; }
+  function weekday(iso) { return WEEKDAYS[isoToDate(iso).getUTCDay()]; }
+  function shortDate(iso) { var d = isoToDate(iso); return d.getUTCDate() + '.' + String(d.getUTCMonth() + 1).padStart(2, '0'); }
+
+  function phoneDigits(raw) {
+    var d = String(raw || '').replace(/\D/g, '');
+    if (d.length === 11 && (d[0] === '8' || d[0] === '7')) return '7' + d.slice(1);
+    if (d.length === 10 && d[0] === '7') return '7' + d;
+    return '';
+  }
+
+  var toastTimer;
+  function toast(msg, isError) {
+    var el = $('#toast');
+    el.textContent = msg;
+    el.classList.toggle('error', Boolean(isError));
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, isError ? 6000 : 2600);
+  }
+
+  // ───────── Күй ─────────
+  var state = {
+    boot: null,
+    date: null,
+    day: null,         // ағымдағы күннің деректері (парақ жоқ болса null)
+    tab: 'schedule',
+    edit: null,        // ашық тұрған дәрігер слоты
+    physioEdit: null,
+    formValues: {},
+    scrolledFor: null
+  };
+
+  function sheetFor(iso) {
+    var d = state.boot.days.filter(function (x) { return x.date === iso; })[0];
+    return d ? d.sheet : null;
+  }
+
+  function nowMinutes() { var n = new Date(); return n.getHours() * 60 + n.getMinutes(); }
+
+  // ───────── Жүктеу ─────────
+  function loadBoot() {
+    return call('getBootstrap').then(function (boot) { state.boot = boot; });
+  }
+
+  function loadDay(iso, opts) {
+    opts = opts || {};
+    state.date = iso;
+    renderHeader();
+    var sheet = sheetFor(iso);
+    if (!sheet) {
+      state.day = null;
+      renderDay();
+      return Promise.resolve();
+    }
+    if (!opts.silent) $('main').classList.add('loading');
+    return call('getDay', sheet).then(function (day) {
+      if (state.date !== iso) return; // пайдаланушы басқа күнге өтіп кетті
+      state.day = day;
+      renderDay();
+    }).catch(function (err) {
+      if (!opts.silent) toast(errText(err), true);
+    }).then(function () { $('main').classList.remove('loading'); });
+  }
+
+  function applyDay(day) {
+    if (day && day.date === state.date) { state.day = day; renderDay(); }
+  }
+
+  // ───────── Жоғарғы панель ─────────
+  function renderHeader() {
+    var iso = state.date, today = state.boot.today;
+    $('#dateMain').textContent = humanDate(iso);
+    var rel = iso === today ? 'бүгін' : iso === addDays(today, 1) ? 'ертең' : iso === addDays(today, -1) ? 'кеше' : iso.slice(0, 4);
+    var sheet = sheetFor(iso);
+    var wd = weekday(iso);
+    $('#dateSub').textContent = wd.charAt(0).toUpperCase() + wd.slice(1) + ', ' + rel + (sheet ? '' : ', парақ жоқ');
+    $('#dateInput').value = iso;
+    $('#todayBtn').setAttribute('aria-pressed', String(iso === today));
+  }
+
+  // ───────── Кесте ─────────
+  function renderDay() {
+    var day = state.day;
+    var stateEl = $('#dayState');
+    var board = $('.board');
+    if (!day) {
+      board.hidden = true;
+      stateEl.innerHTML =
+        '<div class="empty"><h3>' + esc(humanDate(state.date)) + ' күніне парақ әлі жоқ</h3>' +
+        '<p>Парақ соңғы күннің үлгісімен жасалады: уақыттар мен тізімдер сақталады, пациенттер бос болады.</p>' +
+        '<button class="primary" id="createDayBtn">Күн парағын жасау</button></div>';
+      $('#createDayBtn').onclick = createDay;
+      return;
+    }
+    board.hidden = false;
+    stateEl.innerHTML = '';
+    renderDoctor(day);
+    renderPhysio(day);
+    $('#procList').innerHTML = day.procedures.map(function (p) { return '<option value="' + esc(p) + '">'; }).join('');
+
+    if (day.date === state.boot.today && state.scrolledFor !== day.date) {
+      state.scrolledFor = day.date;
+      var nowEl = $('.slot.now');
+      if (nowEl) nowEl.scrollIntoView({ block: 'center' });
+    }
+  }
+
+  function renderDoctor(day) {
+    var isToday = day.date === state.boot.today;
+    var now = nowMinutes();
+    var slots = day.doctor;
+    var booked = slots.filter(function (s) { return s.booked; }).length;
+    $('#doctorCount').textContent = booked + ' / ' + slots.length + ' жазылды';
+    var yes = day.options.attended[0], no = day.options.attended[1];
+
+    $('#doctorList').innerHTML = slots.map(function (s, i) {
+      var next = slots[i + 1];
+      var cls = ['slot'];
+      var isNow = isToday && s.minutes <= now && (!next || next.minutes > now) && now < s.minutes + 60;
+      if (isNow) cls.push('now');
+      else if (isToday && s.minutes < now) cls.push('past');
+      var timeCls = s.minutes % 60 === 0 ? 'hour' : 'minor';
+      var body;
+      if (s.booked) {
+        var apptCls = 'appt' + (s.attended === yes ? ' came' : s.attended === no ? ' missed' : '');
+        var meta = [s.phone, s.service, s.source, s.recorder && ('жазған: ' + s.recorder)]
+          .filter(Boolean).map(function (m) { return '<span class="tag">' + esc(m) + '</span>'; }).join('');
+        body =
+          '<div class="' + apptCls + '">' +
+            '<button class="appt-open" data-row="' + s.row + '">' +
+              '<span class="appt-name">' + esc(s.name || 'Аты жазылмаған') + '</span>' +
+              (meta ? '<span class="appt-meta">' + meta + '</span>' : '') +
+              (s.comment ? '<span class="appt-note">' + esc(s.comment) + '</span>' : '') +
+            '</button>' +
+            '<div class="mark">' +
+              '<button class="yes" data-att="' + esc(yes) + '" data-row="' + s.row + '" aria-pressed="' + (s.attended === yes) + '" aria-label="Келді" title="Келді">' + esc(yes) + '</button>' +
+              '<button class="no" data-att="' + esc(no) + '" data-row="' + s.row + '" aria-pressed="' + (s.attended === no) + '" aria-label="Келмеді" title="Келмеді">' + esc(no) + '</button>' +
+            '</div>' +
+          '</div>';
+      } else {
+        var leftover = [s.service, s.comment].filter(Boolean).join(', ');
+        body = '<button class="slot-btn" data-row="' + s.row + '">Бос — жазу' +
+          (leftover ? ' <span class="leftover">(' + esc(leftover) + ')</span>' : '') + '</button>';
+      }
+      return '<li class="' + cls.join(' ') + '" id="slot-' + s.row + '">' +
+        '<div class="slot-time ' + timeCls + '">' + esc(s.time) + (isNow ? '<br><span class="now-label">қазір</span>' : '') + '</div>' +
+        '<div class="slot-body">' + body + '</div></li>';
+    }).join('');
+  }
+
+  function renderPhysio(day) {
+    var isToday = day.date === state.boot.today;
+    var now = nowMinutes();
+    var taken = 0, total = 0;
+    $('#physioList').innerHTML = day.physio.map(function (b, i) {
+      var next = day.physio[i + 1];
+      taken += b.taken;
+      total += b.places.filter(function (p) { return !p.extra; }).length;
+      var isNow = isToday && b.minutes <= now && (!next || next.minutes > now) && now < b.minutes + 60;
+      var full = b.taken >= b.places.length;
+      var places = b.places.map(function (p) {
+        var has = p.name || p.proc;
+        var cls = 'place' + (has ? ' taken' : '') + (p.extra ? ' extra' : '');
+        var title = p.extra ? ' title="Қосымша жол (біріктірілген блоктан тыс)"' : '';
+        return '<button class="' + cls + '" data-prow="' + p.row + '" data-block="' + i + '"' + title + '>' +
+          (has ? '<b>' + esc(p.name || '—') + '</b>' + esc(p.proc) : 'бос') + '</button>';
+      }).join('');
+      return '<li class="block' + (isNow ? ' now' : '') + (full ? ' full' : '') + '" id="block-' + b.startRow + '">' +
+        '<div class="block-time">' + esc(b.time) + '</div><div class="places">' + places + '</div></li>';
+    }).join('');
+    $('#physioCount').textContent = taken + ' / ' + total + ' орын';
+  }
+
+  // ───────── Дәрігерге жазу формасы ─────────
+  function findSlot(row) {
+    return state.day.doctor.filter(function (s) { return s.row === row; })[0];
+  }
+
+  function renderSeg(field, options, value) {
+    var box = $('.seg[data-field="' + field + '"]');
+    box.innerHTML = options.map(function (o) {
+      return '<button type="button" data-value="' + esc(o) + '" aria-pressed="' + (o === value) + '">' + esc(o) + '</button>';
+    }).join('');
+    state.formValues[field] = value || '';
+  }
+
+  function openAppt(row) {
+    var s = findSlot(row);
+    if (!s) return;
+    state.edit = { sheet: state.day.sheet, row: row, prev: s.prev, slot: s };
+    var f = $('#apptForm');
+    f.name.value = s.name;
+    f.phone.value = s.phone;
+    f.comment.value = s.comment;
+    var o = state.day.options;
+    renderSeg('service', o.service, s.service || (s.booked ? '' : o.service[0]));
+    renderSeg('source', o.source, s.source);
+    renderSeg('recorder', o.recorder, s.recorder || (s.booked ? '' : (store.get('recorder') || '')));
+    renderSeg('attended', o.attended, s.attended);
+    $('#attendedField').hidden = !s.booked;
+    $('#apptTitle').textContent = (s.booked ? 'Жазба, ' : 'Жаңа жазба, ') + s.time + ', ' + humanDate(state.day.date);
+    $('#apptDelete').hidden = !s.booked;
+    $('#apptMove').hidden = !s.booked;
+    updatePhoneLinks();
+    $('#apptDialog').showModal();
+    if (!s.booked) f.name.focus();
+  }
+
+  function updatePhoneLinks() {
+    var d = phoneDigits($('#apptForm').phone.value);
+    $('#waLink').hidden = $('#telLink').hidden = !d;
+    if (d) {
+      $('#waLink').href = 'https://wa.me/' + d;
+      $('#telLink').href = 'tel:+' + d;
+    }
+  }
+
+  function readApptForm() {
+    var f = $('#apptForm');
+    return {
+      name: f.name.value, phone: f.phone.value, comment: f.comment.value,
+      service: state.formValues.service, source: state.formValues.source,
+      recorder: state.formValues.recorder, attended: state.formValues.attended
+    };
+  }
+
+  function busy(btn, on) { if (btn) btn.disabled = on; }
+
+  function handleWriteError(err, dialog) {
+    toast(errText(err), true);
+    if (isConflict(err)) {
+      if (dialog) dialog.close();
+      loadDay(state.date, { silent: true });
+    }
+  }
+
+  function saveAppt(e) {
+    e.preventDefault();
+    var ed = state.edit, data = readApptForm();
+    if (!data.name.trim() && !data.phone.trim()) { toast('Пациенттің атын немесе телефонын енгізіңіз.', true); return; }
+    if (data.recorder) store.set('recorder', data.recorder);
+    var btn = $('#apptSave');
+    busy(btn, true);
+    call('saveAppointment', ed.sheet, ed.row, data, ed.prev).then(function (day) {
+      applyDay(day);
+      $('#apptDialog').close();
+      toast('Жазба сақталды: ' + ed.slot.time);
+    }).catch(function (err) { handleWriteError(err, $('#apptDialog')); })
+      .then(function () { busy(btn, false); });
+  }
+
+  function deleteAppt() {
+    var ed = state.edit;
+    if (!confirm(ed.slot.time + ' уақытындағы жазбаны өшіреміз бе?')) return;
+    call('clearAppointment', ed.sheet, ed.row, ed.prev).then(function (day) {
+      applyDay(day);
+      $('#apptDialog').close();
+      toast('Жазба өшірілді');
+    }).catch(function (err) { handleWriteError(err, $('#apptDialog')); });
+  }
+
+  function setAttendance(row, value) {
+    var s = findSlot(row);
+    var next = s.attended === value ? '' : value;
+    call('setAttendance', state.day.sheet, row, next, s.prev).then(applyDay)
+      .catch(function (err) { handleWriteError(err); });
+  }
+
+  // ───────── Көшіру ─────────
+  function openMove() {
+    var sel = $('#moveDay');
+    var from = state.date;
+    var days = state.boot.days.filter(function (d) { return d.date >= state.boot.today || d.date === from; });
+    sel.innerHTML = days.map(function (d) {
+      return '<option value="' + esc(d.sheet) + '"' + (d.date === from ? ' selected' : '') + '>' +
+        esc(humanDate(d.date) + ', ' + weekday(d.date)) + '</option>';
+    }).join('');
+    $('#apptDialog').close();
+    $('#moveDialog').showModal();
+    renderMoveSlots();
+  }
+
+  function renderMoveSlots() {
+    var sheet = $('#moveDay').value;
+    var box = $('#moveSlots');
+    box.innerHTML = '<p>Жүктелуде…</p>';
+    var p = sheet === state.day.sheet ? Promise.resolve(state.day) : call('getDay', sheet);
+    p.then(function (day) {
+      var free = day.doctor.filter(function (s) { return !s.booked; });
+      box.innerHTML = free.length ? free.map(function (s) {
+        return '<button data-to="' + s.row + '">' + esc(s.time) + '</button>';
+      }).join('') : '<p>Бұл күні бос уақыт жоқ.</p>';
+    }).catch(function (err) { box.innerHTML = '<p>' + esc(errText(err)) + '</p>'; });
+  }
+
+  function doMove(toRow) {
+    var ed = state.edit, toSheet = $('#moveDay').value;
+    call('moveAppointment', ed.sheet, ed.row, toSheet, toRow, ed.prev).then(function (day) {
+      applyDay(day);
+      $('#moveDialog').close();
+      toast('Жазба көшірілді');
+    }).catch(function (err) { handleWriteError(err, $('#moveDialog')); });
+  }
+
+  // ───────── Физио ─────────
+  function openPhysio(row, blockIndex) {
+    var block = state.day.physio[blockIndex];
+    var place = block.places.filter(function (p) { return p.row === row; })[0];
+    state.physioEdit = { sheet: state.day.sheet, row: row, prev: place.prev, time: block.time };
+    var f = $('#physioForm');
+    f.name.value = place.name;
+    f.proc.value = place.proc || (place.name ? '' : 'Физио');
+    $('#physioTitle').textContent = 'Физио, ' + block.time;
+    $('#physioFree').hidden = !(place.name || place.proc);
+    $('#physioDialog').showModal();
+    if (!place.name) f.name.focus();
+  }
+
+  function savePhysio(data, msg) {
+    var ed = state.physioEdit;
+    return call('savePhysio', ed.sheet, ed.row, data, ed.prev).then(function (day) {
+      applyDay(day);
+      $('#physioDialog').close();
+      toast(msg + ': ' + ed.time);
+    }).catch(function (err) { handleWriteError(err, $('#physioDialog')); });
+  }
+
+  // ───────── Жаңа күн ─────────
+  function createDay() {
+    var btn = $('#createDayBtn');
+    busy(btn, true);
+    call('createDay', state.date).then(function (res) {
+      return loadBoot().then(function () {
+        toast(res.created ? '«' + res.sheet + '» парағы жасалды' : 'Парақ бұрыннан бар');
+        return loadDay(state.date);
+      });
+    }).catch(function (err) { toast(errText(err), true); busy(btn, false); });
+  }
+
+  // ───────── Іздеу ─────────
+  var searchTimer, searchSeq = 0;
+  function runSearch() {
+    var q = $('#searchInput').value.trim();
+    var list = $('#searchResults');
+    if (q.length < 2) {
+      list.innerHTML = '';
+      $('#searchHint').textContent = 'Пациенттің атын немесе нөмірін жазыңыз — барлық күндерден табамыз.';
+      return;
+    }
+    var seq = ++searchSeq;
+    $('#searchHint').textContent = 'Іздеп жатырмыз…';
+    call('searchPatient', q).then(function (rows) {
+      if (seq !== searchSeq) return;
+      $('#searchHint').textContent = rows.length ? 'Табылды: ' + rows.length : '«' + q + '» бойынша ештеңе табылмады. Атын қысқартып немесе нөмірдің соңғы цифрларын жазып көріңіз.';
+      list.innerHTML = rows.map(function (r) {
+        var att = r.attended === '✅' ? '<span class="came">келді</span>' : r.attended === '❌' ? '<span class="missed">келмеді</span>' : '';
+        var meta = [r.kind === 'physio' ? 'физио' : 'дәрігер', r.service, r.phone].filter(Boolean).map(esc).join(', ');
+        return '<li><button data-date="' + r.date + '" data-kind="' + r.kind + '" data-row="' + r.row + '">' +
+          '<span class="r-date">' + esc(humanDate(r.date)) + ' <small>' + esc(r.time) + ', ' + esc(weekday(r.date)) + '</small></span>' +
+          '<span><span class="r-name">' + esc(r.name) + '</span><br><span class="r-meta">' + meta + (att ? ', ' + att : '') + '</span></span>' +
+          '</button></li>';
+      }).join('');
+    }).catch(function (err) {
+      if (seq === searchSeq) $('#searchHint').textContent = errText(err);
+    });
+  }
+
+  function jumpTo(date, kind, row) {
+    setTab(kind === 'physio' ? 'physio' : 'schedule');
+    state.scrolledFor = date;
+    loadDay(date).then(function () {
+      var el = kind === 'physio' ? $('[data-prow="' + row + '"]') : $('#slot-' + row);
+      if (el) { el.scrollIntoView({ block: 'center' }); el.focus && el.focus(); }
+    });
+  }
+
+  // ───────── Есеп ─────────
+  function periodRange(kind) {
+    var today = state.boot.today, d = isoToDate(today);
+    if (kind === 'week') {
+      var shift = (d.getUTCDay() + 6) % 7;
+      var mon = addDays(today, -shift);
+      return [mon, addDays(mon, 6)];
+    }
+    var y = d.getUTCFullYear(), m = d.getUTCMonth();
+    if (kind === 'lastmonth') { m -= 1; if (m < 0) { m = 11; y -= 1; } }
+    var first = dateToIso(new Date(Date.UTC(y, m, 1)));
+    var last = dateToIso(new Date(Date.UTC(y, m + 1, 0)));
+    return [first, last];
+  }
+
+  function setPeriod(kind) {
+    $$('#periodChips button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.period === kind)); });
+    var r = periodRange(kind);
+    $('#statFrom').value = r[0];
+    $('#statTo').value = r[1];
+    loadStats();
+  }
+
+  function bars(title, obj) {
+    var entries = Object.keys(obj).map(function (k) { return [k, obj[k]]; })
+      .sort(function (a, b) { return b[1] - a[1]; });
+    if (!entries.length) return '';
+    var max = entries[0][1];
+    return '<div class="breakdown"><h3>' + esc(title) + '</h3>' + entries.map(function (e) {
+      return '<div class="bar-row"><span class="lbl" title="' + esc(e[0]) + '">' + esc(e[0]) + '</span>' +
+        '<span><span class="bar" style="display:block;width:' + Math.max(2, Math.round(e[1] / max * 100)) + '%"></span></span>' +
+        '<span class="n">' + e[1] + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function loadStats() {
+    var from = $('#statFrom').value, to = $('#statTo').value;
+    if (!from || !to) return;
+    var body = $('#statsBody');
+    body.classList.add('loading');
+    call('getStats', from, to).then(function (st) {
+      if (!st.days.length) {
+        body.innerHTML = '<div class="empty"><h3>Бұл кезеңде күн парақтары жоқ</h3><p>Басқа кезеңді таңдаңыз.</p></div>';
+        return;
+      }
+      var marked = st.came + st.missed;
+      var rate = marked ? Math.round(st.came / marked * 100) + '%' : '—';
+      var maxDay = Math.max.apply(null, st.days.map(function (d) { return d.doctor; }).concat([1]));
+      body.innerHTML =
+        '<div class="kpis">' +
+          '<div class="kpi"><b>' + st.total + '</b><span>дәрігерге жазылды</span></div>' +
+          '<div class="kpi"><b>' + st.came + '</b><span>келді</span></div>' +
+          '<div class="kpi"><b>' + st.missed + '</b><span>келмеді</span></div>' +
+          '<div class="kpi"><b>' + rate + '</b><span>келу үлесі (белгіленгендерден)</span></div>' +
+          '<div class="kpi"><b>' + st.physio + '</b><span>физио</span></div>' +
+        '</div>' +
+        '<div class="breakdown days"><h3>Күн сайын дәрігерге жазылғандар</h3><div class="days-chart">' +
+          st.days.map(function (d) {
+            return '<div style="height:' + Math.max(2, Math.round(d.doctor / maxDay * 100)) + '%" title="' +
+              esc(humanDate(d.date) + ': дәрігер ' + d.doctor + ', физио ' + d.physio) + '"></div>';
+          }).join('') +
+        '</div><div class="days-legend"><span>' + shortDate(st.days[0].date) + '</span><span>' + shortDate(st.days[st.days.length - 1].date) + '</span></div></div>' +
+        '<div class="breakdowns">' +
+          bars('Қайдан келді', st.bySource) + bars('Қызмет', st.byService) +
+          bars('Кім жазды', st.byRecorder) + bars('Физио процедуралары', st.byProc) +
+        '</div>' +
+        (st.unmarked ? '<p class="hint">' + st.unmarked + ' жазбаның келгені белгіленбеген.</p>' : '');
+    }).catch(function (err) {
+      body.innerHTML = '<div class="empty"><h3>Есеп жүктелмеді</h3><p>' + esc(errText(err)) + '</p></div>';
+    }).then(function () { body.classList.remove('loading'); });
+  }
+
+  // ───────── Қойындылар ─────────
+  function setTab(tab) {
+    state.tab = tab;
+    document.body.dataset.tab = tab;
+    $$('.tabs button').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
+    var view = tab === 'physio' ? 'schedule' : tab;
+    $$('.view').forEach(function (v) { v.hidden = v.id !== 'view-' + view; });
+    if (tab === 'search') setTimeout(function () { $('#searchInput').focus(); }, 0);
+    if (tab === 'stats' && !$('#statsBody').innerHTML) setPeriod('week');
+  }
+
+  // ───────── Оқиғалар ─────────
+  function bind() {
+    $('#prevDay').onclick = function () { loadDay(addDays(state.date, -1)); };
+    $('#nextDay').onclick = function () { loadDay(addDays(state.date, 1)); };
+    $('#todayBtn').onclick = function () { state.scrolledFor = null; loadDay(state.boot.today); };
+    $('#dateInput').onchange = function (e) { if (e.target.value) loadDay(e.target.value); };
+    $$('.tabs button').forEach(function (b) { b.onclick = function () { setTab(b.dataset.tab); }; });
+
+    $('#doctorList').addEventListener('click', function (e) {
+      var att = e.target.closest('[data-att]');
+      if (att) { setAttendance(Number(att.dataset.row), att.dataset.att); return; }
+      var open = e.target.closest('.appt-open, .slot-btn');
+      if (open) openAppt(Number(open.dataset.row));
+    });
+    $('#physioList').addEventListener('click', function (e) {
+      var p = e.target.closest('[data-prow]');
+      if (p) openPhysio(Number(p.dataset.prow), Number(p.dataset.block));
+    });
+
+    $$('.seg').forEach(function (box) {
+      box.addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        var field = box.dataset.field;
+        var on = b.getAttribute('aria-pressed') !== 'true';
+        $$('button', box).forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+        b.setAttribute('aria-pressed', String(on));
+        state.formValues[field] = on ? b.dataset.value : '';
+      });
+    });
+    $('#apptForm').addEventListener('submit', saveAppt);
+    $('#apptForm').phone.addEventListener('input', updatePhoneLinks);
+    $('#apptDelete').onclick = deleteAppt;
+    $('#apptMove').onclick = openMove;
+    $('#moveDay').onchange = renderMoveSlots;
+    $('#moveSlots').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-to]');
+      if (b) doMove(Number(b.dataset.to));
+    });
+
+    $('#physioForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = e.target;
+      if (!f.name.value.trim()) { toast('Атын енгізіңіз.', true); return; }
+      savePhysio({ name: f.name.value, proc: f.proc.value }, 'Физиоға жазылды');
+    });
+    $('#physioFree').onclick = function () { savePhysio({ name: '', proc: '' }, 'Орын босатылды'); };
+
+    $$('[data-close]').forEach(function (b) { b.onclick = function () { b.closest('dialog').close(); }; });
+    $$('dialog').forEach(function (d) {
+      d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
+    });
+
+    $('#searchInput').addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(runSearch, 350);
+    });
+    $('#searchResults').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-date]');
+      if (b) jumpTo(b.dataset.date, b.dataset.kind, Number(b.dataset.row));
+    });
+
+    $$('#periodChips button').forEach(function (b) { b.onclick = function () { setPeriod(b.dataset.period); }; });
+    $('#statFrom').onchange = $('#statTo').onchange = function () {
+      $$('#periodChips button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+      loadStats();
+    };
+
+    // Басқа әкімшілердің өзгерістерін көру үшін 30 секунд сайын жаңарту
+    setInterval(function () {
+      var dialogOpen = $$('dialog').some(function (d) { return d.open; });
+      if (document.hidden || dialogOpen || !state.day || (state.tab !== 'schedule' && state.tab !== 'physio')) return;
+      loadDay(state.date, { silent: true });
+    }, 30000);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && state.boot) loadBoot().then(function () { loadDay(state.date, { silent: true }); });
+    });
+  }
+
+  // ───────── Іске қосу ─────────
+  bind();
+  setTab('schedule');
+  loadBoot().then(function () { return loadDay(state.boot.today); })
+    .catch(function (err) {
+      $('#dayState').innerHTML = '<div class="empty"><h3>Таблица ашылмады</h3><p>' + esc(errText(err)) +
+        '</p><button class="primary" onclick="location.reload()">Қайта жүктеу</button></div>';
+    });
+})();
+</script>
