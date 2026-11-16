@@ -61,7 +61,10 @@ function sheet_(name) {
 }
 
 function readSheet_(sh) {
-  var lastRow = Math.max(sh.getLastRow(), LAYOUT.defaultHeaderRow + 1);
+  // Соңғы толтырылған жолдан кейін тағы бірнеше жол оқимыз: соңғы ем уақыты (мысалы 19:30)
+  // 3 жолға біріктірілген, ал оның төменгі жолдары бос болса, getLastRow() оларды санамайды.
+  var lastRow = Math.min(sh.getMaxRows(),
+    Math.max(sh.getLastRow(), LAYOUT.defaultHeaderRow + 1) + LAYOUT.physioBlockSize - 1);
   var values = sh.getRange(1, 1, lastRow, LAYOUT.readCols).getDisplayValues();
   var merges = sh.getRange(1, LAYOUT.physio.time, lastRow, 1).getMergedRanges().map(function (r) {
     return { start: r.getRow(), end: r.getLastRow() };

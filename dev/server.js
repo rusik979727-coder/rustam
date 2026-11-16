@@ -11,7 +11,8 @@ const { sampleSpreadsheet } = require('../tests/fixture');
 
 const DIR = path.join(__dirname, '..', 'apps-script');
 const PORT = Number(process.env.PORT) || 8080;
-const app = loadApp(sampleSpreadsheet());
+// TODAY=2026-11-16 — тест деректеріндегі күнді «бүгін» етіп бекіту
+const app = loadApp(sampleSpreadsheet(), process.env.TODAY ? { formatDate: () => process.env.TODAY } : {});
 
 const MOCK = `<script>
 window.google = { script: { get run() {

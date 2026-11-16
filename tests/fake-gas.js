@@ -61,6 +61,7 @@ class FakeSheet {
   }
   getName() { return this.name; }
   setName(n) { this.name = n; return this; }
+  getMaxRows() { return Math.max(this.cells.length, 1000); }
   getLastRow() {
     for (let r = this.cells.length; r > 0; r--) {
       if ((this.cells[r - 1] || []).some((v) => v !== '' && v != null)) return r;

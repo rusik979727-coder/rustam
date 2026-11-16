@@ -139,7 +139,7 @@
 
     if (day.date === state.boot.today && state.scrolledFor !== day.date) {
       state.scrolledFor = day.date;
-      var nowEl = $('.slot.now');
+      var nowEl = $('#doctorList .now');
       if (nowEl) nowEl.scrollIntoView({ block: 'center' });
     }
   }
@@ -152,38 +152,39 @@
     $('#doctorCount').textContent = booked + ' / ' + slots.length + ' жазылды';
     var yes = day.options.attended[0], no = day.options.attended[1];
 
+    // Таблицадағыдай: әр уақыт — бір жол, бағандар: пациент, телефон, қызмет, қайдан, менеджер, келді
     $('#doctorList').innerHTML = slots.map(function (s, i) {
       var next = slots[i + 1];
-      var cls = ['slot'];
+      var cls = ['row', 'd-cols'];
       var isNow = isToday && s.minutes <= now && (!next || next.minutes > now) && now < s.minutes + 60;
       if (isNow) cls.push('now');
       else if (isToday && s.minutes < now) cls.push('past');
-      var timeCls = s.minutes % 60 === 0 ? 'hour' : 'minor';
-      var body;
+      if (s.minutes % 60 === 0) cls.push('hour');
+      var main, att = '';
       if (s.booked) {
-        var apptCls = 'appt' + (s.attended === yes ? ' came' : s.attended === no ? ' missed' : '');
-        var meta = [s.phone, s.service, s.source, s.recorder && ('жазған: ' + s.recorder)]
-          .filter(Boolean).map(function (m) { return '<span class="tag">' + esc(m) + '</span>'; }).join('');
-        body =
-          '<div class="' + apptCls + '">' +
-            '<button class="appt-open" data-row="' + s.row + '">' +
-              '<span class="appt-name">' + esc(s.name || 'Аты жазылмаған') + '</span>' +
-              (meta ? '<span class="appt-meta">' + meta + '</span>' : '') +
-              (s.comment ? '<span class="appt-note">' + esc(s.comment) + '</span>' : '') +
-            '</button>' +
-            '<div class="mark">' +
-              '<button class="yes" data-att="' + esc(yes) + '" data-row="' + s.row + '" aria-pressed="' + (s.attended === yes) + '" aria-label="Келді" title="Келді">' + esc(yes) + '</button>' +
-              '<button class="no" data-att="' + esc(no) + '" data-row="' + s.row + '" aria-pressed="' + (s.attended === no) + '" aria-label="Келмеді" title="Келмеді">' + esc(no) + '</button>' +
-            '</div>' +
-          '</div>';
+        cls.push('booked');
+        if (s.attended === yes) cls.push('came');
+        if (s.attended === no) cls.push('missed');
+        main =
+          '<button class="d-fields appt-open" data-row="' + s.row + '">' +
+            '<span class="c-name">' + esc(s.name || 'Аты жазылмаған') +
+              (s.comment ? '<small class="c-note">' + esc(s.comment) + '</small>' : '') + '</span>' +
+            '<span class="c-phone">' + esc(s.phone) + '</span>' +
+            '<span class="c-tag">' + esc(s.service) + '</span>' +
+            '<span class="c-tag">' + esc(s.source) + '</span>' +
+            '<span class="c-tag">' + esc(s.recorder) + '</span>' +
+          '</button>';
+        att =
+          '<button class="att yes" data-att="' + esc(yes) + '" data-row="' + s.row + '" aria-pressed="' + (s.attended === yes) + '" title="Келді" aria-label="Келді">✓</button>' +
+          '<button class="att no" data-att="' + esc(no) + '" data-row="' + s.row + '" aria-pressed="' + (s.attended === no) + '" title="Келмеді" aria-label="Келмеді">✕</button>';
       } else {
         var leftover = [s.service, s.comment].filter(Boolean).join(', ');
-        body = '<button class="slot-btn" data-row="' + s.row + '">Бос — жазу' +
-          (leftover ? ' <span class="leftover">(' + esc(leftover) + ')</span>' : '') + '</button>';
+        main = '<button class="d-fields slot-btn" data-row="' + s.row + '" aria-label="' + esc(s.time) + ' уақытына жазу">' +
+          '<span class="c-empty">+ жазу' + (leftover ? ' <small>(' + esc(leftover) + ')</small>' : '') + '</span></button>';
       }
       return '<li class="' + cls.join(' ') + '" id="slot-' + s.row + '">' +
-        '<div class="slot-time ' + timeCls + '">' + esc(s.time) + (isNow ? '<br><span class="now-label">қазір</span>' : '') + '</div>' +
-        '<div class="slot-body">' + body + '</div></li>';
+        '<span class="c-time">' + esc(s.time) + '</span>' + main +
+        '<span class="t-att">' + att + '</span></li>';
     }).join('');
   }
 
@@ -196,16 +197,15 @@
       taken += b.taken;
       total += b.places.filter(function (p) { return !p.extra; }).length;
       var isNow = isToday && b.minutes <= now && (!next || next.minutes > now) && now < b.minutes + 60;
-      var full = b.taken >= b.places.length;
       var places = b.places.map(function (p) {
         var has = p.name || p.proc;
         var cls = 'place' + (has ? ' taken' : '') + (p.extra ? ' extra' : '') + (isPlasma(p.proc) ? ' plasma' : '');
         var title = p.extra ? ' title="Қосымша жол (біріктірілген блоктан тыс)"' : '';
         return '<button class="' + cls + '" data-prow="' + p.row + '" data-block="' + i + '"' + title + '>' +
-          (has ? '<b>' + esc(p.name || '—') + '</b>' + esc(p.proc) : 'бос') + '</button>';
+          (has ? '<b>' + esc(p.name || '—') + '</b><small>' + esc(p.proc) + '</small>' : '<span class="c-empty">+</span>') + '</button>';
       }).join('');
-      return '<li class="block' + (isNow ? ' now' : '') + (full ? ' full' : '') + '" id="block-' + b.startRow + '">' +
-        '<div class="block-time">' + esc(b.time) + '</div><div class="places">' + places + '</div></li>';
+      return '<li class="row block' + (isNow ? ' now' : '') + (isToday && !isNow && b.minutes < now ? ' past' : '') + '" id="block-' + b.startRow + '">' +
+        '<span class="c-time">' + esc(b.time) + '</span><div class="places">' + places + '</div></li>';
     }).join('');
     $('#physioCount').textContent = taken + ' / ' + total + ' орын';
   }

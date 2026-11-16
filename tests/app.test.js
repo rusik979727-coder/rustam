@@ -260,3 +260,10 @@ test('уақыттар таңертеңнен кешке дейін ретіме
   const pm = day.physio.map((b) => b.minutes);
   assert.deepEqual(pm, pm.slice().sort((a, b) => a - b));
 });
+
+test('соңғы ем уақыты (19:30) төменгі бос жолдарымен бірге 3 орын', () => {
+  const { app } = setup();
+  const last = app.getDay('16.11.2026').physio.at(-1);
+  assert.equal(last.time, '19:30');
+  assert.equal(last.places.length, 3);
+});

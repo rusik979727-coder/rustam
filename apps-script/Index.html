@@ -4,7 +4,7 @@
   <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#15302f">
+  <meta name="theme-color" content="#ffffff">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap&subset=cyrillic,cyrillic-ext" rel="stylesheet">
@@ -39,14 +39,26 @@
             <h2>Консультация</h2>
             <span class="count" id="doctorCount"></span>
           </div>
-          <ol class="slots" id="doctorList"></ol>
+          <div class="table">
+            <div class="t-head d-cols" aria-hidden="true">
+              <span>Уақыт</span>
+              <span class="d-fields"><span>Пациент</span><span>Телефон</span><span>Қызмет</span><span>Қайдан</span><span>Менеджер</span></span>
+              <span class="t-att">Келді</span>
+            </div>
+            <ol class="slots" id="doctorList"></ol>
+          </div>
         </div>
         <div class="col col-physio" id="physioCol">
           <div class="col-head">
             <h2>Ем: физио, плазма</h2>
             <span class="count" id="physioCount"></span>
           </div>
-          <ol class="blocks" id="physioList"></ol>
+          <div class="table">
+            <div class="t-head p-cols" aria-hidden="true">
+              <span>Уақыт</span><span>1-орын</span><span>2-орын</span><span>3-орын</span>
+            </div>
+            <ol class="blocks" id="physioList"></ol>
+          </div>
         </div>
       </div>
     </section>
