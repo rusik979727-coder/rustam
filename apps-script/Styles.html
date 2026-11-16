@@ -1,17 +1,18 @@
 <style>
-  /* Ақ, жеңіл, медициналық: ақ бет, жіңішке сызықтар, бір көгілдір екпін.
+  /* Ақ, жеңіл, медициналық, BELES логотипінің түстерімен: қою көк және көгілдір-жасыл.
      Кесте таблицадағыдай: жолдар мен бағандар, бір экранға көп сыяды. */
   :root {
     --bg: #f4f6f9;
     --surface: #ffffff;
-    --ink: #1b2733;
+    --ink: #122c43;
     --muted: #667085;
     --faint: #98a2b3;
     --line: #e4e8ee;
     --line-strong: #cfd6e0;
-    --accent: #0b7f86;
+    --accent: #126d72;
+    --accent-light: #22a9b1;
     --accent-ink: #ffffff;
-    --accent-soft: #e7f4f4;
+    --accent-soft: #e5f2f2;
     --came: #1f8a4c;
     --came-soft: #e9f6ef;
     --missed: #c43c3c;
@@ -22,6 +23,7 @@
     --row-h: 40px;
     --time-w: 62px;
     --font: 'Golos Text', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --brand-font: 'Montserrat', 'Golos Text', system-ui, sans-serif;
     color-scheme: light;
   }
   * { box-sizing: border-box; }
@@ -41,6 +43,14 @@
     background: var(--surface); border-bottom: 1px solid var(--line);
     padding: max(8px, env(safe-area-inset-top)) 16px 0;
   }
+  .brand-row {
+    display: flex; align-items: center; gap: 8px; max-width: 1280px; margin: 0 auto 8px;
+  }
+  .brand-mark { width: 30px; height: 30px; flex: none; display: block; }
+  .brand-word { font: 700 19px/1 var(--brand-font); letter-spacing: .08em; }
+  .brand-word .b1 { color: var(--ink); }
+  .brand-word .b2 { color: var(--accent); }
+  .brand-sub { font: 600 12.5px/1 var(--brand-font); color: var(--muted); padding-top: 2px; }
   .top-row { display: flex; align-items: center; gap: 4px; max-width: 1280px; margin: 0 auto; }
   .icon-btn {
     width: 36px; height: 36px; flex: none; border: 1px solid var(--line); border-radius: var(--radius);
@@ -185,7 +195,7 @@
   .primary, .ghost, .danger {
     border-radius: var(--radius); padding: 11px 18px; font-weight: 600; border: 1px solid transparent; min-height: 44px;
   }
-  .primary { background: var(--accent); color: var(--accent-ink); }
+  .primary { background: linear-gradient(135deg, var(--accent-light), var(--accent)); color: var(--accent-ink); }
   .primary:hover { filter: brightness(.95); }
   .primary:disabled { opacity: .5; cursor: wait; }
   .ghost { background: var(--surface); border-color: var(--line-strong); }

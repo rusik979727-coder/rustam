@@ -7,11 +7,16 @@
   <meta name="theme-color" content="#ffffff">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap&subset=cyrillic,cyrillic-ext" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Montserrat:wght@600;700&display=swap&subset=cyrillic,cyrillic-ext" rel="stylesheet">
   <?!= include('Styles') ?>
 </head>
 <body>
   <header class="top">
+    <div class="brand-row">
+      <?!= include('Logo') ?>
+      <span class="brand-word" aria-label="Beles"><span class="b1">BEL</span><span class="b2">ES</span></span>
+      <span class="brand-sub">медицина орталығы</span>
+    </div>
     <div class="top-row">
       <button class="icon-btn" id="prevDay" aria-label="Алдыңғы күн">‹</button>
       <label class="date-pick">
