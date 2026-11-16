@@ -27,7 +27,10 @@ window.google = { script: { get run() {
 </script>`;
 
 function page() {
-  let html = fs.readFileSync(path.join(DIR, 'Index.html'), 'utf8');
+  // INSTALL=1 болса — пайдаланушы көшіретін біріктірілген install/Index.html көрсетіледі
+  let html = process.env.INSTALL
+    ? fs.readFileSync(path.join(__dirname, '..', 'install', 'Index.html'), 'utf8')
+    : fs.readFileSync(path.join(DIR, 'Index.html'), 'utf8');
   html = html.replace(/<\?!=\s*include\('(\w+)'\)\s*\?>/g, (_, name) =>
     fs.readFileSync(path.join(DIR, name + '.html'), 'utf8'));
   return html.replace('<head>', '<head>' + MOCK);

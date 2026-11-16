@@ -131,9 +131,11 @@ function loadApp(spreadsheet, opts = {}) {
     HtmlService: {}
   };
   vm.createContext(ctx);
-  for (const f of ['Dates.gs', 'Sheet.gs', 'Code.gs']) {
-    vm.runInContext(fs.readFileSync(path.join(GS_DIR, f), 'utf8'), ctx, { filename: f });
-  }
+  // opts.sources: [{ name, code }] — мысалы, біріктірілген install/Code.gs
+  const sources = opts.sources || ['Dates.gs', 'Sheet.gs', 'Code.gs'].map((f) => ({
+    name: f, code: fs.readFileSync(path.join(GS_DIR, f), 'utf8')
+  }));
+  for (const s of sources) vm.runInContext(s.code, ctx, { filename: s.name });
   // vm контекстінен шыққан объектілерді қарапайым JSON-ға айналдыру (deepStrictEqual үшін)
   const api = {};
   for (const k of Object.keys(ctx)) {

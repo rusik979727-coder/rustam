@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#15302f">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap&subset=cyrillic,cyrillic-ext" rel="stylesheet">
+  <style>
+  :root {
+    --ink: #15302f;
+    --ink-soft: #2c4a48;
+    --muted: #5d716d;
+    --bg: #edf2ef;
+    --surface: #ffffff;
+    --line: #cfdad5;
+    --booked: #dcebe4;
+    --saffron: #e3a21a;
+    --saffron-soft: #fbefd2;
+    --came: #2f7a4c;
+    --missed: #b8432f;
+    --radius-s: 6px;
+    --radius-m: 12px;
+    --font: 'Golos Text', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 15px/1.45 var(--font);
+    font-variant-numeric: tabular-nums;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  /* ── Жоғарғы панель ── */
+  .top {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--ink); color: #fff;
+    padding: max(10px, env(safe-area-inset-top)) 16px 0;
+  }
+  .top-row { display: flex; align-items: center; gap: 6px; max-width: 1180px; margin: 0 auto; }
+  .icon-btn {
+    width: 40px; height: 40px; flex: none;
+    border: 0; border-radius: var(--radius-s); background: transparent;
+    font-size: 26px; line-height: 1;
+  }
+  .top .icon-btn:hover { background: rgba(255,255,255,.08); }
+  .date-pick { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 2px 4px; cursor: pointer; }
+  .date-main { font-size: 20px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .date-sub { font-size: 13px; color: #a9c2be; }
+  .date-pick input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+  .text-btn {
+    flex: none; border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff;
+    border-radius: 999px; padding: 6px 14px; font-weight: 500;
+  }
+  .text-btn[aria-pressed="true"] { background: var(--saffron); border-color: var(--saffron); color: var(--ink); }
+  .tabs { display: flex; gap: 4px; max-width: 1180px; margin: 8px auto 0; overflow-x: auto; }
+  .tabs button {
+    flex: none; border: 0; background: transparent; color: #a9c2be;
+    padding: 10px 14px 12px; font-weight: 500; border-bottom: 3px solid transparent;
+  }
+  .tabs button[aria-selected="true"] { color: #fff; border-bottom-color: var(--saffron); }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 16px 16px 96px; }
+
+  /* ── Кесте ── */
+  .board { display: grid; gap: 24px; }
+  @media (min-width: 960px) {
+    .board { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; }
+    .only-narrow { display: none; }
+  }
+  @media (max-width: 959px) {
+    body[data-tab="schedule"] .col-physio { display: none; }
+    body[data-tab="physio"] .col-doctor { display: none; }
+  }
+  .col-head { display: flex; align-items: baseline; justify-content: space-between; margin: 4px 0 10px; }
+  .col-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  .count { color: var(--muted); font-size: 14px; }
+
+  .slots, .blocks { list-style: none; margin: 0; padding: 0; }
+
+  /* Уақыт осі: сол жақта сағат, ортасында сызық, оң жақта жазба */
+  .slot {
+    display: grid; grid-template-columns: 64px 1fr; position: relative;
+  }
+  .slot::before {
+    content: ''; position: absolute; left: 64px; top: 0; bottom: 0; width: 2px; background: var(--line);
+  }
+  .slot-time {
+    padding: 12px 12px 0 0; text-align: right;
+    font-size: 17px; font-weight: 600; color: var(--ink);
+  }
+  .slot-time.hour { font-size: 20px; }
+  .slot-time.minor { color: var(--muted); font-weight: 500; }
+  .slot-body { padding: 4px 0 4px 14px; min-width: 0; }
+
+  .slot-btn {
+    display: block; width: 100%; text-align: left;
+    border: 1px dashed var(--line); background: transparent; border-radius: var(--radius-s);
+    padding: 10px 12px; color: var(--muted); min-height: 44px;
+  }
+  .slot-btn:hover { border-color: var(--ink-soft); color: var(--ink); background: var(--surface); }
+  .slot-btn .leftover { font-size: 13px; }
+
+  .appt {
+    display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
+    border-left: 4px solid var(--ink-soft); border-radius: var(--radius-s);
+    background: var(--booked); padding: 6px 8px 6px 0;
+  }
+  .appt.came { border-left-color: var(--came); }
+  .appt.missed { border-left-color: var(--missed); background: #f3e1dc; }
+  .appt-open {
+    display: block; min-width: 0; text-align: left; border: 0; background: transparent;
+    padding: 3px 0 3px 12px; border-radius: var(--radius-s);
+  }
+  .appt-name { display: block; font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+  .appt-meta { display: block; color: var(--ink-soft); font-size: 13.5px; overflow-wrap: anywhere; }
+  .appt-meta .tag { display: inline-block; margin-right: 10px; }
+  .appt-note { display: block; font-size: 13.5px; color: var(--muted); font-style: italic; }
+  .mark { display: flex; gap: 4px; }
+  .mark button {
+    width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--surface); font-size: 16px; line-height: 1; padding: 0; opacity: .55;
+  }
+  .mark button[aria-pressed="true"] { opacity: 1; border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+  .mark .yes { color: var(--came); }
+  .mark .no { color: var(--missed); }
+
+  /* «Қазір» — бүгінгі күндегі ағымдағы уақыт */
+  .slot.now .slot-time { color: var(--saffron); }
+  .slot.now::before { background: var(--saffron); width: 4px; left: 63px; }
+  .now-label {
+    display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px;
+    background: var(--saffron); color: var(--ink); font-size: 11.5px; font-weight: 600; vertical-align: 2px;
+  }
+  .slot.past .slot-btn { opacity: .55; }
+
+  /* ── Физио ── */
+  .block { display: grid; grid-template-columns: 56px 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .block:last-child { border-bottom: 0; }
+  .block-time { font-weight: 600; font-size: 16px; padding-top: 8px; text-align: right; }
+  .block.now .block-time { color: var(--saffron); }
+  .places { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .place {
+    min-height: 44px; border-radius: var(--radius-s); padding: 6px 8px; text-align: left;
+    border: 1px dashed var(--line); background: transparent; color: var(--muted); font-size: 13.5px;
+    overflow-wrap: anywhere;
+  }
+  .place:hover { border-color: var(--ink-soft); }
+  .place.taken { border: 0; background: var(--booked); color: var(--ink); }
+  .place.taken b { display: block; font-weight: 600; font-size: 14px; }
+  .place.taken.plasma { background: var(--saffron-soft); box-shadow: inset 3px 0 0 var(--saffron); }
+  .proc-other { margin-top: 8px; }
+  .place.extra { outline: 1px solid var(--saffron); }
+  .block.full .block-time::after { content: ' ●'; color: var(--missed); font-size: 10px; vertical-align: 3px; }
+
+  /* ── Бос күй ── */
+  .empty {
+    background: var(--surface); border-radius: var(--radius-m); padding: 28px 20px; text-align: center;
+    margin-bottom: 16px;
+  }
+  .empty h3 { margin: 0 0 6px; font-size: 18px; }
+  .empty p { margin: 0 0 16px; color: var(--muted); }
+
+  /* ── Батырмалар ── */
+  .primary, .ghost, .danger {
+    border-radius: var(--radius-s); padding: 12px 18px; font-weight: 600; border: 1px solid transparent; min-height: 46px;
+  }
+  .primary { background: var(--ink); color: #fff; }
+  .primary:disabled { opacity: .5; cursor: wait; }
+  .ghost { background: transparent; border-color: var(--line); }
+  .danger { background: transparent; color: var(--missed); border-color: transparent; }
+
+  /* ── Диалогтар (телефонда төменнен шығады) ── */
+  dialog.sheet {
+    border: 0; padding: 0; width: min(560px, 100%); max-height: 92vh;
+    border-radius: var(--radius-m); background: var(--surface); color: var(--ink);
+  }
+  dialog.sheet::backdrop { background: rgba(21, 48, 47, .45); }
+  @media (max-width: 600px) {
+    dialog.sheet { margin: auto 0 0; max-width: 100%; border-radius: var(--radius-m) var(--radius-m) 0 0; }
+  }
+  dialog.sheet > form, dialog.sheet > .sheet-head, dialog.sheet > .field, dialog.sheet > .free-slots { padding-left: 20px; padding-right: 20px; }
+  dialog.sheet > form { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; }
+  .sheet-head h3 { margin: 0; font-size: 18px; }
+  .field { display: block; border: 0; margin: 12px 0 0; padding: 0; min-width: 0; }
+  .field > span, .field > legend { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; padding: 0; }
+  .field input, .field textarea, .field select {
+    width: 100%; border: 1px solid var(--line); border-radius: var(--radius-s); padding: 11px 12px;
+    background: #fbfcfb; font-size: 16px;
+  }
+  .field textarea { resize: vertical; }
+  .with-actions { display: flex; gap: 8px; align-items: center; }
+  .with-actions input { flex: 1; min-width: 0; }
+  .mini-link { flex: none; font-size: 13.5px; color: var(--ink-soft); font-weight: 500; }
+
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button {
+    border: 1px solid var(--line); background: #fbfcfb; border-radius: 999px; padding: 8px 14px; min-height: 40px;
+  }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .sheet-actions .primary { flex: 1 1 100%; }
+
+  .free-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; padding-bottom: 20px; margin-top: 12px; }
+  .free-slots button { border: 1px solid var(--line); background: #fbfcfb; border-radius: var(--radius-s); padding: 10px 0; font-weight: 600; }
+  .free-slots button:hover { background: var(--ink); color: #fff; }
+  .free-slots p { grid-column: 1 / -1; color: var(--muted); margin: 0; }
+
+  /* ── Іздеу ── */
+  .search-box input {
+    width: 100%; padding: 14px 16px; font-size: 17px; border: 1px solid var(--line);
+    border-radius: var(--radius-m); background: var(--surface);
+  }
+  .hint { color: var(--muted); }
+  .results { list-style: none; padding: 0; margin: 0; }
+  .results li { border-bottom: 1px solid var(--line); }
+  .results button {
+    display: grid; grid-template-columns: 112px 1fr; gap: 12px; width: 100%; text-align: left;
+    border: 0; background: transparent; padding: 12px 4px;
+  }
+  .results button:hover { background: var(--surface); }
+  .r-date { font-weight: 600; }
+  .r-date small { display: block; font-weight: 400; color: var(--muted); }
+  .r-name { font-weight: 600; }
+  .r-meta { color: var(--ink-soft); font-size: 13.5px; }
+  .r-meta .missed { color: var(--missed); }
+  .r-meta .came { color: var(--came); }
+
+  /* ── Есеп ── */
+  .period { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 18px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 14px; }
+  .chips button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .range { display: flex; gap: 8px; align-items: center; }
+  .range input { border: 1px solid var(--line); border-radius: var(--radius-s); padding: 7px 8px; background: var(--surface); }
+  .kpis { display: flex; flex-wrap: wrap; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; margin-bottom: 24px; }
+  .kpi { flex: 1 1 140px; background: var(--surface); padding: 14px 16px; }
+  .days { margin-bottom: 28px; }
+  .slot, .block { scroll-margin-top: 130px; }
+  .kpi b { display: block; font-size: 30px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+  .kpi span { color: var(--muted); font-size: 13.5px; }
+  .breakdowns { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+  .breakdown h3 { margin: 0 0 8px; font-size: 15px; }
+  .bar-row { display: grid; grid-template-columns: minmax(80px, 38%) 1fr 34px; gap: 8px; align-items: center; padding: 3px 0; font-size: 14px; }
+  .bar-row .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar { height: 10px; border-radius: 5px; background: var(--ink-soft); min-width: 2px; }
+  .bar-row .n { text-align: right; font-weight: 600; }
+  .days-chart { display: flex; align-items: flex-end; gap: 3px; height: 120px; margin: 4px 0 6px; }
+  .days-chart div { flex: 1; background: var(--ink-soft); border-radius: 3px 3px 0 0; min-height: 2px; position: relative; }
+  .days-chart div.has-physio { box-shadow: inset 0 -3px 0 var(--saffron); }
+  .days-legend { display: flex; justify-content: space-between; color: var(--muted); font-size: 12.5px; }
+
+  /* ── Хабарлама ── */
+  .toast {
+    position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translate(-50%, 150%);
+    background: var(--ink); color: #fff; padding: 12px 18px; border-radius: var(--radius-s);
+    max-width: calc(100% - 32px); transition: transform .2s ease; z-index: 20;
+  }
+  .toast.show { transform: translate(-50%, 0); }
+  .toast.error { background: var(--missed); }
+
+  .loading { opacity: .6; pointer-events: none; transition: opacity .15s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toast { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-row">
+      <button class="icon-btn" id="prevDay" aria-label="Алдыңғы күн">‹</button>
+      <label class="date-pick">
+        <span class="date-main" id="dateMain">…</span>
+        <span class="date-sub" id="dateSub"></span>
+        <input type="date" id="dateInput" aria-label="Күнді таңдау">
+      </label>
+      <button class="icon-btn" id="nextDay" aria-label="Келесі күн">›</button>
+      <button class="text-btn" id="todayBtn">Бүгін</button>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="schedule" aria-selected="true">Консультация</button>
+      <button role="tab" data-tab="physio" class="only-narrow">Ем</button>
+      <button role="tab" data-tab="search">Іздеу</button>
+      <button role="tab" data-tab="stats">Есеп</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="view-schedule" class="view">
+      <div id="dayState"></div>
+      <div class="board">
+        <div class="col col-doctor">
+          <div class="col-head">
+            <h2>Консультация</h2>
+            <span class="count" id="doctorCount"></span>
+          </div>
+          <ol class="slots" id="doctorList"></ol>
+        </div>
+        <div class="col col-physio" id="physioCol">
+          <div class="col-head">
+            <h2>Ем: физио, плазма</h2>
+            <span class="count" id="physioCount"></span>
+          </div>
+          <ol class="blocks" id="physioList"></ol>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-search" class="view" hidden>
+      <div class="search-box">
+        <input type="search" id="searchInput" placeholder="Аты немесе телефоны" autocomplete="off">
+      </div>
+      <p class="hint" id="searchHint">Пациенттің атын немесе нөмірін жазыңыз — барлық күндерден табамыз.</p>
+      <ul class="results" id="searchResults"></ul>
+    </section>
+
+    <section id="view-stats" class="view" hidden>
+      <div class="period">
+        <div class="chips" id="periodChips">
+          <button data-period="week" aria-pressed="true">Осы апта</button>
+          <button data-period="month">Осы ай</button>
+          <button data-period="lastmonth">Өткен ай</button>
+        </div>
+        <div class="range">
+          <input type="date" id="statFrom" aria-label="Басы">
+          <span>—</span>
+          <input type="date" id="statTo" aria-label="Соңы">
+        </div>
+      </div>
+      <div id="statsBody"></div>
+    </section>
+  </main>
+
+  <dialog id="apptDialog" class="sheet">
+    <form method="dialog" id="apptForm">
+      <div class="sheet-head">
+        <h3 id="apptTitle">Жазу</h3>
+        <button type="button" class="icon-btn" data-close aria-label="Жабу">×</button>
+      </div>
+      <label class="field">
+        <span>Аты-жөні</span>
+        <input name="name" autocomplete="off" required>
+      </label>
+      <label class="field">
+        <span>Телефон</span>
+        <div class="with-actions">
+          <input name="phone" type="tel" inputmode="tel" autocomplete="off" placeholder="+7 7__ ___ __ __">
+          <a class="mini-link" id="waLink" target="_blank" rel="noopener" hidden>WhatsApp</a>
+          <a class="mini-link" id="telLink" hidden>Қоңырау</a>
+        </div>
+      </label>
+      <fieldset class="field">
+        <legend>Қызмет</legend>
+        <div class="seg" data-field="service"></div>
+      </fieldset>
+      <fieldset class="field">
+        <legend>Қайдан келді</legend>
+        <div class="seg" data-field="source"></div>
+      </fieldset>
+      <fieldset class="field">
+        <legend>Жазған менеджер</legend>
+        <div class="seg" data-field="recorder"></div>
+      </fieldset>
+      <label class="field">
+        <span>Пікір</span>
+        <textarea name="comment" rows="2"></textarea>
+      </label>
+      <fieldset class="field" id="attendedField">
+        <legend>Келді ме</legend>
+        <div class="seg" data-field="attended"></div>
+      </fieldset>
+      <div class="sheet-actions">
+        <button type="submit" class="primary" id="apptSave">Жазбаны сақтау</button>
+        <button type="button" class="ghost" id="apptMove" hidden>Басқа уақытқа көшіру</button>
+        <button type="button" class="danger" id="apptDelete" hidden>Жазбаны өшіру</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="moveDialog" class="sheet">
+    <div class="sheet-head">
+      <h3>Қай уақытқа көшіреміз?</h3>
+      <button type="button" class="icon-btn" data-close aria-label="Жабу">×</button>
+    </div>
+    <label class="field">
+      <span>Күні</span>
+      <select id="moveDay"></select>
+    </label>
+    <div class="free-slots" id="moveSlots"></div>
+  </dialog>
+
+  <dialog id="physioDialog" class="sheet">
+    <form method="dialog" id="physioForm">
+      <div class="sheet-head">
+        <h3 id="physioTitle">Ем</h3>
+        <button type="button" class="icon-btn" data-close aria-label="Жабу">×</button>
+      </div>
+      <label class="field">
+        <span>Аты</span>
+        <input name="name" autocomplete="off" required>
+      </label>
+      <fieldset class="field">
+        <legend>Ем түрі</legend>
+        <div class="seg" id="procChips"></div>
+        <input name="proc" autocomplete="off" placeholder="Басқа түрі болса, осында жазыңыз" class="proc-other">
+      </fieldset>
+      <div class="sheet-actions">
+        <button type="submit" class="primary">Емге жазу</button>
+        <button type="button" class="danger" id="physioFree" hidden>Орынды босату</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+(function () {
+  'use strict';
+
+  // ───────── Көмекшілер ─────────
+  var $ = function (sel, root) { return (root || document).querySelector(sel); };
+  var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var runner = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+      runner[fn].apply(runner, args);
+    });
+  }
+
+  function errText(err) {
+    var msg = (err && err.message) || String(err);
+    return msg.replace(/^(Exception|Error|ScriptError):\s*/i, '').replace(/^CONFLICT:\s*/, '');
+  }
+  function isConflict(err) { return /CONFLICT/.test((err && err.message) || String(err)); }
+
+  var store = {
+    get: function (k) { try { return localStorage.getItem('beles.' + k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem('beles.' + k, v); } catch (e) { /* жоқ болса — маңызды емес */ } }
+  };
+
+  var WEEKDAYS = ['жексенбі', 'дүйсенбі', 'сейсенбі', 'сәрсенбі', 'бейсенбі', 'жұма', 'сенбі'];
+  var MONTHS = ['қаңтар', 'ақпан', 'наурыз', 'сәуір', 'мамыр', 'маусым', 'шілде', 'тамыз', 'қыркүйек', 'қазан', 'қараша', 'желтоқсан'];
+
+  function isoToDate(iso) { var p = iso.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])); }
+  function dateToIso(d) { return d.toISOString().slice(0, 10); }
+  function addDays(iso, n) { var d = isoToDate(iso); d.setUTCDate(d.getUTCDate() + n); return dateToIso(d); }
+  function humanDate(iso) { var d = isoToDate(iso); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()]; }
+  function weekday(iso) { return WEEKDAYS[isoToDate(iso).getUTCDay()]; }
+  function shortDate(iso) { var d = isoToDate(iso); return d.getUTCDate() + '.' + String(d.getUTCMonth() + 1).padStart(2, '0'); }
+
+  function phoneDigits(raw) {
+    var d = String(raw || '').replace(/\D/g, '');
+    if (d.length === 11 && (d[0] === '8' || d[0] === '7')) return '7' + d.slice(1);
+    if (d.length === 10 && d[0] === '7') return '7' + d;
+    return '';
+  }
+
+  var toastTimer;
+  function toast(msg, isError) {
+    var el = $('#toast');
+    el.textContent = msg;
+    el.classList.toggle('error', Boolean(isError));
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, isError ? 6000 : 2600);
+  }
+
+  // ───────── Күй ─────────
+  var state = {
+    boot: null,
+    date: null,
+    day: null,         // ағымдағы күннің деректері (парақ жоқ болса null)
+    tab: 'schedule',
+    edit: null,        // ашық тұрған дәрігер слоты
+    physioEdit: null,
+    formValues: {},
+    scrolledFor: null
+  };
+
+  function sheetFor(iso) {
+    var d = state.boot.days.filter(function (x) { return x.date === iso; })[0];
+    return d ? d.sheet : null;
+  }
+
+  function nowMinutes() { var n = new Date(); return n.getHours() * 60 + n.getMinutes(); }
+
+  // ───────── Жүктеу ─────────
+  function loadBoot() {
+    return call('getBootstrap').then(function (boot) { state.boot = boot; });
+  }
+
+  function loadDay(iso, opts) {
+    opts = opts || {};
+    state.date = iso;
+    renderHeader();
+    var sheet = sheetFor(iso);
+    if (!sheet) {
+      state.day = null;
+      renderDay();
+      return Promise.resolve();
+    }
+    if (!opts.silent) $('main').classList.add('loading');
+    return call('getDay', sheet).then(function (day) {
+      if (state.date !== iso) return; // пайдаланушы басқа күнге өтіп кетті
+      state.day = day;
+      renderDay();
+    }).catch(function (err) {
+      if (!opts.silent) toast(errText(err), true);
+    }).then(function () { $('main').classList.remove('loading'); });
+  }
+
+  function applyDay(day) {
+    if (day && day.date === state.date) { state.day = day; renderDay(); }
+  }
+
+  // ───────── Жоғарғы панель ─────────
+  function renderHeader() {
+    var iso = state.date, today = state.boot.today;
+    $('#dateMain').textContent = humanDate(iso);
+    var rel = iso === today ? 'бүгін' : iso === addDays(today, 1) ? 'ертең' : iso === addDays(today, -1) ? 'кеше' : iso.slice(0, 4);
+    var sheet = sheetFor(iso);
+    var wd = weekday(iso);
+    $('#dateSub').textContent = wd.charAt(0).toUpperCase() + wd.slice(1) + ', ' + rel + (sheet ? '' : ', парақ жоқ');
+    $('#dateInput').value = iso;
+    $('#todayBtn').setAttribute('aria-pressed', String(iso === today));
+  }
+
+  // ───────── Кесте ─────────
+  function renderDay() {
+    var day = state.day;
+    var stateEl = $('#dayState');
+    var board = $('.board');
+    if (!day) {
+      board.hidden = true;
+      stateEl.innerHTML =
+        '<div class="empty"><h3>' + esc(humanDate(state.date)) + ' күніне парақ әлі жоқ</h3>' +
+        '<p>Парақ соңғы күннің үлгісімен жасалады: уақыттар мен тізімдер сақталады, пациенттер бос болады.</p>' +
+        '<button class="primary" id="createDayBtn">Күн парағын жасау</button></div>';
+      $('#createDayBtn').onclick = createDay;
+      return;
+    }
+    board.hidden = false;
+    stateEl.innerHTML = '';
+    renderDoctor(day);
+    renderPhysio(day);
+
+    if (day.date === state.boot.today && state.scrolledFor !== day.date) {
+      state.scrolledFor = day.date;
+      var nowEl = $('.slot.now');
+      if (nowEl) nowEl.scrollIntoView({ block: 'center' });
+    }
+  }
+
+  function renderDoctor(day) {
+    var isToday = day.date === state.boot.today;
+    var now = nowMinutes();
+    var slots = day.doctor;
+    var booked = slots.filter(function (s) { return s.booked; }).length;
+    $('#doctorCount').textContent = booked + ' / ' + slots.length + ' жазылды';
+    var yes = day.options.attended[0], no = day.options.attended[1];
+
+    $('#doctorList').innerHTML = slots.map(function (s, i) {
+      var next = slots[i + 1];
+      var cls = ['slot'];
+      var isNow = isToday && s.minutes <= now && (!next || next.minutes > now) && now < s.minutes + 60;
+      if (isNow) cls.push('now');
+      else if (isToday && s.minutes < now) cls.push('past');
+      var timeCls = s.minutes % 60 === 0 ? 'hour' : 'minor';
+      var body;
+      if (s.booked) {
+        var apptCls = 'appt' + (s.attended === yes ? ' came' : s.attended === no ? ' missed' : '');
+        var meta = [s.phone, s.service, s.source, s.recorder && ('жазған: ' + s.recorder)]
+          .filter(Boolean).map(function (m) { return '<span class="tag">' + esc(m) + '</span>'; }).join('');
+        body =
+          '<div class="' + apptCls + '">' +
+            '<button class="appt-open" data-row="' + s.row + '">' +
+              '<span class="appt-name">' + esc(s.name || 'Аты жазылмаған') + '</span>' +
+              (meta ? '<span class="appt-meta">' + meta + '</span>' : '') +
+              (s.comment ? '<span class="appt-note">' + esc(s.comment) + '</span>' : '') +
+            '</button>' +
+            '<div class="mark">' +
+              '<button class="yes" data-att="' + esc(yes) + '" data-row="' + s.row + '" aria-pressed="' + (s.attended === yes) + '" aria-label="Келді" title="Келді">' + esc(yes) + '</button>' +
+              '<button class="no" data-att="' + esc(no) + '" data-row="' + s.row + '" aria-pressed="' + (s.attended === no) + '" aria-label="Келмеді" title="Келмеді">' + esc(no) + '</button>' +
+            '</div>' +
+          '</div>';
+      } else {
+        var leftover = [s.service, s.comment].filter(Boolean).join(', ');
+        body = '<button class="slot-btn" data-row="' + s.row + '">Бос — жазу' +
+          (leftover ? ' <span class="leftover">(' + esc(leftover) + ')</span>' : '') + '</button>';
+      }
+      return '<li class="' + cls.join(' ') + '" id="slot-' + s.row + '">' +
+        '<div class="slot-time ' + timeCls + '">' + esc(s.time) + (isNow ? '<br><span class="now-label">қазір</span>' : '') + '</div>' +
+        '<div class="slot-body">' + body + '</div></li>';
+    }).join('');
+  }
+
+  function renderPhysio(day) {
+    var isToday = day.date === state.boot.today;
+    var now = nowMinutes();
+    var taken = 0, total = 0;
+    $('#physioList').innerHTML = day.physio.map(function (b, i) {
+      var next = day.physio[i + 1];
+      taken += b.taken;
+      total += b.places.filter(function (p) { return !p.extra; }).length;
+      var isNow = isToday && b.minutes <= now && (!next || next.minutes > now) && now < b.minutes + 60;
+      var full = b.taken >= b.places.length;
+      var places = b.places.map(function (p) {
+        var has = p.name || p.proc;
+        var cls = 'place' + (has ? ' taken' : '') + (p.extra ? ' extra' : '') + (isPlasma(p.proc) ? ' plasma' : '');
+        var title = p.extra ? ' title="Қосымша жол (біріктірілген блоктан тыс)"' : '';
+        return '<button class="' + cls + '" data-prow="' + p.row + '" data-block="' + i + '"' + title + '>' +
+          (has ? '<b>' + esc(p.name || '—') + '</b>' + esc(p.proc) : 'бос') + '</button>';
+      }).join('');
+      return '<li class="block' + (isNow ? ' now' : '') + (full ? ' full' : '') + '" id="block-' + b.startRow + '">' +
+        '<div class="block-time">' + esc(b.time) + '</div><div class="places">' + places + '</div></li>';
+    }).join('');
+    $('#physioCount').textContent = taken + ' / ' + total + ' орын';
+  }
+
+  // ───────── Дәрігерге жазу формасы ─────────
+  function findSlot(row) {
+    return state.day.doctor.filter(function (s) { return s.row === row; })[0];
+  }
+
+  function renderSeg(field, options, value) {
+    var box = $('.seg[data-field="' + field + '"]');
+    box.innerHTML = options.map(function (o) {
+      return '<button type="button" data-value="' + esc(o) + '" aria-pressed="' + (o === value) + '">' + esc(o) + '</button>';
+    }).join('');
+    state.formValues[field] = value || '';
+  }
+
+  function openAppt(row) {
+    var s = findSlot(row);
+    if (!s) return;
+    state.edit = { sheet: state.day.sheet, row: row, prev: s.prev, slot: s };
+    var f = $('#apptForm');
+    f.name.value = s.name;
+    f.phone.value = s.phone;
+    f.comment.value = s.comment;
+    var o = state.day.options;
+    renderSeg('service', o.service, s.service || (s.booked ? '' : o.service[0]));
+    renderSeg('source', o.source, s.source);
+    renderSeg('recorder', o.recorder, s.recorder || (s.booked ? '' : (store.get('recorder') || '')));
+    renderSeg('attended', o.attended, s.attended);
+    $('#attendedField').hidden = !s.booked;
+    $('#apptTitle').textContent = (s.booked ? 'Жазба, ' : 'Консультацияға жазу, ') + s.time + ', ' + humanDate(state.day.date);
+    $('#apptDelete').hidden = !s.booked;
+    $('#apptMove').hidden = !s.booked;
+    updatePhoneLinks();
+    $('#apptDialog').showModal();
+    if (!s.booked) f.name.focus();
+  }
+
+  function updatePhoneLinks() {
+    var d = phoneDigits($('#apptForm').phone.value);
+    $('#waLink').hidden = $('#telLink').hidden = !d;
+    if (d) {
+      $('#waLink').href = 'https://wa.me/' + d;
+      $('#telLink').href = 'tel:+' + d;
+    }
+  }
+
+  function readApptForm() {
+    var f = $('#apptForm');
+    return {
+      name: f.name.value, phone: f.phone.value, comment: f.comment.value,
+      service: state.formValues.service, source: state.formValues.source,
+      recorder: state.formValues.recorder, attended: state.formValues.attended
+    };
+  }
+
+  function busy(btn, on) { if (btn) btn.disabled = on; }
+
+  function handleWriteError(err, dialog) {
+    toast(errText(err), true);
+    if (isConflict(err)) {
+      if (dialog) dialog.close();
+      loadDay(state.date, { silent: true });
+    }
+  }
+
+  function saveAppt(e) {
+    e.preventDefault();
+    var ed = state.edit, data = readApptForm();
+    if (!data.name.trim() && !data.phone.trim()) { toast('Пациенттің атын немесе телефонын енгізіңіз.', true); return; }
+    if (!data.recorder) { toast('Қай менеджер жазғанын таңдаңыз.', true); return; }
+    if (data.recorder) store.set('recorder', data.recorder);
+    var btn = $('#apptSave');
+    busy(btn, true);
+    call('saveAppointment', ed.sheet, ed.row, data, ed.prev).then(function (day) {
+      applyDay(day);
+      $('#apptDialog').close();
+      toast('Консультацияға жазылды: ' + ed.slot.time);
+    }).catch(function (err) { handleWriteError(err, $('#apptDialog')); })
+      .then(function () { busy(btn, false); });
+  }
+
+  function deleteAppt() {
+    var ed = state.edit;
+    if (!confirm(ed.slot.time + ' уақытындағы жазбаны өшіреміз бе?')) return;
+    call('clearAppointment', ed.sheet, ed.row, ed.prev).then(function (day) {
+      applyDay(day);
+      $('#apptDialog').close();
+      toast('Жазба өшірілді');
+    }).catch(function (err) { handleWriteError(err, $('#apptDialog')); });
+  }
+
+  function setAttendance(row, value) {
+    var s = findSlot(row);
+    var next = s.attended === value ? '' : value;
+    call('setAttendance', state.day.sheet, row, next, s.prev).then(applyDay)
+      .catch(function (err) { handleWriteError(err); });
+  }
+
+  // ───────── Көшіру ─────────
+  function openMove() {
+    var sel = $('#moveDay');
+    var from = state.date;
+    var days = state.boot.days.filter(function (d) { return d.date >= state.boot.today || d.date === from; });
+    sel.innerHTML = days.map(function (d) {
+      return '<option value="' + esc(d.sheet) + '"' + (d.date === from ? ' selected' : '') + '>' +
+        esc(humanDate(d.date) + ', ' + weekday(d.date)) + '</option>';
+    }).join('');
+    $('#apptDialog').close();
+    $('#moveDialog').showModal();
+    renderMoveSlots();
+  }
+
+  function renderMoveSlots() {
+    var sheet = $('#moveDay').value;
+    var box = $('#moveSlots');
+    box.innerHTML = '<p>Жүктелуде…</p>';
+    var p = sheet === state.day.sheet ? Promise.resolve(state.day) : call('getDay', sheet);
+    p.then(function (day) {
+      var free = day.doctor.filter(function (s) { return !s.booked; });
+      box.innerHTML = free.length ? free.map(function (s) {
+        return '<button data-to="' + s.row + '">' + esc(s.time) + '</button>';
+      }).join('') : '<p>Бұл күні бос уақыт жоқ.</p>';
+    }).catch(function (err) { box.innerHTML = '<p>' + esc(errText(err)) + '</p>'; });
+  }
+
+  function doMove(toRow) {
+    var ed = state.edit, toSheet = $('#moveDay').value;
+    call('moveAppointment', ed.sheet, ed.row, toSheet, toRow, ed.prev).then(function (day) {
+      applyDay(day);
+      $('#moveDialog').close();
+      toast('Жазба көшірілді');
+    }).catch(function (err) { handleWriteError(err, $('#moveDialog')); });
+  }
+
+  // ───────── Физио ─────────
+  function openPhysio(row, blockIndex) {
+    var block = state.day.physio[blockIndex];
+    var place = block.places.filter(function (p) { return p.row === row; })[0];
+    state.physioEdit = { sheet: state.day.sheet, row: row, prev: place.prev, time: block.time };
+    var f = $('#physioForm');
+    f.name.value = place.name;
+    renderProcChips(place.proc || (place.name ? '' : state.day.procedures[0]));
+    $('#physioTitle').textContent = (place.name ? 'Ем, ' : 'Емге жазу, ') + block.time;
+    $('#physioFree').hidden = !(place.name || place.proc);
+    $('#physioDialog').showModal();
+    if (!place.name) f.name.focus();
+  }
+
+  function isPlasma(proc) { return /плазм/i.test(proc || ''); }
+
+  // Ем түрі батырмамен таңдалады; тізімде жоқ түрді төмендегі өріске жазуға болады.
+  function renderProcChips(value) {
+    var f = $('#physioForm');
+    f.proc.value = value || '';
+    $('#procChips').innerHTML = state.day.procedures.map(function (p) {
+      return '<button type="button" data-value="' + esc(p) + '" aria-pressed="' + (p === value) + '">' + esc(p) + '</button>';
+    }).join('');
+  }
+
+  function savePhysio(data, msg) {
+    var ed = state.physioEdit;
+    return call('savePhysio', ed.sheet, ed.row, data, ed.prev).then(function (day) {
+      applyDay(day);
+      $('#physioDialog').close();
+      toast(msg + ': ' + ed.time);
+    }).catch(function (err) { handleWriteError(err, $('#physioDialog')); });
+  }
+
+  // ───────── Жаңа күн ─────────
+  function createDay() {
+    var btn = $('#createDayBtn');
+    busy(btn, true);
+    call('createDay', state.date).then(function (res) {
+      return loadBoot().then(function () {
+        toast(res.created ? '«' + res.sheet + '» парағы жасалды' : 'Парақ бұрыннан бар');
+        return loadDay(state.date);
+      });
+    }).catch(function (err) { toast(errText(err), true); busy(btn, false); });
+  }
+
+  // ───────── Іздеу ─────────
+  var searchTimer, searchSeq = 0;
+  function runSearch() {
+    var q = $('#searchInput').value.trim();
+    var list = $('#searchResults');
+    if (q.length < 2) {
+      list.innerHTML = '';
+      $('#searchHint').textContent = 'Пациенттің атын немесе нөмірін жазыңыз — барлық күндерден табамыз.';
+      return;
+    }
+    var seq = ++searchSeq;
+    $('#searchHint').textContent = 'Іздеп жатырмыз…';
+    call('searchPatient', q).then(function (rows) {
+      if (seq !== searchSeq) return;
+      $('#searchHint').textContent = rows.length ? 'Табылды: ' + rows.length : '«' + q + '» бойынша ештеңе табылмады. Атын қысқартып немесе нөмірдің соңғы цифрларын жазып көріңіз.';
+      list.innerHTML = rows.map(function (r) {
+        var att = r.attended === '✅' ? '<span class="came">келді</span>' : r.attended === '❌' ? '<span class="missed">келмеді</span>' : '';
+        var meta = [r.kind === 'physio' ? 'ем' : 'консультация', r.service, r.phone].filter(Boolean).map(esc).join(', ');
+        return '<li><button data-date="' + r.date + '" data-kind="' + r.kind + '" data-row="' + r.row + '">' +
+          '<span class="r-date">' + esc(humanDate(r.date)) + ' <small>' + esc(r.time) + ', ' + esc(weekday(r.date)) + '</small></span>' +
+          '<span><span class="r-name">' + esc(r.name) + '</span><br><span class="r-meta">' + meta + (att ? ', ' + att : '') + '</span></span>' +
+          '</button></li>';
+      }).join('');
+    }).catch(function (err) {
+      if (seq === searchSeq) $('#searchHint').textContent = errText(err);
+    });
+  }
+
+  function jumpTo(date, kind, row) {
+    setTab(kind === 'physio' ? 'physio' : 'schedule');
+    state.scrolledFor = date;
+    loadDay(date).then(function () {
+      var el = kind === 'physio' ? $('[data-prow="' + row + '"]') : $('#slot-' + row);
+      if (el) { el.scrollIntoView({ block: 'center' }); el.focus && el.focus(); }
+    });
+  }
+
+  // ───────── Есеп ─────────
+  function periodRange(kind) {
+    var today = state.boot.today, d = isoToDate(today);
+    if (kind === 'week') {
+      var shift = (d.getUTCDay() + 6) % 7;
+      var mon = addDays(today, -shift);
+      return [mon, addDays(mon, 6)];
+    }
+    var y = d.getUTCFullYear(), m = d.getUTCMonth();
+    if (kind === 'lastmonth') { m -= 1; if (m < 0) { m = 11; y -= 1; } }
+    var first = dateToIso(new Date(Date.UTC(y, m, 1)));
+    var last = dateToIso(new Date(Date.UTC(y, m + 1, 0)));
+    return [first, last];
+  }
+
+  function setPeriod(kind) {
+    $$('#periodChips button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.period === kind)); });
+    var r = periodRange(kind);
+    $('#statFrom').value = r[0];
+    $('#statTo').value = r[1];
+    loadStats();
+  }
+
+  function bars(title, obj) {
+    var entries = Object.keys(obj).map(function (k) { return [k, obj[k]]; })
+      .sort(function (a, b) { return b[1] - a[1]; });
+    if (!entries.length) return '';
+    var max = entries[0][1];
+    return '<div class="breakdown"><h3>' + esc(title) + '</h3>' + entries.map(function (e) {
+      return '<div class="bar-row"><span class="lbl" title="' + esc(e[0]) + '">' + esc(e[0]) + '</span>' +
+        '<span><span class="bar" style="display:block;width:' + Math.max(2, Math.round(e[1] / max * 100)) + '%"></span></span>' +
+        '<span class="n">' + e[1] + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function loadStats() {
+    var from = $('#statFrom').value, to = $('#statTo').value;
+    if (!from || !to) return;
+    var body = $('#statsBody');
+    body.classList.add('loading');
+    call('getStats', from, to).then(function (st) {
+      if (!st.days.length) {
+        body.innerHTML = '<div class="empty"><h3>Бұл кезеңде күн парақтары жоқ</h3><p>Басқа кезеңді таңдаңыз.</p></div>';
+        return;
+      }
+      var marked = st.came + st.missed;
+      var rate = marked ? Math.round(st.came / marked * 100) + '%' : '—';
+      var maxDay = Math.max.apply(null, st.days.map(function (d) { return d.doctor; }).concat([1]));
+      body.innerHTML =
+        '<div class="kpis">' +
+          '<div class="kpi"><b>' + st.total + '</b><span>консультацияға жазылды</span></div>' +
+          '<div class="kpi"><b>' + st.came + '</b><span>келді</span></div>' +
+          '<div class="kpi"><b>' + st.missed + '</b><span>келмеді</span></div>' +
+          '<div class="kpi"><b>' + rate + '</b><span>келу үлесі (белгіленгендерден)</span></div>' +
+          '<div class="kpi"><b>' + st.physio + '</b><span>емге жазылды (физио, плазма)</span></div>' +
+        '</div>' +
+        '<div class="breakdown days"><h3>Күн сайын консультацияға жазылғандар</h3><div class="days-chart">' +
+          st.days.map(function (d) {
+            return '<div style="height:' + Math.max(2, Math.round(d.doctor / maxDay * 100)) + '%" title="' +
+              esc(humanDate(d.date) + ': консультация ' + d.doctor + ', ем ' + d.physio) + '"></div>';
+          }).join('') +
+        '</div><div class="days-legend"><span>' + shortDate(st.days[0].date) + '</span><span>' + shortDate(st.days[st.days.length - 1].date) + '</span></div></div>' +
+        '<div class="breakdowns">' +
+          bars('Қайдан келді', st.bySource) + bars('Қызмет', st.byService) +
+          bars('Кім жазды', st.byRecorder) + bars('Ем түрлері', st.byProc) +
+        '</div>' +
+        (st.unmarked ? '<p class="hint">' + st.unmarked + ' жазбаның келгені белгіленбеген.</p>' : '');
+    }).catch(function (err) {
+      body.innerHTML = '<div class="empty"><h3>Есеп жүктелмеді</h3><p>' + esc(errText(err)) + '</p></div>';
+    }).then(function () { body.classList.remove('loading'); });
+  }
+
+  // ───────── Қойындылар ─────────
+  function setTab(tab) {
+    state.tab = tab;
+    document.body.dataset.tab = tab;
+    $$('.tabs button').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
+    var view = tab === 'physio' ? 'schedule' : tab;
+    $$('.view').forEach(function (v) { v.hidden = v.id !== 'view-' + view; });
+    if (tab === 'search') setTimeout(function () { $('#searchInput').focus(); }, 0);
+    if (tab === 'stats' && !$('#statsBody').innerHTML) setPeriod('week');
+  }
+
+  // ───────── Оқиғалар ─────────
+  function bind() {
+    $('#prevDay').onclick = function () { loadDay(addDays(state.date, -1)); };
+    $('#nextDay').onclick = function () { loadDay(addDays(state.date, 1)); };
+    $('#todayBtn').onclick = function () { state.scrolledFor = null; loadDay(state.boot.today); };
+    $('#dateInput').onchange = function (e) { if (e.target.value) loadDay(e.target.value); };
+    $$('.tabs button').forEach(function (b) { b.onclick = function () { setTab(b.dataset.tab); }; });
+
+    $('#doctorList').addEventListener('click', function (e) {
+      var att = e.target.closest('[data-att]');
+      if (att) { setAttendance(Number(att.dataset.row), att.dataset.att); return; }
+      var open = e.target.closest('.appt-open, .slot-btn');
+      if (open) openAppt(Number(open.dataset.row));
+    });
+    $('#physioList').addEventListener('click', function (e) {
+      var p = e.target.closest('[data-prow]');
+      if (p) openPhysio(Number(p.dataset.prow), Number(p.dataset.block));
+    });
+
+    $$('.seg').forEach(function (box) {
+      box.addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        var field = box.dataset.field;
+        var on = b.getAttribute('aria-pressed') !== 'true';
+        $$('button', box).forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+        b.setAttribute('aria-pressed', String(on));
+        state.formValues[field] = on ? b.dataset.value : '';
+      });
+    });
+    $('#apptForm').addEventListener('submit', saveAppt);
+    $('#apptForm').phone.addEventListener('input', updatePhoneLinks);
+    $('#apptDelete').onclick = deleteAppt;
+    $('#apptMove').onclick = openMove;
+    $('#moveDay').onchange = renderMoveSlots;
+    $('#moveSlots').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-to]');
+      if (b) doMove(Number(b.dataset.to));
+    });
+
+    $('#physioForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = e.target;
+      if (!f.name.value.trim()) { toast('Атын енгізіңіз.', true); return; }
+      if (!f.proc.value.trim()) { toast('Ем түрін таңдаңыз: физио немесе плазма.', true); return; }
+      savePhysio({ name: f.name.value, proc: f.proc.value }, 'Емге жазылды');
+    });
+    $('#procChips').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (b) renderProcChips(b.dataset.value);
+    });
+    $('#physioForm').proc.addEventListener('input', function (e) {
+      $$('#procChips button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.value === e.target.value)); });
+    });
+    $('#physioFree').onclick = function () { savePhysio({ name: '', proc: '' }, 'Орын босатылды'); };
+
+    $$('[data-close]').forEach(function (b) { b.onclick = function () { b.closest('dialog').close(); }; });
+    $$('dialog').forEach(function (d) {
+      d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
+    });
+
+    $('#searchInput').addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(runSearch, 350);
+    });
+    $('#searchResults').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-date]');
+      if (b) jumpTo(b.dataset.date, b.dataset.kind, Number(b.dataset.row));
+    });
+
+    $$('#periodChips button').forEach(function (b) { b.onclick = function () { setPeriod(b.dataset.period); }; });
+    $('#statFrom').onchange = $('#statTo').onchange = function () {
+      $$('#periodChips button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+      loadStats();
+    };
+
+    // Басқа әкімшілердің өзгерістерін көру үшін 30 секунд сайын жаңарту
+    setInterval(function () {
+      var dialogOpen = $$('dialog').some(function (d) { return d.open; });
+      if (document.hidden || dialogOpen || !state.day || (state.tab !== 'schedule' && state.tab !== 'physio')) return;
+      loadDay(state.date, { silent: true });
+    }, 30000);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && state.boot) loadBoot().then(function () { loadDay(state.date, { silent: true }); });
+    });
+  }
+
+  // ───────── Іске қосу ─────────
+  bind();
+  setTab('schedule');
+  loadBoot().then(function () { return loadDay(state.boot.today); })
+    .catch(function (err) {
+      $('#dayState').innerHTML = '<div class="empty"><h3>Таблица ашылмады</h3><p>' + esc(errText(err)) +
+        '</p><button class="primary" onclick="location.reload()">Қайта жүктеу</button></div>';
+    });
+})();
+</script>
+</body>
+</html>
