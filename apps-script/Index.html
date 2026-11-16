@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base target="_top">
+<title>Белес график</title>
+<style>
+  :root {
+    --bg: #f4f5f2; --card: #ffffff; --ink: #1d2320; --muted: #69726d; --line: #e1e4df;
+    --accent: #1f7a5c; --accent-ink: #ffffff; --accent-soft: #e3f1eb;
+    --warn: #b4472f; --warn-soft: #f8e7e2; --chip: #eef0ec; --shadow: 0 1px 2px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141816; --card: #1d2220; --ink: #e8ece9; --muted: #98a29c; --line: #2d3430;
+      --accent: #4cbf93; --accent-ink: #0d1a14; --accent-soft: #1f332b;
+      --warn: #ef8a72; --warn-soft: #3a2420; --chip: #262c29; --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.4 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 96px; }
+
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 12px 0 8px; }
+  .title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  h1 { font-size: 18px; margin: 0; letter-spacing: .2px; }
+  .daybar { display: flex; gap: 6px; margin-top: 10px; }
+  .daybar select { flex: 1; min-width: 0; }
+  select, input[type=text], input[type=tel], input[type=date] {
+    border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 9px 10px; width: 100%; }
+  .iconbtn { border: 1px solid var(--line); background: var(--card); border-radius: 10px; width: 42px; flex: none; cursor: pointer; }
+  .btn { border: 0; background: var(--accent); color: var(--accent-ink); border-radius: 10px; padding: 9px 14px;
+    cursor: pointer; font-weight: 600; white-space: nowrap; }
+  .btn.ghost { background: var(--chip); color: var(--ink); font-weight: 500; }
+  .btn.danger { background: var(--warn-soft); color: var(--warn); }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  .tabs { display: flex; gap: 4px; margin-top: 10px; background: var(--chip); padding: 4px; border-radius: 12px; }
+  .tabs button { flex: 1; border: 0; background: none; padding: 8px 4px; border-radius: 9px; cursor: pointer; color: var(--muted); }
+  .tabs button.on { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: var(--shadow); }
+
+  .summary { color: var(--muted); font-size: 13px; margin: 10px 2px 6px; }
+  .list { display: flex; flex-direction: column; gap: 6px; }
+  .slot { display: flex; gap: 12px; align-items: flex-start; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 12px; cursor: pointer; text-align: left; width: 100%; }
+  .slot.empty { background: transparent; border-style: dashed; color: var(--muted); padding: 7px 12px; }
+  .slot .t { font-variant-numeric: tabular-nums; font-weight: 600; width: 46px; flex: none; }
+  .slot.empty .t { font-weight: 500; }
+  .slot .body { flex: 1; min-width: 0; }
+  .slot .nm { font-weight: 600; }
+  .slot .sub { color: var(--muted); font-size: 13px; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .chip { display: inline-block; background: var(--chip); border-radius: 999px; padding: 1px 8px; font-size: 12px; color: var(--ink); }
+  .chip.acc { background: var(--accent-soft); color: var(--accent); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  a.tel { color: var(--accent); text-decoration: none; }
+
+  .group { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .group .gh { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; }
+  .group .gh b { font-variant-numeric: tabular-nums; }
+  .group .add { border: 0; background: none; color: var(--accent); cursor: pointer; font-weight: 600; padding: 4px 6px; }
+  .group .row { display: flex; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); cursor: pointer; }
+  .group .row .t { width: 46px; flex: none; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; padding-top: 1px; }
+  .group.emptyg .gh { color: var(--muted); }
+
+  .stats-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; margin: 12px 0; }
+  .stats-form > div { min-width: 0; }
+  .stats-form .btn { grid-column: 1 / -1; }
+  input[type=date] { min-width: 0; -webkit-appearance: none; appearance: none; min-height: 40px; }
+  .stats-form label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 3px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .tile .k { font-size: 12px; color: var(--muted); }
+  .tile .v { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  h2 { font-size: 15px; margin: 18px 2px 8px; }
+  .bars { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 6px 12px; }
+  .bar { display: grid; grid-template-columns: minmax(90px, 40%) 1fr 34px; gap: 10px; align-items: center; padding: 6px 0; }
+  .bar .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .track { height: 8px; background: var(--chip); border-radius: 99px; overflow: hidden; }
+  .bar .fill { height: 100%; background: var(--accent); border-radius: 99px; }
+  .bar .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: flex-end; justify-content: center; z-index: 20; }
+  .modal.on { display: flex; }
+  .sheet { background: var(--card); width: 100%; max-width: 560px; border-radius: 16px 16px 0 0; padding: 16px;
+    max-height: 92vh; overflow-y: auto; }
+  @media (min-width: 600px) { .modal { align-items: center; } .sheet { border-radius: 16px; } }
+  .sheet h3 { margin: 0 0 12px; font-size: 16px; }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  .field .req { color: var(--warn); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; }
+  .actions .sp { flex: 1; }
+  .quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .quick button { border: 1px solid var(--line); background: var(--chip); border-radius: 999px; padding: 3px 10px; cursor: pointer; font-size: 13px; }
+
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg);
+    padding: 10px 14px; border-radius: 10px; z-index: 30; max-width: calc(100% - 32px); display: none; }
+  .toast.on { display: block; }
+  .toast.err { background: var(--warn); color: #fff; }
+  .loading { text-align: center; color: var(--muted); padding: 40px 0; }
+  .note { font-size: 12px; color: var(--muted); margin: 8px 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">
+      <h1>Белес график</h1>
+      <button class="btn ghost" id="newDayBtn">+ Жаңа күн</button>
+    </div>
+    <div class="daybar">
+      <button class="iconbtn" id="prevDay" aria-label="Алдыңғы күн">‹</button>
+      <select id="daySel" aria-label="Күн"></select>
+      <button class="iconbtn" id="nextDay" aria-label="Келесі күн">›</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button data-tab="consult" class="on">Консультация</button>
+      <button data-tab="treat">Ем</button>
+      <button data-tab="stats">Есеп</button>
+    </div>
+  </header>
+
+  <main id="view"><div class="loading">Жүктелуде…</div></main>
+</div>
+
+<datalist id="dlManagers"></datalist>
+<datalist id="dlPatients"></datalist>
+<datalist id="dlProcs"></datalist>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+var S = { init: null, day: null, tab: 'consult', busy: false, stats: null };
+var view = document.getElementById('view');
+
+/* ---------- сервермен байланыс ---------- */
+function run(fn) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  return new Promise(function (res, rej) {
+    var r = google.script.run.withSuccessHandler(res).withFailureHandler(rej);
+    r[fn].apply(r, args);
+  });
+}
+function errMsg(e) { return (e && (e.message || e)) + ''; }
+
+/* ---------- көмекші ---------- */
+function el(tag, attrs, kids) {
+  var n = document.createElement(tag);
+  if (attrs) for (var k in attrs) {
+    if (k === 'text') n.textContent = attrs[k];
+    else if (k === 'class') n.className = attrs[k];
+    else if (k.indexOf('on') === 0) n.addEventListener(k.slice(2), attrs[k]);
+    else n.setAttribute(k, attrs[k]);
+  }
+  (kids || []).forEach(function (c) { if (c != null) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+  return n;
+}
+var toastTimer;
+function toast(msg, isErr) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast on' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.className = 'toast'; }, isErr ? 5000 : 2200);
+}
+function fillList(id, items) {
+  var dl = document.getElementById(id); dl.innerHTML = '';
+  items.forEach(function (v) { dl.appendChild(el('option', { value: v })); });
+}
+function isoShift(iso, days) {
+  var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + days);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+var WD = ['Жексенбі', 'Дүйсенбі', 'Сейсенбі', 'Сәрсенбі', 'Бейсенбі', 'Жұма', 'Сенбі'];
+function dayLabel(d) {
+  var wd = WD[new Date(d.date + 'T12:00:00').getDay()];
+  var tag = d.date === S.init.today ? ' · бүгін' : '';
+  return d.name + ' — ' + wd + tag;
+}
+
+/* ---------- бастау ---------- */
+function applyInit(init) {
+  S.init = init;
+  var sel = document.getElementById('daySel'); sel.innerHTML = '';
+  init.days.forEach(function (d) { sel.appendChild(el('option', { value: d.name, text: dayLabel(d) })); });
+  fillList('dlManagers', init.managers);
+  fillList('dlPatients', init.patients);
+  fillList('dlProcs', init.procedures);
+}
+function start() {
+  run('getInit').then(function (init) {
+    applyInit(init);
+    if (!init.days.length) { view.innerHTML = ''; view.appendChild(el('div', { class: 'loading', text: 'Күн парақтары табылмады' })); return; }
+    openDay(init.current);
+  }).catch(function (e) {
+    view.innerHTML = ''; view.appendChild(el('div', { class: 'loading', text: 'Қате: ' + errMsg(e) }));
+  });
+}
+function openDay(name) {
+  document.getElementById('daySel').value = name;
+  if (S.tab === 'stats') { render(); return; }
+  view.innerHTML = ''; view.appendChild(el('div', { class: 'loading', text: 'Жүктелуде…' }));
+  run('getDay', name).then(function (day) { S.day = day; render(); })
+    .catch(function (e) { toast(errMsg(e), true); });
+}
+function stepDay(dir) {
+  var names = S.init.days.map(function (d) { return d.name; });
+  var i = names.indexOf(document.getElementById('daySel').value) + dir;
+  if (i >= 0 && i < names.length) openDay(names[i]);
+}
+
+/* ---------- көрсету ---------- */
+function render() {
+  view.innerHTML = '';
+  if (S.tab === 'stats') return renderStats();
+  if (!S.day || S.day.name !== document.getElementById('daySel').value) return openDay(document.getElementById('daySel').value);
+  if (S.tab === 'consult') renderConsult(); else renderTreat();
+}
+
+function consultFilled(c) { return !!(c.name || c.phone || c.manager || c.service || c.comment); }
+
+function renderConsult() {
+  var filled = S.day.consults.filter(consultFilled).length;
+  view.appendChild(el('div', { class: 'summary', text: 'Консультацияға жазылған: ' + filled + ' · бос уақытты басып, пациентті жазыңыз' }));
+  var list = el('div', { class: 'list' });
+  S.day.consults.forEach(function (c) {
+    if (!consultFilled(c)) {
+      list.appendChild(el('button', { class: 'slot empty', onclick: function () { consultForm(c); } },
+        [el('span', { class: 't', text: c.time }), el('span', { class: 'body', text: 'бос — жазу' })]));
+      return;
+    }
+    var sub = [];
+    if (c.phone) sub.push(el('a', { class: 'tel', href: 'tel:' + c.phone.replace(/[^\d+]/g, ''), text: c.phone, onclick: function (e) { e.stopPropagation(); } }));
+    if (c.service) sub.push(el('span', { class: 'chip', text: c.service }));
+    if (c.manager) sub.push(el('span', { class: 'chip acc', text: 'жазған: ' + c.manager }));
+    else sub.push(el('span', { class: 'chip warn', text: 'менеджер көрсетілмеген' }));
+    if (c.source) sub.push(el('span', { text: c.source }));
+    if (c.paid) sub.push(el('span', { text: 'пд ' + c.paid }));
+    if (c.comment) sub.push(el('span', { text: c.comment }));
+    list.appendChild(el('button', { class: 'slot', onclick: function () { consultForm(c); } }, [
+      el('span', { class: 't', text: c.time }),
+      el('span', { class: 'body' }, [el('div', { class: 'nm', text: c.name || '(аты жазылмаған)' }), el('div', { class: 'sub' }, sub)])
+    ]));
+  });
+  view.appendChild(list);
+}
+
+function renderTreat() {
+  var total = 0;
+  S.day.treatments.forEach(function (g) { g.rows.forEach(function (r) { if (r.name) total++; }); });
+  view.appendChild(el('div', { class: 'summary', text: 'Бүгін ем алатындар: ' + total }));
+  var list = el('div', { class: 'list' });
+  S.day.treatments.forEach(function (g) {
+    var filled = g.rows.filter(function (r) { return r.name || r.proc; });
+    var box = el('div', { class: 'group' + (filled.length ? '' : ' emptyg') }, [
+      el('div', { class: 'gh' }, [el('b', { text: g.time }),
+        el('button', { class: 'add', text: '+ қосу', onclick: function () { treatForm(g, null); } })])
+    ]);
+    filled.forEach(function (r) {
+      var procs = (r.proc || '').split(/[,;+\/]/).map(function (s) { return s.trim(); }).filter(String);
+      box.appendChild(el('div', { class: 'row', onclick: function () { treatForm(g, r); } }, [
+        el('span', { class: 't', text: '≈' + r.time }),
+        el('span', { class: 'body' }, [el('div', { class: 'nm', text: r.name || '(аты жоқ)' }),
+          el('div', { class: 'sub' }, procs.map(function (p) { return el('span', { class: 'chip acc', text: p }); }))])
+      ]));
+    });
+    list.appendChild(box);
+  });
+  view.appendChild(list);
+  view.appendChild(el('div', { class: 'note', text: '≈ уақыт кестедегі жолдың орнынан есептелген.' }));
+}
+
+/* ---------- формалар ---------- */
+function openModal(content) {
+  var sh = document.getElementById('sheet'); sh.innerHTML = ''; sh.appendChild(content);
+  document.getElementById('modal').className = 'modal on';
+  var f = sh.querySelector('input'); if (f) setTimeout(function () { f.focus(); }, 50);
+}
+function closeModal() { document.getElementById('modal').className = 'modal'; }
+document.getElementById('modal').addEventListener('click', function (e) { if (e.target.id === 'modal') closeModal(); });
+
+function field(label, input, required) {
+  return el('div', { class: 'field' }, [el('label', {}, [label, required ? el('span', { class: 'req', text: ' *' }) : null]), input]);
+}
+function inp(value, attrs) {
+  var i = el('input', Object.assign({ type: 'text' }, attrs || {})); i.value = value || ''; return i;
+}
+function quick(input, values) {
+  return el('div', { class: 'quick' }, values.map(function (v) {
+    return el('button', { type: 'button', text: v, onclick: function () { input.value = v; } });
+  }));
+}
+
+function consultForm(c) {
+  var f = {
+    name: inp(c.name, { autocomplete: 'off' }),
+    phone: inp(c.phone, { type: 'tel', placeholder: '+7 7__ ___ ____' }),
+    manager: inp(c.manager, { list: 'dlManagers', autocomplete: 'off' }),
+    service: inp(c.service),
+    source: inp(c.source, { placeholder: 'Instagram, 2ГИС, таныс…' }),
+    paid: inp(c.paid, { placeholder: 'мысалы ✅' }),
+    comment: inp(c.comment)
+  };
+  var filled = consultFilled(c);
+  var form = el('form', { onsubmit: function (e) { e.preventDefault(); save(); } }, [
+    el('h3', { text: S.day.name + ' · ' + c.time + ' · консультация' }),
+    field('ФИ пациента', f.name, true),
+    field('Номер', f.phone),
+    field('Жазған менеджер', el('div', {}, [f.manager, quick(f.manager, S.init.managers.slice(0, 4))]), true),
+    field('Услуга', el('div', {}, [f.service, quick(f.service, ['первичный', 'повторный'])])),
+    el('div', { class: 'grid2' }, [field('Источник', f.source), field('ПД', f.paid)]),
+    field('Коммент', el('div', {}, [f.comment, quick(f.comment, ['❌ келмеді', '✅ келді'])])),
+    el('div', { class: 'actions' }, [
+      filled ? el('button', { type: 'button', class: 'btn danger', text: 'Өшіру', onclick: function () { if (confirm('Бұл жазбаны өшіру керек пе?')) send({}); } }) : null,
+      el('span', { class: 'sp' }),
+      el('button', { type: 'button', class: 'btn ghost', text: 'Жабу', onclick: closeModal }),
+      el('button', { type: 'submit', class: 'btn', text: 'Сақтау' })
+    ])
+  ]);
+  function save() {
+    var d = {}; for (var k in f) d[k] = f[k].value.trim();
+    if (!d.name && !d.phone) return toast('Пациенттің аты немесе номерін жазыңыз', true);
+    if (!d.manager) return toast('Жазған менеджерді көрсетіңіз', true);
+    send(d);
+  }
+  function send(d) {
+    busy(form, true);
+    run('saveConsult', S.day.name, c.row, d, pick(c, ['name', 'phone', 'comment', 'manager', 'source', 'service', 'paid']))
+      .then(function (r) { handleSave(r, form); }).catch(function (e) { busy(form, false); toast(errMsg(e), true); });
+  }
+  openModal(form);
+}
+
+function treatForm(g, r) {
+  var name = inp(r ? r.name : '', { list: 'dlPatients', autocomplete: 'off' });
+  var proc = inp(r ? r.proc : '', { list: 'dlProcs', autocomplete: 'off', placeholder: 'Физио, Плазма…' });
+  var form = el('form', { onsubmit: function (e) { e.preventDefault(); save(); } }, [
+    el('h3', { text: S.day.name + ' · ' + (r ? '≈' + r.time : g.time) + ' · ем' }),
+    field('Пациент', name, true),
+    field('Ем түрі', el('div', {}, [proc, quick(proc, S.init.procedures.slice(0, 6))])),
+    el('div', { class: 'actions' }, [
+      r ? el('button', { type: 'button', class: 'btn danger', text: 'Өшіру', onclick: function () { if (confirm('Бұл жазбаны өшіру керек пе?')) send({ name: '', proc: '' }); } }) : null,
+      el('span', { class: 'sp' }),
+      el('button', { type: 'button', class: 'btn ghost', text: 'Жабу', onclick: closeModal }),
+      el('button', { type: 'submit', class: 'btn', text: 'Сақтау' })
+    ])
+  ]);
+  function save() {
+    var d = { name: name.value.trim(), proc: proc.value.trim() };
+    if (!d.name) return toast('Пациенттің атын жазыңыз', true);
+    send(d);
+  }
+  function send(d) {
+    busy(form, true);
+    var p = r ? run('saveTreatment', S.day.name, r.row, d, { name: r.name, proc: r.proc })
+              : run('addTreatment', S.day.name, g.row, d);
+    p.then(function (res) { handleSave(res, form); }).catch(function (e) { busy(form, false); toast(errMsg(e), true); });
+  }
+  openModal(form);
+}
+
+function pick(o, keys) { var r = {}; keys.forEach(function (k) { r[k] = o[k] || ''; }); return r; }
+function busy(form, on) { Array.prototype.forEach.call(form.querySelectorAll('button'), function (b) { b.disabled = on; }); }
+function handleSave(res, form) {
+  S.day = res.day;
+  if (!res.ok && res.conflict) {
+    closeModal(); render();
+    return toast('Бұл жазбаны басқа адам өзгертіп үлгерді. Кесте жаңартылды, қайта тексеріңіз.', true);
+  }
+  closeModal(); render(); toast('Сақталды');
+}
+
+/* ---------- жаңа күн ---------- */
+function newDayForm() {
+  var last = S.init.days.length ? S.init.days[S.init.days.length - 1].date : S.init.today;
+  var next = isoShift(last, 1);
+  if (new Date(next + 'T12:00:00').getDay() === 0) next = isoShift(next, 1); // жексенбіні өткізіп жібереміз
+  var date = el('input', { type: 'date' }); date.value = next;
+  var form = el('form', { onsubmit: function (e) {
+    e.preventDefault(); busy(form, true);
+    run('createDay', date.value).then(function (res) {
+      applyInit(res.init); closeModal(); toast(res.name + ' парағы ашылды'); S.tab = S.tab === 'stats' ? 'consult' : S.tab; setTab(S.tab); openDay(res.name);
+    }).catch(function (e2) { busy(form, false); toast(errMsg(e2), true); });
+  } }, [
+    el('h3', { text: 'Жаңа күн парағы' }),
+    field('Күні', date, true),
+    el('div', { class: 'note', text: 'Бос шаблон парақ көшіріледі: уақыттар сақталады, жазбалар бос болады.' }),
+    el('div', { class: 'actions' }, [el('span', { class: 'sp' }),
+      el('button', { type: 'button', class: 'btn ghost', text: 'Жабу', onclick: closeModal }),
+      el('button', { type: 'submit', class: 'btn', text: 'Ашу' })])
+  ]);
+  openModal(form);
+}
+
+/* ---------- есеп ---------- */
+function renderStats() {
+  var from = el('input', { type: 'date' }), to = el('input', { type: 'date' });
+  from.value = S.stats ? S.stats.from : isoShift(S.init.today, -6);
+  to.value = S.stats ? S.stats.to : S.init.today;
+  var out = el('div');
+  var go = el('button', { class: 'btn', text: 'Көрсету', onclick: load });
+  view.appendChild(el('div', { class: 'stats-form' }, [
+    el('div', {}, [el('label', { text: 'Басы' }), from]), el('div', {}, [el('label', { text: 'Соңы' }), to]), go]));
+  view.appendChild(out);
+  function load() {
+    out.innerHTML = ''; out.appendChild(el('div', { class: 'loading', text: 'Есептелуде…' })); go.disabled = true;
+    run('getStats', from.value, to.value).then(function (st) { S.stats = st; go.disabled = false; draw(st); })
+      .catch(function (e) { go.disabled = false; toast(errMsg(e), true); });
+  }
+  function draw(st) {
+    out.innerHTML = '';
+    if (!st.days.length) { out.appendChild(el('div', { class: 'loading', text: 'Бұл аралықта күн парақтары жоқ' })); return; }
+    out.appendChild(el('div', { class: 'tiles' }, [
+      tile('Консультация', st.consult.total), tile('Первичный', st.consult.primary),
+      tile('Повторный', st.consult.repeat), tile('❌ белгісі', st.consult.cancelled), tile('Ем (барлығы)', st.treatTotal)
+    ]));
+    out.appendChild(el('h2', { text: 'Менеджерлер: кім неше консультация жазды' })); out.appendChild(bars(st.managers));
+    out.appendChild(el('h2', { text: 'Ем түрлері' })); out.appendChild(bars(st.procedures));
+    out.appendChild(el('h2', { text: 'Күндер бойынша (консультация / ем)' }));
+    var dayObj = {}; st.days.forEach(function (d) { dayObj[d.name + '  ' + d.consults + ' / ' + d.treatments] = d.consults + d.treatments; });
+    out.appendChild(bars(dayObj, true));
+    out.appendChild(el('h2', { text: 'Ем алушылар: неше рет келді' })); out.appendChild(bars(st.patients));
+  }
+  function tile(k, v) { return el('div', { class: 'tile' }, [el('div', { class: 'k', text: k }), el('div', { class: 'v', text: String(v) })]); }
+  function bars(obj, keepOrder) {
+    var keys = Object.keys(obj);
+    if (!keepOrder) keys.sort(function (a, b) { return obj[b] - obj[a] || a.localeCompare(b); });
+    var max = Math.max.apply(null, keys.map(function (k) { return obj[k]; }).concat([1]));
+    var box = el('div', { class: 'bars' });
+    if (!keys.length) box.appendChild(el('div', { class: 'note', text: 'Дерек жоқ' }));
+    keys.forEach(function (k) {
+      box.appendChild(el('div', { class: 'bar' }, [el('span', { class: 'lbl', text: k, title: k }),
+        el('span', { class: 'track' }, [el('span', { class: 'fill', style: 'display:block;width:' + Math.round(obj[k] / max * 100) + '%' })]),
+        el('span', { class: 'n', text: keepOrder ? '' : String(obj[k]) })]));
+    });
+    return box;
+  }
+  if (S.stats) draw(S.stats); else load();
+}
+
+/* ---------- оқиғалар ---------- */
+function setTab(t) {
+  S.tab = t;
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) { b.classList.toggle('on', b.dataset.tab === t); });
+  document.querySelector('.daybar').style.display = t === 'stats' ? 'none' : '';
+}
+Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+  b.addEventListener('click', function () { setTab(b.dataset.tab); render(); });
+});
+document.getElementById('daySel').addEventListener('change', function (e) { openDay(e.target.value); });
+document.getElementById('prevDay').addEventListener('click', function () { stepDay(-1); });
+document.getElementById('nextDay').addEventListener('click', function () { stepDay(1); });
+document.getElementById('newDayBtn').addEventListener('click', newDayForm);
+start();
+</script>
+</body>
+</html>
