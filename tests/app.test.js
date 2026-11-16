@@ -119,7 +119,7 @@ test('қақтығыс: басқа адам өзгертсе, жазу тоқт�
 test('таблицада жоқ dropdown мәні қабылданбайды', () => {
   const { app } = setup();
   const slot = app.getDay('16.11.2026').doctor[1];
-  assert.throws(() => app.saveAppointment('16.11.2026', slot.row, { name: 'А', source: 'Instagram' }, slot.prev), /Қайдан келді/);
+  assert.throws(() => app.saveAppointment('16.11.2026', slot.row, { name: 'А', recorder: 'Асель', source: 'Instagram' }, slot.prev), /Қайдан келді/);
 });
 
 test('аты да, телефоны да жоқ жазба қабылданбайды', () => {
@@ -230,4 +230,33 @@ test('статистика кезең бойынша', () => {
 test('құлып алынбаса түсінікті қате', () => {
   const { app } = setup({ lockFails: true });
   assert.throws(() => app.saveAppointment('16.11.2026', 3, { name: 'X' }, null), /басқа адам өзгертіп жатыр/);
+});
+
+test('консультация: қай менеджер жазғаны міндетті', () => {
+  const { app } = setup();
+  const slot = app.getDay('16.11.2026').doctor[1];
+  assert.throws(() => app.saveAppointment('16.11.2026', slot.row, { name: 'Әлия', phone: '87001112233' }, slot.prev), /менеджер/);
+});
+
+test('ем түрлері: Физио мен Плазма әрқашан бар, таблицадағы басқа түрлер соңында', () => {
+  const { app } = setup();
+  const day = app.getDay('16.11.2026');
+  assert.deepEqual(day.procedures.slice(0, 2), ['Физио', 'Плазма']);
+  assert.ok(day.procedures.includes('Физио, системк'));
+  const place = day.physio.find((b) => b.time === '12:00').places[0];
+  const after = app.savePhysio('16.11.2026', place.row, { name: 'Дана', proc: 'Плазма' }, place.prev);
+  assert.equal(after.physio.find((b) => b.time === '12:00').places[0].proc, 'Плазма');
+  assert.equal(app.getStats('2026-11-16', '2026-11-16').byProc['Плазма'], 1);
+});
+
+test('уақыттар таңертеңнен кешке дейін ретімен', () => {
+  const { app, ss } = setup();
+  const sh = ss.getSheetByName('16.11.2026');
+  sh._set(3, 1, '19:30'); // таблицада уақыт ретсіз жазылса да
+  const day = app.getDay('16.11.2026');
+  const mins = day.doctor.map((s) => s.minutes);
+  assert.deepEqual(mins, mins.slice().sort((a, b) => a - b));
+  assert.equal(day.doctor.at(-1).time, '19:30');
+  const pm = day.physio.map((b) => b.minutes);
+  assert.deepEqual(pm, pm.slice().sort((a, b) => a - b));
 });

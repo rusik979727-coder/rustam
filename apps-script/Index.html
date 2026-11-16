@@ -23,8 +23,8 @@
       <button class="text-btn" id="todayBtn">Бүгін</button>
     </div>
     <nav class="tabs" role="tablist">
-      <button role="tab" data-tab="schedule" aria-selected="true">Кесте</button>
-      <button role="tab" data-tab="physio" class="only-narrow">Физио</button>
+      <button role="tab" data-tab="schedule" aria-selected="true">Консультация</button>
+      <button role="tab" data-tab="physio" class="only-narrow">Ем</button>
       <button role="tab" data-tab="search">Іздеу</button>
       <button role="tab" data-tab="stats">Есеп</button>
     </nav>
@@ -36,14 +36,14 @@
       <div class="board">
         <div class="col col-doctor">
           <div class="col-head">
-            <h2>Дәрігер қабылдауы</h2>
+            <h2>Консультация</h2>
             <span class="count" id="doctorCount"></span>
           </div>
           <ol class="slots" id="doctorList"></ol>
         </div>
         <div class="col col-physio" id="physioCol">
           <div class="col-head">
-            <h2>Физио</h2>
+            <h2>Ем: физио, плазма</h2>
             <span class="count" id="physioCount"></span>
           </div>
           <ol class="blocks" id="physioList"></ol>
@@ -103,7 +103,7 @@
         <div class="seg" data-field="source"></div>
       </fieldset>
       <fieldset class="field">
-        <legend>Жазған</legend>
+        <legend>Жазған менеджер</legend>
         <div class="seg" data-field="recorder"></div>
       </fieldset>
       <label class="field">
@@ -137,20 +137,20 @@
   <dialog id="physioDialog" class="sheet">
     <form method="dialog" id="physioForm">
       <div class="sheet-head">
-        <h3 id="physioTitle">Физио</h3>
+        <h3 id="physioTitle">Ем</h3>
         <button type="button" class="icon-btn" data-close aria-label="Жабу">×</button>
       </div>
       <label class="field">
         <span>Аты</span>
         <input name="name" autocomplete="off" required>
       </label>
-      <label class="field">
-        <span>Процедура</span>
-        <input name="proc" list="procList" autocomplete="off">
-        <datalist id="procList"></datalist>
-      </label>
+      <fieldset class="field">
+        <legend>Ем түрі</legend>
+        <div class="seg" id="procChips"></div>
+        <input name="proc" autocomplete="off" placeholder="Басқа түрі болса, осында жазыңыз" class="proc-other">
+      </fieldset>
       <div class="sheet-actions">
-        <button type="submit" class="primary">Орынды сақтау</button>
+        <button type="submit" class="primary">Емге жазу</button>
         <button type="button" class="danger" id="physioFree" hidden>Орынды босату</button>
       </div>
     </form>

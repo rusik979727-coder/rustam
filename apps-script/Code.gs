@@ -157,6 +157,7 @@ function doctorRowValues_(sh, row, data) {
     attended: cleanText_(data.attended)
   };
   if (!clean.name && !clean.phone) throw new Error('Пациенттің атын немесе телефонын енгізіңіз.');
+  if (!clean.recorder) throw new Error('Қай менеджер жазғанын таңдаңыз.');
   checkOption_(options, 'recorder', clean.recorder, 'Жазған');
   checkOption_(options, 'source', clean.source, 'Қайдан келді');
   checkOption_(options, 'service', clean.service, 'Қызмет');
@@ -186,14 +187,15 @@ function getDay(sheetName) {
   day.physio.forEach(function (b) {
     b.places.forEach(function (p) { if (p.proc) procs[p.proc] = true; });
   });
-  ['Физио'].forEach(function (p) { procs[p] = true; });
+  var procList = TREATMENTS.slice();
+  Object.keys(procs).sort().forEach(function (p) { if (procList.indexOf(p) === -1) procList.push(p); });
   return {
     sheet: sheetName,
     date: parseSheetName(sheetName),
     doctor: day.doctor,
     physio: day.physio,
     options: readOptions_(sh, firstSlotRow),
-    procedures: Object.keys(procs).sort(),
+    procedures: procList,
     loadedAt: new Date().toISOString()
   };
 }

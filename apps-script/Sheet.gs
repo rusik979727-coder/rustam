@@ -19,6 +19,9 @@ var LAYOUT = {
   readCols: 12
 };
 
+// Ем түрлері: батырма ретінде әрқашан көрсетіледі. Таблицада кездескен басқа түрлер соңынан қосылады.
+var TREATMENTS = ['Физио', 'Плазма'];
+
 // Validation табылмаса қолданылатын тізімдер (таблицадағы dropdown-тардың көшірмесі).
 var DEFAULT_OPTIONS = {
   recorder: ['Гулназ', 'Асель', 'Айсулу'],
@@ -67,7 +70,7 @@ function parseDoctorSlots(values, headerRow) {
     slot.prev = rowSnapshot(values, row, 'doctor');
     slots.push(slot);
   }
-  return slots;
+  return sortByTime_(slots);
 }
 
 /**
@@ -86,7 +89,7 @@ function parsePhysioBlocks(values, headerRow, merges) {
     if (minutes !== null) timeRows.push({ row: row, minutes: minutes });
   }
 
-  return timeRows.map(function (t, i) {
+  return sortByTime_(timeRows.map(function (t, i) {
     var nextStart = i + 1 < timeRows.length ? timeRows[i + 1].row : values.length + 1;
     var end = mergeEnd[t.row] || (t.row + LAYOUT.physioBlockSize - 1);
     end = Math.max(t.row, Math.min(end, nextStart - 1));
@@ -105,7 +108,15 @@ function parsePhysioBlocks(values, headerRow, merges) {
       places: places,
       taken: places.filter(function (p) { return p.name || p.proc; }).length
     };
-  });
+  }));
+}
+
+/** Таңертеңнен кешке дейін ретімен (бірдей уақытта — таблицадағы ретімен). */
+function sortByTime_(list) {
+  return list
+    .map(function (x, i) { return { x: x, i: i }; })
+    .sort(function (a, b) { return (a.x.minutes - b.x.minutes) || (a.i - b.i); })
+    .map(function (w) { return w.x; });
 }
 
 /** Жолдың ағымдағы мәндері — қақтығысты анықтау үшін клиентке беріледі. */

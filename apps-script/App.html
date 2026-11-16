@@ -136,7 +136,6 @@
     stateEl.innerHTML = '';
     renderDoctor(day);
     renderPhysio(day);
-    $('#procList').innerHTML = day.procedures.map(function (p) { return '<option value="' + esc(p) + '">'; }).join('');
 
     if (day.date === state.boot.today && state.scrolledFor !== day.date) {
       state.scrolledFor = day.date;
@@ -200,7 +199,7 @@
       var full = b.taken >= b.places.length;
       var places = b.places.map(function (p) {
         var has = p.name || p.proc;
-        var cls = 'place' + (has ? ' taken' : '') + (p.extra ? ' extra' : '');
+        var cls = 'place' + (has ? ' taken' : '') + (p.extra ? ' extra' : '') + (isPlasma(p.proc) ? ' plasma' : '');
         var title = p.extra ? ' title="Қосымша жол (біріктірілген блоктан тыс)"' : '';
         return '<button class="' + cls + '" data-prow="' + p.row + '" data-block="' + i + '"' + title + '>' +
           (has ? '<b>' + esc(p.name || '—') + '</b>' + esc(p.proc) : 'бос') + '</button>';
@@ -238,7 +237,7 @@
     renderSeg('recorder', o.recorder, s.recorder || (s.booked ? '' : (store.get('recorder') || '')));
     renderSeg('attended', o.attended, s.attended);
     $('#attendedField').hidden = !s.booked;
-    $('#apptTitle').textContent = (s.booked ? 'Жазба, ' : 'Жаңа жазба, ') + s.time + ', ' + humanDate(state.day.date);
+    $('#apptTitle').textContent = (s.booked ? 'Жазба, ' : 'Консультацияға жазу, ') + s.time + ', ' + humanDate(state.day.date);
     $('#apptDelete').hidden = !s.booked;
     $('#apptMove').hidden = !s.booked;
     updatePhoneLinks();
@@ -278,13 +277,14 @@
     e.preventDefault();
     var ed = state.edit, data = readApptForm();
     if (!data.name.trim() && !data.phone.trim()) { toast('Пациенттің атын немесе телефонын енгізіңіз.', true); return; }
+    if (!data.recorder) { toast('Қай менеджер жазғанын таңдаңыз.', true); return; }
     if (data.recorder) store.set('recorder', data.recorder);
     var btn = $('#apptSave');
     busy(btn, true);
     call('saveAppointment', ed.sheet, ed.row, data, ed.prev).then(function (day) {
       applyDay(day);
       $('#apptDialog').close();
-      toast('Жазба сақталды: ' + ed.slot.time);
+      toast('Консультацияға жазылды: ' + ed.slot.time);
     }).catch(function (err) { handleWriteError(err, $('#apptDialog')); })
       .then(function () { busy(btn, false); });
   }
@@ -349,11 +349,22 @@
     state.physioEdit = { sheet: state.day.sheet, row: row, prev: place.prev, time: block.time };
     var f = $('#physioForm');
     f.name.value = place.name;
-    f.proc.value = place.proc || (place.name ? '' : 'Физио');
-    $('#physioTitle').textContent = 'Физио, ' + block.time;
+    renderProcChips(place.proc || (place.name ? '' : state.day.procedures[0]));
+    $('#physioTitle').textContent = (place.name ? 'Ем, ' : 'Емге жазу, ') + block.time;
     $('#physioFree').hidden = !(place.name || place.proc);
     $('#physioDialog').showModal();
     if (!place.name) f.name.focus();
+  }
+
+  function isPlasma(proc) { return /плазм/i.test(proc || ''); }
+
+  // Ем түрі батырмамен таңдалады; тізімде жоқ түрді төмендегі өріске жазуға болады.
+  function renderProcChips(value) {
+    var f = $('#physioForm');
+    f.proc.value = value || '';
+    $('#procChips').innerHTML = state.day.procedures.map(function (p) {
+      return '<button type="button" data-value="' + esc(p) + '" aria-pressed="' + (p === value) + '">' + esc(p) + '</button>';
+    }).join('');
   }
 
   function savePhysio(data, msg) {
@@ -394,7 +405,7 @@
       $('#searchHint').textContent = rows.length ? 'Табылды: ' + rows.length : '«' + q + '» бойынша ештеңе табылмады. Атын қысқартып немесе нөмірдің соңғы цифрларын жазып көріңіз.';
       list.innerHTML = rows.map(function (r) {
         var att = r.attended === '✅' ? '<span class="came">келді</span>' : r.attended === '❌' ? '<span class="missed">келмеді</span>' : '';
-        var meta = [r.kind === 'physio' ? 'физио' : 'дәрігер', r.service, r.phone].filter(Boolean).map(esc).join(', ');
+        var meta = [r.kind === 'physio' ? 'ем' : 'консультация', r.service, r.phone].filter(Boolean).map(esc).join(', ');
         return '<li><button data-date="' + r.date + '" data-kind="' + r.kind + '" data-row="' + r.row + '">' +
           '<span class="r-date">' + esc(humanDate(r.date)) + ' <small>' + esc(r.time) + ', ' + esc(weekday(r.date)) + '</small></span>' +
           '<span><span class="r-name">' + esc(r.name) + '</span><br><span class="r-meta">' + meta + (att ? ', ' + att : '') + '</span></span>' +
@@ -464,21 +475,21 @@
       var maxDay = Math.max.apply(null, st.days.map(function (d) { return d.doctor; }).concat([1]));
       body.innerHTML =
         '<div class="kpis">' +
-          '<div class="kpi"><b>' + st.total + '</b><span>дәрігерге жазылды</span></div>' +
+          '<div class="kpi"><b>' + st.total + '</b><span>консультацияға жазылды</span></div>' +
           '<div class="kpi"><b>' + st.came + '</b><span>келді</span></div>' +
           '<div class="kpi"><b>' + st.missed + '</b><span>келмеді</span></div>' +
           '<div class="kpi"><b>' + rate + '</b><span>келу үлесі (белгіленгендерден)</span></div>' +
-          '<div class="kpi"><b>' + st.physio + '</b><span>физио</span></div>' +
+          '<div class="kpi"><b>' + st.physio + '</b><span>емге жазылды (физио, плазма)</span></div>' +
         '</div>' +
-        '<div class="breakdown days"><h3>Күн сайын дәрігерге жазылғандар</h3><div class="days-chart">' +
+        '<div class="breakdown days"><h3>Күн сайын консультацияға жазылғандар</h3><div class="days-chart">' +
           st.days.map(function (d) {
             return '<div style="height:' + Math.max(2, Math.round(d.doctor / maxDay * 100)) + '%" title="' +
-              esc(humanDate(d.date) + ': дәрігер ' + d.doctor + ', физио ' + d.physio) + '"></div>';
+              esc(humanDate(d.date) + ': консультация ' + d.doctor + ', ем ' + d.physio) + '"></div>';
           }).join('') +
         '</div><div class="days-legend"><span>' + shortDate(st.days[0].date) + '</span><span>' + shortDate(st.days[st.days.length - 1].date) + '</span></div></div>' +
         '<div class="breakdowns">' +
           bars('Қайдан келді', st.bySource) + bars('Қызмет', st.byService) +
-          bars('Кім жазды', st.byRecorder) + bars('Физио процедуралары', st.byProc) +
+          bars('Кім жазды', st.byRecorder) + bars('Ем түрлері', st.byProc) +
         '</div>' +
         (st.unmarked ? '<p class="hint">' + st.unmarked + ' жазбаның келгені белгіленбеген.</p>' : '');
     }).catch(function (err) {
@@ -541,7 +552,15 @@
       e.preventDefault();
       var f = e.target;
       if (!f.name.value.trim()) { toast('Атын енгізіңіз.', true); return; }
-      savePhysio({ name: f.name.value, proc: f.proc.value }, 'Физиоға жазылды');
+      if (!f.proc.value.trim()) { toast('Ем түрін таңдаңыз: физио немесе плазма.', true); return; }
+      savePhysio({ name: f.name.value, proc: f.proc.value }, 'Емге жазылды');
+    });
+    $('#procChips').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (b) renderProcChips(b.dataset.value);
+    });
+    $('#physioForm').proc.addEventListener('input', function (e) {
+      $$('#procChips button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.value === e.target.value)); });
     });
     $('#physioFree').onclick = function () { savePhysio({ name: '', proc: '' }, 'Орын босатылды'); };
 
