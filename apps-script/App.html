@@ -364,6 +364,19 @@
   .visits li:last-child { border-bottom: 0; }
   .visits .vn { font-weight: 700; color: var(--muted); }
   .card-hint { margin: 10px 0 0; padding: 8px 10px; border-radius: var(--radius); background: var(--accent-soft); font-size: 13.5px; }
+  .seg.week button { min-width: 44px; padding: 7px 8px; }
+  .absences { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+  .absences li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-radius: var(--radius); background: var(--missed-soft); font-size: 13.5px; }
+  .absences li.rest { background: var(--bg); }
+  .absences button { border: 0; background: none; color: var(--missed); font-size: 18px; line-height: 1; padding: 0 4px; }
+  .abs-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .abs-add input, .abs-add select { border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px; background: var(--surface); font-size: 15px; min-width: 0; }
+  .abs-add input { flex: 1 1 130px; }
+  .abs-add .ghost { min-height: 40px; padding: 8px 14px; }
+  .pt-off { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--missed-soft); color: var(--missed); font-size: 12px; font-weight: 600; }
+  .course-list .cl-sick { flex: none; border: 1px solid var(--line-strong); background: var(--surface); color: var(--missed); border-radius: var(--radius); font-size: 12.5px; padding: 4px 8px; margin-right: 12px; }
+  .course-list li { display: flex; align-items: center; }
+  .course-list li label { flex: 1; min-width: 0; }
 
   @media (prefers-reduced-motion: reduce) {
     .toast { transition: none; }
@@ -602,8 +615,23 @@
       <label class="field">
         <span>Емді бітіреді</span>
         <input name="end" id="pfEnd" type="date">
-        <p class="field-hint" id="pfEndHint">Курс пен басталған күнді жазсаңыз, өзі есептеледі (жексенбі демалыс).</p>
+        <p class="field-hint" id="pfEndHint">Өзі есептеледі: пациенттің демалыс күндері мен келмейтін күндері өткізіледі.</p>
       </label>
+      <fieldset class="field">
+        <legend>Демалыс күндері (пациент келмейтін апта күндері)</legend>
+        <div class="seg week" id="pfRest"></div>
+      </fieldset>
+      <fieldset class="field">
+        <legend>Келмейтін күндері: ауырды, демалды, т.б.</legend>
+        <ul class="absences" id="pfAbs"></ul>
+        <div class="abs-add">
+          <input type="date" id="absFrom" aria-label="Қай күннен">
+          <input type="date" id="absTo" aria-label="Қай күнге дейін (бір күн болса, бос қалдырыңыз)">
+          <select id="absReason" aria-label="Себебі"></select>
+          <button type="button" class="ghost" id="absAdd">Қосу</button>
+        </div>
+        <p class="field-hint">Бір күн болса, екінші күнді бос қалдырыңыз.</p>
+      </fieldset>
       <fieldset class="field">
         <legend>Ем жоспары: күнді басып, емін ауыстырыңыз</legend>
         <div class="plan-grid" id="planGrid"></div>
@@ -1102,7 +1130,7 @@
     $('#coursesHint').textContent = 'Жүктелуде…';
     $('#coursesList').hidden = true;
     $('#coursesPlace').disabled = true;
-    $('#coursesDialog').showModal();
+    if (!$('#coursesDialog').open) $('#coursesDialog').showModal();
     call('getActiveCourses', sheet).then(function (list) {
       if (!state.day || state.day.sheet !== sheet) return;
       coursesData = list;
@@ -1117,19 +1145,33 @@
           'Әрқайсысы өз уақытына, ол толы болса — ең жақын бос орынға қойылады.'
         : 'Барлығы қойылған.';
       $('#coursesList').innerHTML = list.map(function (c, i) {
-        return '<li' + (c.placed ? ' class="done"' : '') + '><label>' +
-          '<input type="checkbox" data-i="' + i + '"' + (c.placed ? ' disabled' : c.missed ? '' : ' checked') + '>' +
+        var off = c.off && !c.placed;
+        return '<li' + (c.placed || off ? ' class="done"' : '') + '><label>' +
+          '<input type="checkbox" data-i="' + i + '"' + (c.placed || off ? ' disabled' : c.missed ? '' : ' checked') + '>' +
           '<span><b>' + esc(c.name) + '</b><span class="cl-meta">' + esc(c.proc || 'ем') + ', ' +
           esc(c.day + '/' + c.total) + '-күн' +
           (c.placed ? ', қойылған' : c.lastDate ? ', соңғы рет ' + esc(humanDate(c.lastDate)) : ', алғашқы күн') +
           (c.nurse ? ', медбике: ' + esc(c.nurse) : '') +
-          (!c.placed && c.missed ? ' <span class="cl-missed">· ' + c.missed + ' күн келмеді</span>' : '') +
+          (off ? ' <span class="cl-missed">· ' + esc(c.off) + '</span>'
+            : !c.placed && c.missed ? ' <span class="cl-missed">· ' + c.missed + ' күн келмеді</span>' : '') +
           '</span></span>' +
-          '<span class="cl-time">' + esc(c.time || '—') + '</span></label></li>';
+          '<span class="cl-time">' + esc(c.time || '—') + '</span></label>' +
+          (c.cardId && !c.placed && !off ? '<button type="button" class="cl-sick" data-sick="' + i + '" title="Картаға бүгін ауырды деп жазу">Ауырды</button>' : '') +
+          '</li>';
       }).join('');
       $('#coursesList').hidden = false;
       $('#coursesPlace').disabled = !todo;
     }).catch(function (err) { $('#coursesHint').textContent = errText(err); });
+  }
+
+  function markSick(i) {
+    var c = coursesData[i];
+    if (!c || !c.cardId) return;
+    call('addAbsence', c.cardId, state.day.date, '', 'Ауырды').then(function (res) {
+      applyPatients(res);
+      toast(c.name + ': ' + humanDate(state.day.date) + ' ауырды деп картаға жазылды');
+      openCourses();
+    }).catch(function (err) { toast(errText(err), true); });
   }
 
   function placeSelected(e) {
@@ -1151,7 +1193,9 @@
   }
 
   // ───────── Пациент карталары ─────────
-  var pt = { list: [], procedures: ['Физио', 'Плазма'], filter: 'active', edit: null, plan: [], endAuto: true };
+  var pt = { list: [], procedures: ['Физио', 'Плазма'], reasons: ['Ауырды', 'Демалыс', 'Басқа себеп'], filter: 'active',
+    edit: null, plan: [], endAuto: true, rest: [0], abs: [], visitDates: [] };
+  var WEEK = [[1, 'Дс'], [2, 'Сс'], [3, 'Ср'], [4, 'Бс'], [5, 'Жм'], [6, 'Сб'], [0, 'Жс']];
 
   function loadPatients() {
     return call('getPatients').then(applyPatients).catch(function (err) {
@@ -1162,6 +1206,7 @@
   function applyPatients(res) {
     pt.list = res.patients;
     pt.procedures = res.procedures && res.procedures.length ? res.procedures : ['Физио', 'Плазма'];
+    if (res.reasons && res.reasons.length) pt.reasons = res.reasons;
     var opts = function (arr) { return arr.map(function (v) { return '<option value="' + esc(v) + '">'; }).join(''); };
     $('#nurseOptions').innerHTML = opts(res.nurses);
     $('#doctorOptions').innerHTML = opts(res.doctors);
@@ -1198,6 +1243,7 @@
       var staff = [p.nurse && 'медбике ' + p.nurse, p.doctor && 'дәрігер ' + p.doctor].filter(Boolean).join(' · ');
       return '<li><button type="button" class="pt-card' + (p.finished ? ' done' : '') + '" data-id="' + esc(p.id) + '">' +
         '<span class="pt-top"><span class="pt-name">' + esc(p.name) + '</span><span class="pt-prog">' + p.visits + '/' + p.total + '</span></span>' +
+        (p.offToday && !p.finished ? '<span><span class="pt-off">Бүгін: ' + esc(p.offToday) + '</span></span>' : '') +
         '<span class="pt-bar-line"><span style="width:' + pct + '%"></span></span>' +
         '<span class="pt-next">' + next + '</span>' +
         '<span class="pt-meta">' + esc([p.phone, shortIso(p.start) + ' – ' + shortIso(p.end)].filter(Boolean).join(' · ')) + '</span>' +
@@ -1206,13 +1252,36 @@
     }).join('');
   }
 
-  // Бітетін күн: басталған күннен бастап курс күндерін санаймыз, жексенбі — демалыс.
-  function suggestEnd(start, total) {
-    if (!start || !total) return '';
-    var iso = start, n = 1;
-    while (isoToDate(iso).getUTCDay() === 0) iso = addDays(iso, 1);
-    while (n < total) { iso = addDays(iso, 1); if (isoToDate(iso).getUTCDay() !== 0) n++; }
-    return iso;
+  // Пациент бұл күні келмей ме: ауырған/демалған кезең немесе апталық демалыс күні.
+  function offReason(iso) {
+    for (var i = 0; i < pt.abs.length; i++) {
+      if (iso >= pt.abs[i].from && iso <= pt.abs[i].to) return pt.abs[i].reason;
+    }
+    return pt.rest.indexOf(isoToDate(iso).getUTCDay()) !== -1 ? 'Демалыс күні' : '';
+  }
+
+  // Курс күндерінің күнтізбедегі күндері: өткендері — нақты келген күндері, қалғаны — болжам.
+  function planDates(total) {
+    var dates = pt.visitDates.slice(0, total);
+    var iso;
+    if (pt.visitDates.length) {
+      iso = addDays(pt.visitDates[pt.visitDates.length - 1], 1);
+      if (iso < state.boot.today) iso = state.boot.today;
+    } else {
+      iso = $('#pfStart').value;
+    }
+    if (!iso) return dates;
+    for (var guard = 0; dates.length < total && guard < 400; guard++) {
+      if (!offReason(iso)) dates.push(iso);
+      iso = addDays(iso, 1);
+    }
+    return dates;
+  }
+
+  function updateEnd() {
+    if (!pt.endAuto) return;
+    var dates = planDates(pt.plan.length);
+    $('#pfEnd').value = dates.length === pt.plan.length && dates.length ? dates[dates.length - 1] : '';
   }
 
   function resizePlan() {
@@ -1220,15 +1289,31 @@
     while (pt.plan.length < total) pt.plan.push(pt.plan[pt.plan.length - 1] || pt.procedures[0]);
     pt.plan.length = total;
     renderPlan();
-    if (pt.endAuto) $('#pfEnd').value = suggestEnd($('#pfStart').value, total);
+    updateEnd();
+  }
+
+  function renderRest() {
+    $('#pfRest').innerHTML = WEEK.map(function (w) {
+      return '<button type="button" data-wd="' + w[0] + '" aria-pressed="' + (pt.rest.indexOf(w[0]) !== -1) + '">' + w[1] + '</button>';
+    }).join('');
+  }
+
+  function renderAbs() {
+    $('#pfAbs').innerHTML = pt.abs.map(function (a, i) {
+      var range = a.from === a.to ? humanDate(a.from) : humanDate(a.from) + ' – ' + humanDate(a.to);
+      return '<li' + (/демалыс/i.test(a.reason) ? ' class="rest"' : '') + '><span><b>' + esc(range) + '</b> · ' + esc(a.reason) +
+        '</span><button type="button" data-rm="' + i + '" aria-label="Өшіру">×</button></li>';
+    }).join('');
+    $('#absReason').innerHTML = pt.reasons.map(function (r) { return '<option>' + esc(r) + '</option>'; }).join('');
   }
 
   function renderPlan(doneCount) {
-    var done = doneCount == null ? (pt.edit ? pt.edit.visits : 0) : doneCount;
+    var done = doneCount == null ? pt.visitDates.length : doneCount;
+    var dates = planDates(pt.plan.length);
     $('#planGrid').innerHTML = pt.plan.length ? pt.plan.map(function (proc, i) {
       return '<button type="button" class="plan-day' + (isPlasma(proc) ? ' plasma' : '') + (i < done ? ' done' : '') +
         '" data-i="' + i + '" title="' + (i < done ? 'Өтті' : 'Басып, емін ауыстырыңыз') + '">' +
-        '<small>' + (i + 1) + '-күн</small>' + esc(proc) + '</button>';
+        '<small>' + (i + 1) + '-күн' + (dates[i] ? ' · ' + shortDate(dates[i]) : '') + '</small>' + esc(proc) + '</button>';
     }).join('') : '<p class="field-hint">Алдымен «Курс неше күн» жазыңыз.</p>';
     $('#planFill').innerHTML = pt.procedures.map(function (proc) {
       return '<button type="button" data-all="' + esc(proc) + '">Бәрі: ' + esc(proc) + '</button>';
@@ -1250,7 +1335,14 @@
     $('#pfDoctor').value = p ? p.doctor : '';
     $('#pfNote').value = p ? p.note : '';
     pt.plan = p ? p.plan.slice() : [];
-    pt.endAuto = !p || !p.end;
+    pt.rest = p ? (p.restDays || [0]).slice() : [0];
+    pt.abs = p ? (p.absences || []).map(function (a) { return { from: a.from, to: a.to, reason: a.reason }; }) : [];
+    pt.visitDates = [];
+    pt.endAuto = !p || !p.end || p.end === p.autoEnd;
+    $('#absFrom').value = state.boot.today;
+    $('#absTo').value = '';
+    renderRest();
+    renderAbs();
     resizePlan();
     $('#pfVisitsBox').hidden = !p;
     $('#pfVisits').innerHTML = '';
@@ -1264,6 +1356,7 @@
         return '<li><span class="vn">' + (i + 1) + '</span><span>' + esc(humanDate(v.date) + ', ' + weekday(v.date)) +
           '</span><span>' + esc(v.time + ' · ' + (v.proc || '—')) + '</span></li>';
       }).join('') : '<li><span></span><span class="hint">Әзірге келмеді</span><span></span></li>';
+      pt.visitDates = res.visits.map(function (v) { return v.date; });
       renderPlan(res.visits.length);
     }).catch(function (err) { $('#pfVisitsTitle').textContent = errText(err); });
   }
@@ -1274,7 +1367,8 @@
       id: pt.edit ? pt.edit.id : null,
       name: $('#pfName').value, phone: $('#pfPhone').value,
       start: $('#pfStart').value, end: $('#pfEnd').value, total: $('#pfTotal').value,
-      plan: pt.plan, nurse: $('#pfNurse').value, doctor: $('#pfDoctor').value, note: $('#pfNote').value
+      plan: pt.plan, nurse: $('#pfNurse').value, doctor: $('#pfDoctor').value, note: $('#pfNote').value,
+      restDays: pt.rest, absences: pt.abs
     };
     if (!data.name.trim()) { toast('Пациенттің аты-жөнін жазыңыз.', true); return; }
     if (!data.start) { toast('Емге кірген күнін көрсетіңіз.', true); return; }
@@ -1302,6 +1396,7 @@
       var staff = [nx.nurse && 'медбике: ' + esc(nx.nurse), nx.doctor && 'дәрігер: ' + esc(nx.doctor)].filter(Boolean).join(', ');
       showCourseHint(nx.finished
         ? 'Карта бойынша курс аяқталған (' + card.total + ' күн). Жаңа курс болса, картаны өзгертіңіз.'
+        : nx.off ? '⚠ Картада бұл күн белгіленген: <b>' + esc(nx.off) + '</b>. Сонда да жазсаңыз, ' + nx.day + '/' + card.total + '-күн — ' + esc(nx.proc) + ' болып жазылады.'
         : 'Картадан: <b>' + nx.day + '/' + card.total + '-күн — ' + esc(nx.proc) + '</b>' + (staff ? '. ' + staff : '') +
           (nx.lastDate ? '. Соңғы рет: ' + esc(humanDate(nx.lastDate)) : '. Алғашқы келуі'));
     }).catch(function () { showCourseHint(''); });
@@ -1520,6 +1615,7 @@
     $('#pfTotal').addEventListener('input', resizePlan);
     $('#pfStart').addEventListener('change', resizePlan);
     $('#pfEnd').addEventListener('input', function () { pt.endAuto = !$('#pfEnd').value; });
+    $('#pfStart').addEventListener('input', resizePlan);
     $('#planGrid').addEventListener('click', function (e) {
       var b = e.target.closest('[data-i]');
       if (!b) return;
@@ -1536,6 +1632,32 @@
 
     $('#coursesBtn').onclick = openCourses;
     $('#coursesForm').addEventListener('submit', placeSelected);
+    $('#coursesList').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-sick]');
+      if (b) { e.preventDefault(); markSick(Number(b.dataset.sick)); }
+    });
+    $('#pfRest').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-wd]');
+      if (!b) return;
+      var d = Number(b.dataset.wd), at = pt.rest.indexOf(d);
+      if (at === -1) pt.rest.push(d); else pt.rest.splice(at, 1);
+      renderRest(); renderPlan(); updateEnd();
+    });
+    $('#absAdd').onclick = function () {
+      var from = $('#absFrom').value, to = $('#absTo').value || from;
+      if (!from) { toast('Қай күннен келмейтінін көрсетіңіз.', true); return; }
+      if (to < from) { var t = to; to = from; from = t; }
+      pt.abs.push({ from: from, to: to, reason: $('#absReason').value });
+      pt.abs.sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+      $('#absTo').value = '';
+      renderAbs(); renderPlan(); updateEnd();
+    };
+    $('#pfAbs').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-rm]');
+      if (!b) return;
+      pt.abs.splice(Number(b.dataset.rm), 1);
+      renderAbs(); renderPlan(); updateEnd();
+    });
 
     $$('[data-close]').forEach(function (b) { b.onclick = function () { b.closest('dialog').close(); }; });
     $$('dialog').forEach(function (d) {

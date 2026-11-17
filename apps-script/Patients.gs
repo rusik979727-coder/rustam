@@ -21,8 +21,92 @@ var PATIENT_COLUMNS = [
   { field: 'plan', title: 'Ем жоспары (күн сайын)' },
   { field: 'nurse', title: 'Медбике' },
   { field: 'doctor', title: 'Дәрігер' },
-  { field: 'note', title: 'Ескерту' }
+  { field: 'note', title: 'Ескерту' },
+  { field: 'restDays', title: 'Демалыс күндері' },
+  { field: 'absences', title: 'Келмейтін күндері' }
 ];
+
+// Апта күндері: JS getUTCDay() нөмірі → қысқа атауы (таблицада осылай жазылады).
+var WEEKDAY_SHORT = ['Жс', 'Дс', 'Сс', 'Ср', 'Бс', 'Жм', 'Сб'];
+var ABSENCE_REASONS = ['Ауырды', 'Демалыс', 'Басқа себеп'];
+
+/** "Сб, Жс" → [6, 0]. Бос болса — жексенбі; "жоқ" — демалыссыз. */
+function parseRestDays_(s) {
+  var v = String(s == null ? '' : s).trim();
+  if (!v) return [0];
+  if (/^жоқ$/i.test(v)) return [];
+  var out = [];
+  v.split(/[,;\s]+/).forEach(function (x) {
+    var i = WEEKDAY_SHORT.map(function (w) { return w.toLowerCase(); }).indexOf(x.toLowerCase().slice(0, 2));
+    if (i !== -1 && out.indexOf(i) === -1) out.push(i);
+  });
+  return out;
+}
+
+function formatRestDays_(days) {
+  if (!days.length) return 'жоқ';
+  return [1, 2, 3, 4, 5, 6, 0].filter(function (d) { return days.indexOf(d) !== -1; })
+    .map(function (d) { return WEEKDAY_SHORT[d]; }).join(', ');
+}
+
+/** "20.11.2026-22.11.2026 Ауырды; 25.11.2026 Демалыс" → [{from, to, reason}] */
+function parseAbsences_(s) {
+  return String(s == null ? '' : s).split(/[;\n]/).map(function (part) {
+    var m = /^\s*([\d.]+)(?:\s*[–—-]\s*([\d.]+))?\s*(.*)$/.exec(part);
+    if (!m) return null;
+    var from = parseCardDate_(m[1]);
+    var to = m[2] ? parseCardDate_(m[2]) : from;
+    if (!from) return null;
+    if (!to || to < from) to = from;
+    return { from: from, to: to, reason: m[3].trim() || 'Ауырды' };
+  }).filter(function (a) { return a; });
+}
+
+function formatAbsences_(list) {
+  return list.map(function (a) {
+    return formatSheetName(a.from) + (a.to && a.to !== a.from ? '-' + formatSheetName(a.to) : '') + ' ' + a.reason;
+  }).join('; ');
+}
+
+function cleanAbsences_(list) {
+  var out = [];
+  (list || []).forEach(function (a) {
+    var from = parseCardDate_(a && a.from);
+    var to = parseCardDate_(a && a.to) || from;
+    if (!from) return;
+    if (to < from) { var t = to; to = from; from = t; }
+    var reason = cleanText_(a.reason, 40) || 'Ауырды';
+    out.push({ from: from, to: to, reason: reason });
+  });
+  out.sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+  return out;
+}
+
+/** Пациент бұл күні келмейді ме? Себебін қайтарады ('Демалыс', 'Ауырды', …) немесе ''. */
+function cardOffReason_(card, iso) {
+  for (var i = 0; i < (card.absences || []).length; i++) {
+    var a = card.absences[i];
+    if (iso >= a.from && iso <= a.to) return a.reason;
+  }
+  if ((card.restDays || []).indexOf(isoWeekday_(iso)) !== -1) return 'Демалыс күні';
+  return '';
+}
+
+function isoWeekday_(iso) {
+  var p = splitIso_(iso);
+  return new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay();
+}
+
+/** Курс қай күні бітеді: басталған күннен total жұмыс күнін санаймыз (демалыс пен келмейтін күндер есептелмейді). */
+function computeEnd_(card) {
+  if (!card.start || !card.total) return '';
+  var iso = card.start, n = 0, guard = 0;
+  while (guard++ < 400) {
+    if (!cardOffReason_(card, iso)) { n++; if (n >= card.total) return iso; }
+    iso = addDays(iso, 1);
+  }
+  return '';
+}
 
 /** Картадағы күн: "18.11.2026", "18.11.26" немесе "2026-11-18" → "2026-11-18"; бос болса ''. */
 function parseCardDate_(s) {
@@ -76,7 +160,9 @@ function readPatients_(fresh) {
         plan: splitPlan_(get('plan')),
         nurse: get('nurse'),
         doctor: get('doctor'),
-        note: get('note')
+        note: get('note'),
+        restDays: ix.restDays < row.length ? parseRestDays_(get('restDays')) : [0],
+        absences: ix.absences < row.length ? parseAbsences_(get('absences')) : []
       });
     }
   }
@@ -87,7 +173,18 @@ function readPatients_(fresh) {
 function ensurePatientsSheet_() {
   var ss = ss_();
   var sh = ss.getSheetByName(CONFIG.patientsSheetName);
-  if (sh) return sh;
+  if (sh) {
+    // Ескі парақта жаңа бағандар (демалыс, келмейтін күндер) жоқ болса — соңына қосамыз.
+    var width = Math.max(sh.getLastColumn(), 1);
+    var header = sh.getRange(1, 1, 1, width).getDisplayValues()[0].map(function (h) { return String(h).trim(); });
+    var missing = PATIENT_COLUMNS.filter(function (c) { return header.indexOf(c.title) === -1; });
+    if (missing.length) {
+      var at = header.filter(function (h) { return h; }).length + 1;
+      sh.getRange(1, at, 1, missing.length).setValues([missing.map(function (c) { return c.title; })]);
+      sh.getRange(1, at, 1, missing.length).setFontWeight('bold');
+    }
+    return sh;
+  }
   sh = ss.insertSheet(CONFIG.patientsSheetName, ss.getSheets().length);
   sh.getRange(1, 1, 1, PATIENT_COLUMNS.length)
     .setValues([PATIENT_COLUMNS.map(function (c) { return c.title; })]);
@@ -174,6 +271,8 @@ function getPatients() {
     out.nextDay = next.day;
     out.nextProc = next.proc;
     out.finished = next.finished;
+    out.offToday = cardOffReason_(c, todayIso_());
+    out.autoEnd = computeEnd_(c);
     return out;
   });
   return {
@@ -181,6 +280,7 @@ function getPatients() {
     nurses: uniq_((st.nurse || []).concat(cards.map(function (c) { return c.nurse; }))),
     doctors: uniq_((st.doctor || []).concat(cards.map(function (c) { return c.doctor; }))),
     procedures: procs,
+    reasons: ABSENCE_REASONS,
     today: todayIso_()
   };
 }
@@ -203,6 +303,7 @@ function patientNext(id, iso) {
   next.nurse = card.nurse;
   next.doctor = card.doctor;
   next.name = card.name;
+  next.off = cardOffReason_(card, iso);
   return next;
 }
 
@@ -224,6 +325,8 @@ function savePatient(p) {
 
   var st = settings_() || {};
   var procs = st.procedures && st.procedures.length ? st.procedures : TREATMENTS;
+  var restDays = (p.restDays || []).map(Number).filter(function (d) { return d >= 0 && d <= 6; });
+  var absences = cleanAbsences_(p.absences);
   var plan = (p.plan || []).map(function (x) { return cleanText_(x, 60); }).filter(function (x) { return x; });
   plan = plan.slice(0, total);
   while (plan.length < total) plan.push(plan[plan.length - 1] || procs[0]);
@@ -264,10 +367,31 @@ function savePatient(p) {
     put('nurse', safeCell_(cleanText_(p.nurse, 80)));
     put('doctor', safeCell_(cleanText_(p.doctor, 80)));
     put('note', safeCell_(cleanText_(p.note, 300)));
+    put('restDays', formatRestDays_(restDays));
+    put('absences', formatAbsences_(absences));
     sh.getRange(row, 1, 1, width).setValues([values]);
     try { cache_().remove(CONFIG.patientsCacheKey); } catch (e) { /* елемейміз */ }
   });
   var res = getPatients();
   res.savedId = id;
   return res;
+}
+
+/**
+ * Картаға келмейтін күн(дер) қосу — мысалы «Курстағылар» тізімінен «Ауырды» басқанда.
+ * Бітетін күн бұрын автоматты есептелген болса, ол да ұзартылады.
+ */
+function addAbsence(id, from, to, reason) {
+  var card = readPatients_(true).filter(function (c) { return c.id === id; })[0];
+  if (!card) throw new Error('Карта табылмады. Тізімді жаңартып көріңіз.');
+  var add = cleanAbsences_([{ from: from, to: to || from, reason: reason }]);
+  if (!add.length) throw new Error('Күнін көрсетіңіз.');
+  var wasAuto = !card.end || card.end === computeEnd_(card);
+  var updated = {};
+  Object.keys(card).forEach(function (k) { updated[k] = card[k]; });
+  updated.absences = card.absences.concat(add);
+  var end = wasAuto ? computeEnd_(updated) : card.end;
+  return savePatient({ id: card.id, name: card.name, phone: card.phone, start: card.start, end: end,
+    total: card.total, plan: card.plan, nurse: card.nurse, doctor: card.doctor, note: card.note,
+    restDays: card.restDays, absences: updated.absences });
 }

@@ -340,3 +340,28 @@ assert.strictEqual(pr.patients.filter(p => p.name === 'Нұрлан Ага').len
 const card = run('getPatientCard("' + nid + '")');
 assert.strictEqual(card.visits.map(v => v.date).join(','), '2026-11-16,2026-11-19');
 console.log('Пациент картасы тексерісі өтті ✔');
+
+// 18. Демалыс және ауырған күндер
+const d18c = run('parseAbsences_("20.11.2026-22.11.2026 Ауырды; 25.11.2026 Демалыс")');
+assert.strictEqual(JSON.stringify(d18c), JSON.stringify([{from:'2026-11-20',to:'2026-11-22',reason:'Ауырды'},{from:'2026-11-25',to:'2026-11-25',reason:'Демалыс'}]));
+assert.strictEqual(JSON.stringify(run('parseRestDays_("Сб, Жс")')), '[6,0]');
+assert.strictEqual(JSON.stringify(run('parseRestDays_("")')), '[0]');
+ctx.card3 = { name: 'Гүлім', start: '2026-11-16', total: '5', plan: ['Физио'], restDays: [0, 6],
+  absences: [{ from: '2026-11-18', to: '2026-11-19', reason: 'Ауырды' }] };
+pr = run('savePatient(card3)');
+const g = pr.patients.find(p => p.name === 'Гүлім');
+// 16 Дс, 17 Сс, (18-19 ауырды), 20 Жм, (21 Сб, 22 Жс демалыс), 23 Дс, 24 Сс → 5-ші күн 24.11
+assert.strictEqual(g.autoEnd, '2026-11-24');
+assert.strictEqual(sheets.find(s => s.name === 'Пациенттер').grid[0].includes('Келмейтін күндері'), true);
+const gRow = sheets.find(s => s.name === 'Пациенттер').grid.find(r => r[1] === 'Гүлім');
+assert.ok(gRow.includes('Дс'.length ? 'Сб, Жс' : ''), 'демалыс күндері жазылуы керек');
+assert.ok(gRow.includes('18.11.2026-19.11.2026 Ауырды'));
+// 19.11 курстағылар: Гүлім ауырып жатыр
+const g19 = run('getActiveCourses("19.11.2026")').find(c => c.cardId === g.id);
+assert.strictEqual(g19.off, 'Ауырды');
+// addAbsence → бітетін күн ұзарады (бұрын автоматты болса)
+ctx.card3b = Object.assign({}, ctx.card3, { id: g.id, end: '2026-11-24' });
+run('savePatient(card3b)');
+pr = run('addAbsence("' + g.id + '", "2026-11-23", "", "Ауырды")');
+assert.strictEqual(pr.patients.find(p => p.id === g.id).end, '2026-11-25');
+console.log('Демалыс/ауырған күндер тексерісі өтті ✔');

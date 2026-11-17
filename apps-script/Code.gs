@@ -796,10 +796,13 @@ function getActiveCourses(sheetName) {
     if (next.finished) return;
     var ref = next.lastDate || c.start;
     if (ref < from) return; // 30 күннен астам келмеген — курсты тастаған
-    var missed = workDays.filter(function (x) { return next.lastDate ? x.date > next.lastDate : x.date >= c.start; }).length;
+    // Пациенттің өз демалысы мен ауырған күндері «келмеді» деп саналмайды.
+    var missed = workDays.filter(function (x) {
+      return (next.lastDate ? x.date > next.lastDate : x.date >= c.start) && !cardOffReason_(c, x.date);
+    }).length;
     out.push({ cardId: c.id, name: c.name, proc: next.proc, total: c.total, day: next.day,
       time: next.lastTime, lastDate: next.lastDate, missed: missed, placed: Boolean(presentName[key]),
-      nurse: c.nurse });
+      nurse: c.nurse, off: cardOffReason_(c, iso) });
   });
 
   // 2) Картасы жоқтар: бұрынғыдай, соңғы жазбасынан.
