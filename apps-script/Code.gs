@@ -96,6 +96,10 @@ function onEdit(e) {
  * Қайта іске қосу зиянсыз: екінші триггер не екінші парақ жасалмайды, бар тізімдер өзгермейді.
  */
 function setup() {
+  if (!SpreadsheetApp.getActiveSpreadsheet()) {
+    throw new Error('Бұл жоба таблицаға байланбаған. Кодты «БЕЛЕС ГРАФИК» таблицасының ' +
+      'Расширения → Apps Script мәзірінен ашылған жобаға қойыңыз.');
+  }
   var log = [];
   var exists = ScriptApp.getProjectTriggers().some(function (t) {
     return t.getHandlerFunction() === 'onTableChange';
