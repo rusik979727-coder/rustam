@@ -17,6 +17,8 @@ function makeSheet(name, grid, merges, validations) {
       return 0;
     },
     getRange(r, c, nr = 1, nc = 1) { return makeRange(this, r, c, nr, nc); },
+    getDataRange() { return makeRange(this, 1, 1, Math.max(this.getLastRow(), 1), 26); },
+    setFrozenRows() { apiCalls++; },
     getRangeList(a1s) {
       apiCalls++;
       return { clearContent: () => a1s.forEach(a => parseA1(this, a).clearContentNoCount()) };
@@ -43,6 +45,8 @@ function makeRange(sh, r, c, nr, nc) {
     setValue(x) { apiCalls++; ensure(); sh.grid[r - 1][c - 1] = x; },
     clearContent() { apiCalls++; clear(); },
     clearContentNoCount: clear,
+    setFontWeight() { apiCalls++; },
+    setDataValidation(rule) { apiCalls++; for (let j = 0; j < nc; j++) sh.validations[c + j] = rule; },
     getMergedRanges() {
       apiCalls++;
       return sh.merges.filter(m => m.start >= r && m.start < r + nr)
@@ -52,6 +56,7 @@ function makeRange(sh, r, c, nr, nc) {
       apiCalls++;
       return [Array.from({ length: nc }, (_, j) => {
         const list = sh.validations[c + j];
+        if (list && list.rangeRule) return { getCriteriaType: () => 'VALUE_IN_RANGE', getCriteriaValues: () => [list.src] };
         return list ? { getCriteriaType: () => 'VALUE_IN_LIST', getCriteriaValues: () => [list] } : null;
       })];
     }
@@ -79,14 +84,21 @@ const store = new Map();
 
 const ctx = {
   console,
+  Logger: { log() {} },
   SpreadsheetApp: {
+    newDataValidation: () => {
+      const r = { rangeRule: true };
+      const b = { requireValueInRange(src) { r.src = src; return b; }, setAllowInvalid() { return b; }, build: () => r };
+      return b;
+    },
     getActiveSpreadsheet: () => ({
       getSheets: () => sheets,
       getSheetByName: n => sheets.find(s => s.name === n) || null,
       getName: () => 'Test', getUrl: () => 'u', getSpreadsheetTimeZone: () => 'Asia/Almaty',
       insertSheet(name, pos, opts) {
+        if (!opts) { const sh = makeSheet(name, [], [], {}); sheets.splice(pos, 0, sh); return sh; }
         const t = opts.template;
-        const sh = makeSheet(name, t.grid.map(r => r.slice()), t.merges.slice(), t.validations);
+        const sh = makeSheet(name, t.grid.map(r => r.slice()), t.merges.slice(), Object.assign({}, t.validations));
         sheets.splice(pos, 0, sh);
         return sh;
       }
@@ -94,6 +106,7 @@ const ctx = {
   },
   CacheService: {
     getScriptCache: () => ({
+      get(k) { apiCalls++; return store.has(k) ? store.get(k) : null; },
       getAll(keys) { apiCalls++; const o = {}; keys.forEach(k => { if (store.has(k)) o[k] = store.get(k); }); return o; },
       putAll(map) { apiCalls++; Object.keys(map).forEach(k => store.set(k, map[k])); },
       put(k, v) { apiCalls++; store.set(k, v); },
@@ -207,8 +220,8 @@ assert.strictEqual(after17.doctor[0].time, '08:40');
 console.log('Жол қосу тексерісі өтті ✔');
 
 // 12. setup триггерді бір рет орнатады; құрылым өзгерісі кэшті тазалайды
-assert.strictEqual(run('setup()'), 'Триггер орнатылды');
-assert.strictEqual(run('setup()'), 'Триггер бұрыннан орнатылған');
+assert.match(run('setup()'), /^Триггер орнатылды\. «Баптаулар» парағы жасалды\. 3 парақтағы/);
+assert.match(run('setup()'), /^Триггер бұрыннан орнатылған\. «Баптаулар» парағы бұрыннан бар/);
 assert.strictEqual(ctx.ScriptApp.triggers.length, 1);
 run('getDay("17.11.2026")');
 assert.ok(store.has('day:v2:17.11.2026'));
@@ -217,3 +230,27 @@ assert.ok(store.has('day:v2:17.11.2026'), 'EDIT кезінде бүкіл кэш
 run('onTableChange({ changeType: "INSERT_ROW" })');
 assert.ok(!store.has('day:v2:17.11.2026'), 'жол қосылғанда кэш тазалануы керек');
 console.log('Триггер тексерісі өтті ✔');
+
+// 13. «Баптаулар»: бар тізімдерден жасалды, dropdown-тар оған сілтенді
+const bs = sheets.find(s => s.name === 'Баптаулар');
+assert.deepStrictEqual(bs.grid[0].slice(0, 4), ['Менеджер', 'Қайдан келді', 'Қызмет', 'Ем түрлері']);
+assert.deepStrictEqual(bs.grid.slice(1, 3).map(r => r[0]), ['Гулназ', 'Асель']);
+assert.strictEqual(bs.grid[1][3], 'Физио');
+const d17 = sheets.find(s => s.name === '17.11.2026');
+assert.ok(d17.validations[5].rangeRule, 'записал бағаны Баптаулар-ға сілтенуі керек');
+assert.ok(!d17.validations[8].rangeRule, 'келді ме бағаны өзгермеуі керек');
+
+// 14. Баптаулар-ға жаңа менеджер жазылды → onEdit → қолданбада бірден шығады және сақтауға болады
+bs.grid.push(Array(26).fill('')); bs.grid[3][0] = 'Дана';
+bs.grid[3][3] = 'Массаж';
+run('onEdit({ range: { getSheet: function () { return SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Баптаулар"); } } })');
+const fresh17 = run('getDay("17.11.2026")');
+assert.deepStrictEqual(Array.from(fresh17.options.recorder), ['Гулназ', 'Асель', 'Дана']);
+assert.ok(fresh17.procedures.includes('Массаж'));
+ctx.slot = fresh17.doctor.find(x => !x.booked);
+const saved = run('saveAppointment("17.11.2026", slot.row, {name:"Жаңа", recorder:"Дана"}, slot.prev)');
+assert.strictEqual(saved.doctor.find(x => x.row === ctx.slot.row).recorder, 'Дана');
+// Жаңа күн парағы dropdown сілтемесін мұраға алады
+run('createDay("2026-11-20")');
+assert.ok(sheets.find(s => s.name === '20.11.2026').validations[5].rangeRule);
+console.log('Баптаулар тексерісі өтті ✔');

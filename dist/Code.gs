@@ -22,6 +22,12 @@
  *     триггері ұстап, бүкіл кэшті тазалайды. Оны орнату үшін редакторда setup функциясын
  *     БІР РЕТ іске қосыңыз (▶ Выполнить → setup → рұқсат беру).
  *  4. Dropdown тізімдері 4 бөлек сұраныспен емес, бір сұраныспен оқылады.
+ *
+ * «БАПТАУЛАР» ПАРАҒЫ
+ * Менеджерлер, «қайдан келді», қызметтер және ем түрлерінің тізімі бір парақта тұрады.
+ * setup оны бар тізімдерден автоматты жасайды және барлық күн парақтарындағы dropdown-тарды
+ * осы параққа сілтейді. Сондықтан жаңа менеджерді «Баптаулар»-ға бір рет жазсаңыз,
+ * ол таблицадағы барлық dropdown-та және қолданбада бірден шығады.
  */
 
 var CONFIG = {
@@ -32,8 +38,18 @@ var CONFIG = {
   // Кэш қанша уақыт сақталады (секунд). Өзгерістерді onEdit пен onTableChange бірден өшіреді;
   // бұл мерзім — триггер бір нәрсені байқамай қалса да, кэш 1 сағаттан артық ескірмеуі үшін.
   cacheTtlSec: 60 * 60,
-  cachePrefix: 'day:v2:'
+  cachePrefix: 'day:v2:',
+  settingsSheetName: 'Баптаулар',
+  settingsCacheKey: 'settings:v1'
 };
+
+// «Баптаулар» парағының бағандары (1-жол — тақырып, 2-жолдан бастап мәндер).
+var SETTINGS_COLUMNS = [
+  { field: 'recorder', title: 'Менеджер' },
+  { field: 'source', title: 'Қайдан келді' },
+  { field: 'service', title: 'Қызмет' },
+  { field: 'procedures', title: 'Ем түрлері' }
+];
 
 function doGet() {
   return HtmlService.createTemplateFromFile('Index')
@@ -54,7 +70,8 @@ function include(name) {
 function onEdit(e) {
   try {
     var name = e && e.range ? e.range.getSheet().getName() : null;
-    if (name) cacheDrop_(name);
+    if (name === CONFIG.settingsSheetName) clearCache(); // тізімдер өзгерді — барлық күн жаңарады
+    else if (name) cacheDrop_(name);
   } catch (err) {
     // кэш маңызды емес — қате болса, елемейміз
   }
@@ -62,16 +79,111 @@ function onEdit(e) {
 
 /**
  * БІР РЕТ іске қосыңыз: редакторда ▶ Выполнить → setup, содан кейін Google сұраған рұқсатты беріңіз.
- * Таблица құрылымы өзгергенде (жол қосу/өшіру, біріктіру, dropdown, жаңа парақ) кэшті
- * автоматты тазалайтын onTableChange триггерін орнатады. Қайта іске қосу зиянсыз — екінші триггер жасамайды.
+ *  1. Құрылым өзгергенде кэшті тазалайтын onTableChange триггерін орнатады.
+ *  2. «Баптаулар» парағы жоқ болса, қазіргі dropdown тізімдерінен жасайды.
+ *  3. Барлық күн парақтарындағы (және «Шаблон»-дағы) dropdown-тарды «Баптаулар»-ға сілтейді.
+ * Қайта іске қосу зиянсыз: екінші триггер не екінші парақ жасалмайды, бар тізімдер өзгермейді.
  */
 function setup() {
+  var log = [];
   var exists = ScriptApp.getProjectTriggers().some(function (t) {
     return t.getHandlerFunction() === 'onTableChange';
   });
   if (!exists) ScriptApp.newTrigger('onTableChange').forSpreadsheet(ss_()).onChange().create();
+  log.push(exists ? 'Триггер бұрыннан орнатылған' : 'Триггер орнатылды');
+
+  var settings = ensureSettingsSheet_();
+  log.push(settings.created ? '«' + CONFIG.settingsSheetName + '» парағы жасалды'
+    : '«' + CONFIG.settingsSheetName + '» парағы бұрыннан бар');
+
+  var count = linkDropdowns_(settings.sheet);
+  log.push(count + ' парақтағы dropdown «' + CONFIG.settingsSheetName + '»-ға қосылды');
+
   clearCache();
-  return exists ? 'Триггер бұрыннан орнатылған' : 'Триггер орнатылды';
+  var msg = log.join('. ');
+  Logger.log(msg);
+  return msg;
+}
+
+/** «Баптаулар» парағын табады, жоқ болса соңғы күннің dropdown тізімдерінен жасайды. */
+function ensureSettingsSheet_() {
+  var ss = ss_();
+  var sh = ss.getSheetByName(CONFIG.settingsSheetName);
+  if (sh) return { sheet: sh, created: false };
+
+  var opts = { recorder: DEFAULT_OPTIONS.recorder, source: DEFAULT_OPTIONS.source, service: DEFAULT_OPTIONS.service };
+  var procs = TREATMENTS.slice();
+  var days = dateSheets_();
+  if (days.length) {
+    var last = sheet_(days[days.length - 1].sheet);
+    var data = readDayData_(last);
+    var row = data.day.doctor.length ? data.day.doctor[0].row : data.day.headerRow + 1;
+    opts = readValidationOptions_(last, row);
+    data.day.physio.forEach(function (b) {
+      b.places.forEach(function (p) { if (p.proc && procs.indexOf(p.proc) === -1) procs.push(p.proc); });
+    });
+  }
+  var cols = [opts.recorder, opts.source, opts.service, procs];
+  var height = Math.max.apply(null, cols.map(function (c) { return c.length; }));
+  var grid = [SETTINGS_COLUMNS.map(function (c) { return c.title; })];
+  for (var i = 0; i < height; i++) grid.push(cols.map(function (c) { return c[i] || ''; }));
+
+  sh = ss.insertSheet(CONFIG.settingsSheetName, ss.getSheets().length);
+  sh.getRange(1, 1, grid.length, SETTINGS_COLUMNS.length).setValues(grid);
+  sh.getRange(1, 1, 1, SETTINGS_COLUMNS.length).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  return { sheet: sh, created: true };
+}
+
+/**
+ * Күн парақтарындағы «записал», «источник», «услуга» бағандарының dropdown-ын
+ * «Баптаулар» парағының сәйкес бағанына сілтейді. Қайтарады: өңделген парақ саны.
+ */
+function linkDropdowns_(settingsSheet) {
+  var ss = ss_();
+  var names = dateSheets_().map(function (d) { return d.sheet; });
+  if (ss.getSheetByName(CONFIG.templateSheetName)) names.push(CONFIG.templateSheetName);
+  var fields = ['recorder', 'source', 'service'];
+  var rules = fields.map(function (f) {
+    var col = 1 + SETTINGS_COLUMNS.map(function (c) { return c.field; }).indexOf(f);
+    var src = settingsSheet.getRange(2, col, Math.max(settingsSheet.getMaxRows() - 1, 1), 1);
+    return SpreadsheetApp.newDataValidation().requireValueInRange(src, true).setAllowInvalid(false).build();
+  });
+  var count = 0;
+  names.forEach(function (name) {
+    var sh = ss.getSheetByName(name);
+    var slots = readDayData_(sh).day.doctor;
+    if (!slots.length) return;
+    var rows = slots.map(function (s) { return s.row; });
+    var first = Math.min.apply(null, rows);
+    var last = Math.max.apply(null, rows);
+    fields.forEach(function (f, i) {
+      sh.getRange(first, LAYOUT.doctor[f], last - first + 1, 1).setDataValidation(rules[i]);
+    });
+    count++;
+  });
+  return count;
+}
+
+/** «Баптаулар» парағының тізімдері (кэштен). Парақ жоқ болса — null. */
+function settings_() {
+  try {
+    var raw = cache_().get(CONFIG.settingsCacheKey);
+    if (raw) { var c = JSON.parse(raw); return c.missing ? null : c; }
+  } catch (e) { /* кэш жоқ — парақтан оқимыз */ }
+  var sh = ss_().getSheetByName(CONFIG.settingsSheetName);
+  var st = null;
+  if (sh) {
+    var values = sh.getDataRange().getDisplayValues().slice(1);
+    st = {};
+    SETTINGS_COLUMNS.forEach(function (c, i) {
+      var seen = {};
+      st[c.field] = values.map(function (r) { return String(r[i] == null ? '' : r[i]).trim(); })
+        .filter(function (v) { if (!v || seen[v]) return false; seen[v] = true; return true; });
+    });
+  }
+  try { cache_().put(CONFIG.settingsCacheKey, JSON.stringify(st || { missing: true }), CONFIG.cacheTtlSec); } catch (e) { /* елемейміз */ }
+  return st;
 }
 
 /**
@@ -86,7 +198,7 @@ function onTableChange(e) {
 /** Кэшті толық тазалау (setup пен onTableChange қолданады; қолмен де іске қосуға болады). */
 function clearCache() {
   var names = ss_().getSheets().map(function (sh) { return sh.getName(); });
-  try { cache_().removeAll(names.map(cacheKey_)); } catch (e) { /* елемейміз */ }
+  try { cache_().removeAll(names.map(cacheKey_).concat([CONFIG.settingsCacheKey])); } catch (e) { /* елемейміз */ }
   return names.length;
 }
 
@@ -143,8 +255,23 @@ function readDayData_(sh) {
   return data;
 }
 
-/** Dropdown тізімдерін таблицаның өзіндегі validation-нан оқиды (бір сұраныспен). */
+/**
+ * Формадағы тізімдер. «Баптаулар» парағы бар болса — содан (кэштен, таблицаға сұраныссыз),
+ * жоқ болса — күн парағының dropdown-ынан.
+ */
 function readOptions_(sh, row) {
+  var st = settings_();
+  if (!st) return readValidationOptions_(sh, row);
+  var out = {};
+  ['recorder', 'source', 'service'].forEach(function (f) {
+    out[f] = st[f] && st[f].length ? st[f].slice() : DEFAULT_OPTIONS[f].slice();
+  });
+  out.attended = DEFAULT_OPTIONS.attended.slice();
+  return out;
+}
+
+/** Dropdown тізімдерін таблицаның өзіндегі validation-нан оқиды (бір сұраныспен). */
+function readValidationOptions_(sh, row) {
   var C = LAYOUT.doctor;
   var fields = ['recorder', 'source', 'service', 'attended'];
   var cols = fields.map(function (f) { return C[f]; });
@@ -300,7 +427,8 @@ function buildPayload_(sheetName, sh, data, options) {
   day.physio.forEach(function (b) {
     b.places.forEach(function (p) { if (p.proc) procs[p.proc] = true; });
   });
-  var procList = TREATMENTS.slice();
+  var st = settings_();
+  var procList = st && st.procedures && st.procedures.length ? st.procedures.slice() : TREATMENTS.slice();
   Object.keys(procs).sort().forEach(function (p) { if (procList.indexOf(p) === -1) procList.push(p); });
   return {
     sheet: sheetName,
