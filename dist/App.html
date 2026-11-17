@@ -318,21 +318,6 @@
 
   .loading { opacity: .6; pointer-events: none; transition: opacity .15s; }
 
-  /* ── Ем курстары ── */
-  .col-head .head-actions { display: flex; align-items: baseline; gap: 12px; }
-  .link-btn { border: 0; background: none; color: var(--accent); font-weight: 600; font-size: 13.5px; padding: 0; }
-  .link-btn:hover { text-decoration: underline; }
-  .course-list { list-style: none; margin: 12px 0 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); max-height: 55vh; overflow: auto; }
-  .course-list li { border-bottom: 1px solid var(--line); }
-  .course-list li:last-child { border-bottom: 0; }
-  .course-list label { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; cursor: pointer; }
-  .course-list input { width: 18px; height: 18px; accent-color: var(--accent); }
-  .course-list .cl-meta { display: block; color: var(--muted); font-size: 12.5px; }
-  .course-list .cl-time { font-weight: 600; }
-  .course-list li.done { opacity: .55; }
-  .course-list .cl-missed { color: var(--missed); font-weight: 500; }
-  .courses-empty { color: var(--muted); margin: 12px 0 0; }
-
   /* ── Пациент карталары ── */
   .pt-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
   .pt-bar input { flex: 1 1 220px; min-width: 0; padding: 11px 14px; font-size: 16px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); }
@@ -377,9 +362,6 @@
   .abs-add input { flex: 1 1 130px; }
   .abs-add .ghost { min-height: 40px; padding: 8px 14px; }
   .pt-off { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--missed-soft); color: var(--missed); font-size: 12px; font-weight: 600; }
-  .course-list .cl-sick { flex: none; border: 1px solid var(--line-strong); background: var(--surface); color: var(--missed); border-radius: var(--radius); font-size: 12.5px; padding: 4px 8px; margin-right: 12px; }
-  .course-list li { display: flex; align-items: center; }
-  .course-list li label { flex: 1; min-width: 0; }
 
   @media (prefers-reduced-motion: reduce) {
     .toast { transition: none; }
@@ -433,10 +415,7 @@
         <div class="col col-physio" id="physioCol">
           <div class="col-head">
             <h2>Ем: физио, плазма</h2>
-            <span class="head-actions">
-              <button type="button" class="link-btn" id="coursesBtn">Курстағылар</button>
-              <span class="count" id="physioCount"></span>
-            </span>
+            <span class="count" id="physioCount"></span>
           </div>
           <div class="table">
             <div class="t-head p-cols" aria-hidden="true">
@@ -574,20 +553,6 @@
         <button type="submit" class="primary">Емге жазу</button>
         <button type="button" class="ghost" id="physioSick" hidden>Бүгін келмейді</button>
         <button type="button" class="danger" id="physioFree" hidden>Орынды босату</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="coursesDialog" class="sheet">
-    <form method="dialog" id="coursesForm">
-      <div class="sheet-head">
-        <h3 id="coursesTitle">Курстағы пациенттер</h3>
-        <button type="button" class="icon-btn" data-close aria-label="Жабу">×</button>
-      </div>
-      <p class="courses-empty" id="coursesHint">Жүктелуде…</p>
-      <ul class="course-list" id="coursesList" hidden></ul>
-      <div class="sheet-actions">
-        <button type="submit" class="primary" id="coursesPlace" disabled>Белгіленгендерді қою</button>
       </div>
     </form>
   </dialog>
@@ -1151,78 +1116,6 @@
       .then(function () { busy(btn, false); });
   }
 
-  // ───────── Ем курстары ─────────
-  var coursesData = [];
-
-  function openCourses() {
-    if (!state.day) return;
-    var sheet = state.day.sheet;
-    $('#coursesTitle').textContent = 'Курстағылар, ' + humanDate(state.day.date);
-    $('#coursesHint').textContent = 'Жүктелуде…';
-    $('#coursesList').hidden = true;
-    $('#coursesPlace').disabled = true;
-    if (!$('#coursesDialog').open) $('#coursesDialog').showModal();
-    call('getActiveCourses', sheet).then(function (list) {
-      if (!state.day || state.day.sheet !== sheet) return;
-      coursesData = list;
-      var todo = list.filter(function (c) { return !c.placed; }).length;
-      if (!list.length) {
-        $('#coursesHint').textContent = 'Соңғы 30 күнде курсы аяқталмаған пациент табылмады. ' +
-          'Тек «курс неше күн» мен «нешінші күн» толтырылған жазбалар есептеледі.';
-        return;
-      }
-      $('#coursesHint').textContent = todo
-        ? 'Кеше келгендер белгіленді. Арада келмегендер (қызылмен) белгісіз тұр — бүгін келсе, белгілеңіз. ' +
-          'Әрқайсысы өз уақытына, ол толы болса — ең жақын бос орынға қойылады.'
-        : 'Барлығы қойылған.';
-      $('#coursesList').innerHTML = list.map(function (c, i) {
-        var off = c.off && !c.placed;
-        return '<li' + (c.placed || off ? ' class="done"' : '') + '><label>' +
-          '<input type="checkbox" data-i="' + i + '"' + (c.placed || off ? ' disabled' : c.missed ? '' : ' checked') + '>' +
-          '<span><b>' + esc(c.name) + '</b><span class="cl-meta">' + esc(c.proc || 'ем') + ', ' +
-          esc(c.day + '/' + c.total) + '-күн' +
-          (c.placed ? ', қойылған' : c.lastDate ? ', соңғы рет ' + esc(humanDate(c.lastDate)) : ', алғашқы күн') +
-          (c.nurse ? ', медбике: ' + esc(c.nurse) : '') +
-          (off ? ' <span class="cl-missed">· ' + esc(c.off) + '</span>'
-            : !c.placed && c.missed ? ' <span class="cl-missed">· ' + c.missed + ' күн келмеді</span>' : '') +
-          '</span></span>' +
-          '<span class="cl-time">' + esc(c.time || '—') + '</span></label>' +
-          (c.cardId && !c.placed && !off ? '<button type="button" class="cl-sick" data-sick="' + i + '" title="Картаға бүгін келмейді деп жазу">Келмейді</button>' : '') +
-          '</li>';
-      }).join('');
-      $('#coursesList').hidden = false;
-      $('#coursesPlace').disabled = !todo;
-    }).catch(function (err) { $('#coursesHint').textContent = errText(err); });
-  }
-
-  function markSick(i) {
-    var c = coursesData[i];
-    if (!c || !c.cardId) return;
-    call('addAbsence', c.cardId, state.day.date, '', 'Келмейді').then(function (res) {
-      applyPatients(res);
-      toast(c.name + ': ' + humanDate(state.day.date) + ' келмейді деп картаға жазылды');
-      openCourses();
-    }).catch(function (err) { toast(errText(err), true); });
-  }
-
-  function placeSelected(e) {
-    e.preventDefault();
-    var items = $$('#coursesList input:checked').map(function (b) { return coursesData[Number(b.dataset.i)]; });
-    if (!items.length) { toast('Ешкім белгіленбеген.', true); return; }
-    var btn = $('#coursesPlace');
-    busy(btn, true);
-    call('placeCourses', state.day.sheet, items).then(function (res) {
-      applyDay(res.day);
-      $('#coursesDialog').close();
-      var msg = res.placed.length + ' пациент қойылды';
-      if (res.skipped.length) {
-        msg += '. Қойылмады: ' + res.skipped.map(function (s) { return s.name + ' (' + s.reason + ')'; }).join(', ');
-      }
-      toast(msg, res.skipped.length > 0);
-    }).catch(function (err) { handleWriteError(err, $('#coursesDialog')); })
-      .then(function () { busy(btn, false); });
-  }
-
   // ───────── Пациент карталары ─────────
   var pt = { list: [], procedures: ['Физио', 'Плазма'], reasons: ['Келмейді', 'Демалыс'], filter: 'active',
     edit: null, plan: [], endAuto: true, rest: [0], abs: [], visitDates: [] };
@@ -1662,12 +1555,6 @@
       renderPlan();
     });
 
-    $('#coursesBtn').onclick = openCourses;
-    $('#coursesForm').addEventListener('submit', placeSelected);
-    $('#coursesList').addEventListener('click', function (e) {
-      var b = e.target.closest('[data-sick]');
-      if (b) { e.preventDefault(); markSick(Number(b.dataset.sick)); }
-    });
     $('#pfRest').addEventListener('click', function (e) {
       var b = e.target.closest('[data-wd]');
       if (!b) return;
