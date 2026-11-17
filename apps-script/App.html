@@ -569,6 +569,7 @@
       </fieldset>
       <div class="sheet-actions">
         <button type="submit" class="primary">Емге жазу</button>
+        <button type="button" class="ghost" id="physioSick" hidden>🤒 Ауырды, бүгін келмеді</button>
         <button type="button" class="danger" id="physioFree" hidden>Орынды босату</button>
       </div>
     </form>
@@ -1057,6 +1058,8 @@
     renderProcChips(place.proc || (place.name ? '' : state.day.procedures[0]));
     $('#physioTitle').textContent = (place.name ? 'Ем, ' : 'Емге жазу, ') + block.time;
     $('#physioFree').hidden = !(place.name || place.proc);
+    $('#physioSick').hidden = !place.name;
+    state.physioEdit.name = place.name;
     $('#physioDialog').showModal();
     if (!place.name) f.name.focus();
   }
@@ -1118,6 +1121,28 @@
       $('#physioDialog').close();
       toast(msg + ': ' + ed.time);
     }).catch(function (err) { handleWriteError(err, $('#physioDialog')); });
+  }
+
+  // Емге қойылған пациент ауырып қалды: орны босайды, бұл күн курсқа есептелмейді, картасы ұзарады.
+  function markPhysioSick() {
+    var ed = state.physioEdit;
+    if (!confirm(ed.name + ' ' + ed.time + ' уақытындағы емге келмейді (ауырды) деп белгілейміз бе?\n' +
+      'Орны босайды, бұл күн курсқа есептелмейді.')) return;
+    var btn = $('#physioSick');
+    busy(btn, true);
+    call('markPhysioAbsent', ed.sheet, ed.row, ed.prev, 'Ауырды').then(function (res) {
+      applyDay(res.day);
+      $('#physioDialog').close();
+      var msg = res.name + ': ауырды деп белгіленді, орны босатылды';
+      if (res.card) {
+        msg += res.card.end && res.card.end !== res.card.oldEnd
+          ? '. Курс ұзарды: енді ' + humanDate(res.card.end) + ' бітеді'
+          : '. Картаға жазылды';
+        loadPatients();
+      }
+      toast(msg);
+    }).catch(function (err) { handleWriteError(err, $('#physioDialog')); })
+      .then(function () { busy(btn, false); });
   }
 
   // ───────── Ем курстары ─────────
@@ -1597,6 +1622,7 @@
       $$('#procChips button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.value === e.target.value)); });
     });
     $('#physioFree').onclick = function () { savePhysio({ name: '', proc: '' }, 'Орын босатылды'); };
+    $('#physioSick').onclick = markPhysioSick;
 
     $('#ptNew').onclick = function () { openPatient(null); };
     $('#ptSearch').addEventListener('input', renderPatients);

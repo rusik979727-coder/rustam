@@ -330,6 +330,7 @@ function savePatient(p) {
   var plan = (p.plan || []).map(function (x) { return cleanText_(x, 60); }).filter(function (x) { return x; });
   plan = plan.slice(0, total);
   while (plan.length < total) plan.push(plan[plan.length - 1] || procs[0]);
+  if (!end) end = computeEnd_({ start: start, total: total, restDays: restDays, absences: absences });
 
   var id;
   withLock_(function () {
@@ -394,4 +395,35 @@ function addAbsence(id, from, to, reason) {
   return savePatient({ id: card.id, name: card.name, phone: card.phone, start: card.start, end: end,
     total: card.total, plan: card.plan, nurse: card.nurse, doctor: card.doctor, note: card.note,
     restDays: card.restDays, absences: updated.absences });
+}
+
+/**
+ * Емге қойылған пациент сол күні ауырып қалды: орны босатылады (сондықтан бұл күн курсқа
+ * есептелмейді), ал картасы бар болса — картаға «келмейтін күн» болып жазылып, бітетін күн ұзарады.
+ * Қайтарады: { day, name, card: { id, end } | null }.
+ */
+function markPhysioAbsent(sheetName, row, prev, reason) {
+  var iso = parseSheetName(sheetName);
+  if (!iso) throw new Error('Күн парағы емес: ' + sheetName);
+  var name = '';
+  var day = mutate_(sheetName, function (sh, data) {
+    assertPhysioRow_(data, row);
+    assertUnchanged_(data.values, row, 'physio', prev);
+    name = cell_(data.values, row, LAYOUT.physio.name);
+    if (!name) throw new Error('Бұл орында пациент жоқ.');
+    sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physioFields.length).clearContent();
+    return [row];
+  });
+  var key = normalizeName(name);
+  var card = readPatients_(true).filter(function (c) {
+    return normalizeName(c.name) === key && c.start && c.start <= iso;
+  }).sort(function (a, b) { return a.start < b.start ? 1 : -1; })[0];
+  var cardInfo = null;
+  if (card) {
+    var already = cardOffReason_(card, iso) && card.absences.some(function (a) { return iso >= a.from && iso <= a.to; });
+    var res = already ? getPatients() : addAbsence(card.id, iso, iso, cleanText_(reason, 40) || 'Ауырды');
+    var updated = res.patients.filter(function (p) { return p.id === card.id; })[0];
+    cardInfo = { id: card.id, end: updated ? updated.end : card.end, oldEnd: card.end };
+  }
+  return { day: day, name: name, card: cardInfo };
 }

@@ -365,3 +365,21 @@ run('savePatient(card3b)');
 pr = run('addAbsence("' + g.id + '", "2026-11-23", "", "Ауырды")');
 assert.strictEqual(pr.patients.find(p => p.id === g.id).end, '2026-11-25');
 console.log('Демалыс/ауырған күндер тексерісі өтті ✔');
+
+// 19. Қойылған пациент ауырып қалды: орны босайды, күн есептелмейді, картасы ұзарады
+ctx.card4 = { name: 'Арман', start: '2026-11-16', total: '3', plan: ['Физио', 'Плазма', 'Физио'], restDays: [0] };
+pr = run('savePatient(card4)');
+const arm = pr.patients.find(p => p.name === 'Арман');
+assert.strictEqual(arm.end, '2026-11-18');
+let d17a = run('getDay("17.11.2026")');
+ctx.pl = d17a.physio[0].places.find(p => !p.name);
+d17a = run('savePhysio("17.11.2026", pl.row, {name:"Арман", proc:"Физио", total:"3", day:"1"}, pl.prev)');
+assert.strictEqual(run('patientNext("' + arm.id + '", "2026-11-18")').day, 2);
+ctx.pl = d17a.physio.flatMap(b => b.places).find(p => p.name === 'Арман');
+const ms = run('markPhysioAbsent("17.11.2026", pl.row, pl.prev, "Ауырды")');
+assert.ok(!ms.day.physio.flatMap(b => b.places).some(p => p.name === 'Арман'), 'орны босауы керек');
+assert.strictEqual(ms.card.oldEnd, '2026-11-18'); assert.strictEqual(ms.card.end, '2026-11-19');
+const nx2 = run('patientNext("' + arm.id + '", "2026-11-18")');
+assert.strictEqual(nx2.day, 1, 'ауырған күн курсқа есептелмеуі керек'); assert.strictEqual(nx2.proc, 'Физио');
+assert.strictEqual(run('getPatientCard("' + arm.id + '")').card.absences[0].reason, 'Ауырды');
+console.log('Ауырып қалды тексерісі өтті ✔');
