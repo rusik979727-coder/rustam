@@ -67,7 +67,7 @@ function formatMinutes(total) {
  */
 function normalizePhone(raw) {
   var cleaned = String(raw == null ? '' : raw)
-    .replace(/[‎‏‪-‮⁦-⁩]/g, '')
+    .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
     .trim();
   var digits = cleaned.replace(/\D/g, '');
   if (digits.length === 11 && (digits[0] === '8' || digits[0] === '7')) {

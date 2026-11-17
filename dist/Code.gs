@@ -101,6 +101,10 @@ function onEdit(e) {
  * Қайта іске қосу зиянсыз: екінші триггер не екінші парақ жасалмайды, бар тізімдер өзгермейді.
  */
 function setup() {
+  if (!SpreadsheetApp.getActiveSpreadsheet()) {
+    throw new Error('Бұл жоба таблицаға байланбаған. Кодты «БЕЛЕС ГРАФИК» таблицасының ' +
+      'Расширения → Apps Script мәзірінен ашылған жобаға қойыңыз.');
+  }
   var log = [];
   var exists = ScriptApp.getProjectTriggers().some(function (t) {
     return t.getHandlerFunction() === 'onTableChange';
@@ -1195,7 +1199,7 @@ function formatMinutes(total) {
  */
 function normalizePhone(raw) {
   var cleaned = String(raw == null ? '' : raw)
-    .replace(/[‎‏‪-‮⁦-⁩]/g, '')
+    .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
     .trim();
   var digits = cleaned.replace(/\D/g, '');
   if (digits.length === 11 && (digits[0] === '8' || digits[0] === '7')) {
