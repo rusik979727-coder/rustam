@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BELES · Касса</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+/* Palette from the BELES logo: deep navy + teal gradient (same as the offline cash app). */
+:root {
+  --bg: #f3f7f8; --surface: #ffffff; --line: #d8e3e6; --fg: #142a42; --muted: #5b6d7c;
+  --navy: #142a42; --teal: #136f70; --accent: #136f70; --accent-soft: #e0f1f1; --on-accent: #ffffff;
+  --grad: linear-gradient(135deg, #22abb2 0%, #1a8e90 50%, #136a6c 100%);
+  --treat: #1a8e90; --consult: #2c4a6e; --good: #16865a; --bad: #c0392f; --bad-soft: #fbe6e3; --warn: #a15c00;
+  --font: "Montserrat", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1724; --surface: #11233a; --line: #213a55; --fg: #e8f0f5; --muted: #95a9ba;
+    --navy: #e8f0f5; --teal: #3cc3c6; --accent: #3cc3c6; --accent-soft: #123c46; --on-accent: #07151f;
+    --grad: linear-gradient(135deg, #1f9ea5 0%, #167a7d 55%, #0f5557 100%);
+    --treat: #3cc3c6; --consult: #8fb3dc; --good: #5fd39f; --bad: #f07b6e; --bad-soft: #3a1f1c; --warn: #f0b45e; color-scheme: dark;
+  }
+  :root:not([data-theme="light"]) .brand img { background: #fff; border-radius: 50%; }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1724; --surface: #11233a; --line: #213a55; --fg: #e8f0f5; --muted: #95a9ba;
+  --navy: #e8f0f5; --teal: #3cc3c6; --accent: #3cc3c6; --accent-soft: #123c46; --on-accent: #07151f;
+  --grad: linear-gradient(135deg, #1f9ea5 0%, #167a7d 55%, #0f5557 100%);
+  --treat: #3cc3c6; --consult: #8fb3dc; --good: #5fd39f; --bad: #f07b6e; --bad-soft: #3a1f1c; --warn: #f0b45e; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand img { width: 56px; height: 56px; flex: none; }
+.brand-text { min-width: 0; flex: 1; }
+.wordmark { font-weight: 800; font-size: 28px; letter-spacing: 0.14em; line-height: 1; color: var(--navy); }
+.wordmark .t { color: var(--teal); }
+.tagline { font-weight: 500; font-size: 13px; color: var(--navy); margin-top: 4px; }
+h2 { font-weight: 700; font-size: 13px; margin: 0; text-transform: uppercase; letter-spacing: 0.08em; color: var(--navy); }
+.status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.status a { color: var(--accent); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--good); } .dot.err { background: var(--bad); }
+.num { font-variant-numeric: tabular-nums; }
+
+.period { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 7px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--navy); color: var(--surface); font-weight: 600; }
+.nav { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+.nav button { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; font-size: 16px; }
+.nav button:disabled { opacity: .4; cursor: default; }
+.nav span { min-width: 120px; text-align: center; font-weight: 600; font-size: 14px; }
+
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+.tile .k { font-size: 12px; color: var(--muted); }
+.tile .v { font-size: 17px; margin-top: 4px; overflow-wrap: anywhere; font-weight: 700; }
+.tile.total { background: var(--grad); border-color: transparent; color: #fff; box-shadow: 0 6px 18px -8px rgba(19,111,112,.6); }
+.tile.total .k { color: rgba(255,255,255,.85); }
+.tile.total .v { color: #fff; }
+.tile.exp .v { color: var(--bad); }
+@media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 420px) { .split { grid-template-columns: 1fr; } }
+.stile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; display: grid; gap: 4px; align-content: start; border-top: 4px solid var(--consult); }
+.stile.t { border-top-color: var(--treat); }
+.stile .k { font-size: 12px; color: var(--muted); }
+.stile .v { font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
+.stile .sub { font-size: 12px; color: var(--muted); }
+.stile .sub b { font-weight: 600; color: var(--fg); }
+.stile .sub .owe b { color: var(--bad); }
+.methods { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); }
+.methods b { color: var(--fg); font-weight: 600; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.card > * { min-width: 0; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pills button { font: inherit; font-size: 13px; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.pills button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row3 { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
+@media (max-width: 520px) { .row3 { grid-template-columns: 1fr 1fr; } .row3 > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 480px) { .row { grid-template-columns: 1fr; } }
+label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
+input, select { font: inherit; font-size: 16px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; width: 100%; min-width: 0; }
+input[type="date"] { min-height: 42px; }
+input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.amount { font-size: 18px; font-variant-numeric: tabular-nums; }
+.hint { font-size: 12px; color: var(--muted); }
+.treatbox { display: grid; gap: 10px; border-left: 3px solid var(--treat); padding-left: 12px; }
+.primary { font: inherit; font-weight: 700; border: 0; border-radius: 999px; padding: 12px 22px; background: var(--grad); color: #fff; cursor: pointer; box-shadow: 0 6px 16px -8px rgba(19,111,112,.7); }
+.primary:disabled { opacity: .5; cursor: default; }
+.msg { font-size: 13px; color: var(--bad); min-height: 1em; }
+.msg.ok { color: var(--good); }
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.empty { color: var(--muted); font-size: 14px; }
+.mini { font: inherit; font-size: 12px; border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 7px; padding: 4px 8px; cursor: pointer; white-space: nowrap; }
+.mini.danger { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
+.mini:disabled { opacity: .5; cursor: default; }
+
+.patients { display: grid; }
+details.pt { border-top: 1px solid var(--line); }
+details.pt summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 0; }
+details.pt summary::-webkit-details-marker { display: none; }
+.pname { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.pmeta { font-size: 12px; color: var(--muted); grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.pmeta .owe { color: var(--bad); font-weight: 600; }
+.pmeta .paid-off { color: var(--good); }
+.pmeta .st-on { color: var(--accent); font-weight: 600; }
+.pmeta .st-done { color: var(--good); }
+.pmeta .st-none { color: var(--warn); font-style: italic; }
+.pbody { padding: 0 0 12px; display: grid; gap: 10px; }
+.pedit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: end; }
+@media (max-width: 560px) { .pedit { grid-template-columns: 1fr 1fr; } .pedit > :first-child { grid-column: 1 / -1; } }
+.pactions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.day { display: grid; }
+.dayhead { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; padding: 10px 0 6px; border-bottom: 1px solid var(--line); }
+.entry { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.entry .what { min-width: 0; overflow-wrap: anywhere; }
+.entry .what small { display: block; color: var(--muted); font-size: 12px; }
+.chip { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; margin-right: 6px; color: var(--on-accent); }
+.chip.consult { background: var(--consult); } .chip.treatment { background: var(--treat); } .chip.expense { background: var(--bad); }
+.tm { font-size: 12px; color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
+.tline { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.tline b { font-weight: 600; color: var(--fg); }
+.tline .owe b { color: var(--bad); } .tline .ok b { color: var(--good); }
+.splitbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: -4px; }
+#splitToggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.jtabs { justify-self: start; } .modes { justify-self: start; }
+.jtabs .cnt { font-size: 11px; opacity: .8; }
+.tsum { display: flex; flex-wrap: wrap; gap: 4px 16px; background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--muted); }
+.tsum b { font-weight: 600; color: var(--fg); }
+.tablewrap { overflow-x: auto; }
+#journal { display: grid; min-width: 0; }
+table.tp { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.tp th { text-align: right; font-weight: 500; color: var(--muted); font-size: 12px; padding: 6px 4px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.tp th:first-child, table.tp td:first-child { text-align: left; }
+table.tp td { text-align: right; padding: 7px 4px; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.tp td:first-child { font-weight: 600; white-space: normal; min-width: 90px; }
+table.tp td small { display: block; font-weight: 500; font-size: 11px; color: var(--muted); }
+table.tp td.owe { color: var(--bad); font-weight: 600; } table.tp td.ok { color: var(--good); }
+table.tp tfoot td { font-weight: 600; border-bottom: 0; }
+@media (max-width: 430px) { table.tp { font-size: 12px; } table.tp td, table.tp th { padding-inline: 3px; } }
+.subh { font-size: 13px; font-weight: 600; margin: 6px 0 2px; }
+.plus { color: var(--good); } .minus { color: var(--bad); }
+.bars { display: grid; gap: 8px; }
+.bar { display: grid; grid-template-columns: minmax(0, 150px) 1fr auto; gap: 10px; align-items: center; font-size: 14px; }
+.bar .track { height: 8px; border-radius: 4px; background: var(--bg); overflow: hidden; }
+.bar .fill { height: 100%; background: var(--bad); border-radius: 4px; opacity: .8; }
+.bar .amt { font-size: 13px; }
+@media (max-width: 420px) { .bar { grid-template-columns: minmax(0, 100px) 1fr auto; } }
+.loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); z-index: 30; font-size: 14px; color: var(--muted); text-align: center; padding: 24px; }
+.loading img { width: 72px; height: 72px; display: block; margin: 0 auto 12px; }
+.err-box { color: var(--bad); max-width: 420px; }
+</style>
+</head>
+<body>
+<div class="loading" id="loading"><div><img src="data:image/png;base64,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" alt=""><div id="loadingText">Таблицадан жүктелуде…</div></div></div>
+
+<div class="wrap">
+  <header class="brand">
+    <img src="data:image/png;base64,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" alt="" width="56" height="56">
+    <div class="brand-text">
+      <div class="wordmark" aria-label="BELES"><span>BEL</span><span class="t">ES</span></div>
+      <div class="tagline">медицина орталығы · касса</div>
+      <div class="status"><span class="dot" id="dot"></span><span id="status">Жүктелуде…</span><a id="sheetLink" href="#" target="_blank" rel="noopener" hidden>Таблицаны ашу</a></div>
+    </div>
+  </header>
+
+  <section class="period" aria-label="Кезең">
+    <div class="seg" id="periodSeg">
+      <button type="button" data-p="day" aria-pressed="true">Күн</button>
+      <button type="button" data-p="week" aria-pressed="false">Апта</button>
+      <button type="button" data-p="month" aria-pressed="false">Ай</button>
+      <button type="button" data-p="all" aria-pressed="false">Барлығы</button>
+    </div>
+    <div class="nav">
+      <button type="button" id="prev" aria-label="Алдыңғы">‹</button>
+      <span id="periodLabel"></span>
+      <button type="button" id="next" aria-label="Келесі">›</button>
+    </div>
+  </section>
+
+  <section class="tiles" aria-label="Қорытынды">
+    <div class="tile"><div class="k">Түскен ақша</div><div class="v num" id="tTotal">0 ₸</div></div>
+    <div class="tile exp"><div class="k">Расход</div><div class="v num" id="tExp">0 ₸</div></div>
+    <div class="tile total"><div class="k">Таза пайда</div><div class="v num" id="tProfit">0 ₸</div></div>
+    <div class="tile"><div class="k">Пациент саны</div><div class="v num" id="tCount">0</div></div>
+  </section>
+  <section class="split" aria-label="Доход бөлек">
+    <div class="stile">
+      <div class="k">Консультациядан доход</div>
+      <div class="v num" id="sConsult">0 ₸</div>
+      <div class="sub" id="sConsultSub"></div>
+    </div>
+    <div class="stile t">
+      <div class="k">Емделген пациенттерден доход</div>
+      <div class="v num" id="sTreat">0 ₸</div>
+      <div class="sub" id="sTreatSub"></div>
+      <div class="sub" id="sCourse"></div>
+    </div>
+  </section>
+  <div class="methods" id="methods"></div>
+
+  <div class="seg modes" id="modeSeg" role="group" aria-label="Не жазасыз">
+    <button type="button" data-m="pay" aria-pressed="true">Төлем қабылдау</button>
+    <button type="button" data-m="exp" aria-pressed="false">Расход қосу</button>
+  </div>
+
+  <form class="card" id="expForm" novalidate hidden>
+    <h2>Расход қосу</h2>
+    <label for="ecat">Санат<select id="ecat"></select></label>
+    <div class="row">
+      <label for="eamount">Сома, ₸<input id="eamount" class="amount" inputmode="decimal" autocomplete="off" placeholder="0"></label>
+      <label for="edate">Күні<input id="edate" type="date"></label>
+    </div>
+    <div class="row">
+      <label for="emethod">Төлем тәсілі<select id="emethod" class="methodSel"></select></label>
+      <label for="enote">Ескертпе<input id="enote" autocomplete="off" placeholder="мысалы, дәріхана атауы, не алынды"></label>
+    </div>
+    <div class="toolbar">
+      <span class="msg" id="emsg" role="status"></span>
+      <button class="primary" id="esave" type="submit">Расходты сақтау</button>
+    </div>
+  </form>
+
+  <form class="card" id="form" novalidate>
+    <h2>Төлем қабылдау</h2>
+    <label for="pname">Пациенттің аты-жөні
+      <input id="pname" list="plist" autocomplete="off" placeholder="мысалы, Сейітова Айгерім">
+    </label>
+    <datalist id="plist"></datalist>
+    <div class="hint" id="pinfo"></div>
+    <div class="pills" id="kinds" role="group" aria-label="Төлем түрі">
+      <button type="button" data-k="consult" aria-pressed="true">Консультация</button>
+      <button type="button" data-k="treatment" aria-pressed="false">Ем</button>
+    </div>
+    <div class="treatbox" id="treatBox" hidden>
+      <div class="row3">
+        <label for="cost">Емнің жалпы құны, ₸<input id="cost" class="amount" inputmode="decimal" autocomplete="off" placeholder="мысалы, 250000"></label>
+        <label for="tstart">Ем басталған күні<input id="tstart" type="date"></label>
+        <label for="tend">Ем аяқталған күні<input id="tend" type="date"></label>
+      </div>
+      <div class="hint" id="courseHint">Аяқталған күнін кейін де, пациентті ашып жазуға болады.</div>
+    </div>
+    <div class="row">
+      <label for="amount"><span id="amountLabel">Төлеген сомасы, ₸</span><input id="amount" class="amount" inputmode="decimal" autocomplete="off" placeholder="0"></label>
+      <label for="method">Төлем тәсілі<select id="method" class="methodSel"></select></label>
+    </div>
+    <div class="row" id="splitRow" hidden>
+      <label for="amount2">2-сома, ₸<input id="amount2" class="amount" inputmode="decimal" autocomplete="off" placeholder="0"></label>
+      <label for="method2">2-тәсілі<select id="method2" class="methodSel"></select></label>
+    </div>
+    <div class="splitbar">
+      <button type="button" class="mini" id="splitToggle" aria-pressed="false">+ Екі тәсілмен бөліп төледі</button>
+      <span class="hint num" id="splitTotal"></span>
+    </div>
+    <div class="row">
+      <label for="date">Күні<input id="date" type="date"></label>
+      <label for="time">Келген уақыты<input id="time" type="time"></label>
+    </div>
+    <label for="note">Ескертпе<input id="note" autocomplete="off" placeholder="мысалы, 1-сеанс, дәрігер аты"></label>
+    <div class="toolbar">
+      <span class="msg" id="msg" role="status"></span>
+      <button class="primary" id="save" type="submit">Төлемді сақтау</button>
+    </div>
+  </form>
+
+  <section class="card">
+    <div class="toolbar"><h2>Расход санаттары бойынша</h2><span class="hint num" id="expHint"></span></div>
+    <div class="bars" id="bars"></div>
+  </section>
+
+  <section class="card">
+    <div class="toolbar"><h2>Пациенттер</h2><span class="hint" id="debtTotal"></span></div>
+    <input id="search" type="search" placeholder="Аты бойынша іздеу" aria-label="Пациентті іздеу">
+    <div class="patients" id="patients"></div>
+  </section>
+
+  <section class="card">
+    <div class="toolbar"><h2>Журналдар</h2></div>
+    <div class="seg jtabs" id="jtabs" role="tablist" aria-label="Журнал түрі">
+      <button type="button" data-j="consult" aria-pressed="true">Консультация <span class="cnt" id="cntConsult"></span></button>
+      <button type="button" data-j="treatment" aria-pressed="false">Ем <span class="cnt" id="cntTreat"></span></button>
+      <button type="button" data-j="expense" aria-pressed="false">Расход <span class="cnt" id="cntExp"></span></button>
+    </div>
+    <div id="journal"></div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const KIND = { consult: "Консультация", treatment: "Ем" };
+  const ECATS = ["Дәрі-дәрмек","Медициналық материалдар","Жалақы","Аренда","Коммуналдық","Құрал-жабдық","Жарнама","Салық","Басқа"];
+  const METHODS = ["Қолма-қол", "Kaspi QR", "Kaspi аударым", "Карта", "Аударым"];
+  const MONTHS = ["қаңтар","ақпан","наурыз","сәуір","мамыр","маусым","шілде","тамыз","қыркүйек","қазан","қараша","желтоқсан"];
+  const $ = (id) => document.getElementById(id);
+  const fmt = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
+  const money = (n) => fmt.format(n) + " ₸";
+  const pad = (n) => String(n).padStart(2, "0");
+  const iso = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const parseISO = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const human = (s) => { const d = parseISO(s); return d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear(); };
+  const short = (s) => { const d = parseISO(s); return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear(); };
+  const key = (name) => String(name || "").trim().replace(/\s+/g, " ").toLowerCase();
+  const nowTime = () => { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+  const byWhen = (a, b) => (a.date || "").localeCompare(b.date || "") || (a.time || "").localeCompare(b.time || "") || (a.row || 0) - (b.row || 0);
+  const toNum = (v) => { const s = String(v).replace(/[\s ]/g, "").replace(",", "."); return s ? Number(s) : NaN; };
+  const daysBetween = (a, b) => Math.round((parseISO(b) - parseISO(a)) / 86400000);
+
+  let patients = [], payments = [], expenses = [];
+  let period = "day", anchor = new Date(), kind = "consult";
+  let pendingDelete = null, openPatient = null, jtab = "consult";
+  let busy = 0, loaded = false, lastLoad = 0;
+
+  // ---------- server ----------
+  const call = (fn, ...args) => new Promise((resolve, reject) => {
+    if (!(window.google && google.script && google.script.run)) { reject(new Error("Бұл бет тек Google Apps Script арқылы ашылады.")); return; }
+    google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args);
+  });
+  const errText = (e) => String((e && e.message) || e || "Белгісіз қате").replace(/^Error:\s*/, "").replace(/^Exception:\s*/, "");
+
+  function apply(d) {
+    patients = (d.patients || []).map((p) => ({ ...p, id: key(p.name) }));
+    payments = (d.payments || []).map((x) => ({ ...x, id: "r" + x.row + "-" + x.date + x.time + x.amount, patientId: key(x.patientName) }));
+    expenses = (d.expenses || []).map((x) => ({ ...x, id: "e" + x.row + "-" + x.date + x.amount }));
+    lastLoad = Date.now();
+    if (d.url) { $("sheetLink").href = d.url; $("sheetLink").hidden = false; }
+    setStatus("Google таблица · " + nowTime() + " жаңартылды", "ok");
+    render();
+  }
+  async function write(fn, ...args) {
+    busy++;
+    setStatus("Таблицаға жазылуда…");
+    try { apply(await call(fn, ...args)); }
+    catch (e) { setStatus("Қате: " + errText(e), "err"); refresh(); throw e; }
+    finally { busy--; }
+  }
+  async function refresh() {
+    if (busy) return;
+    try { const d = await call("getData"); if (!busy) apply(d); loaded = true; $("loading").hidden = true; }
+    catch (e) {
+      setStatus("Таблицамен байланыс жоқ: " + errText(e), "err");
+      if (!loaded) { $("loadingText").className = "err-box"; $("loadingText").textContent = "Таблица ашылмады: " + errText(e); }
+    }
+  }
+  function setStatus(t, cls) { $("status").textContent = t; $("dot").className = "dot" + (cls ? " " + cls : ""); }
+
+  // ---------- period ----------
+  function range() {
+    const a = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+    if (period === "day") return [iso(a), iso(a)];
+    if (period === "week") { const s = new Date(a); s.setDate(a.getDate() - (a.getDay() + 6) % 7); const e = new Date(s); e.setDate(s.getDate() + 6); return [iso(s), iso(e)]; }
+    if (period === "month") return [iso(new Date(a.getFullYear(), a.getMonth(), 1)), iso(new Date(a.getFullYear(), a.getMonth() + 1, 0))];
+    return ["0000-01-01", "9999-12-31"];
+  }
+  function periodLabel() {
+    const [s, e] = range();
+    if (period === "all") return "Барлық уақыт";
+    if (period === "day") return s === iso(new Date()) ? "Бүгін" : human(s);
+    if (period === "month") { const d = parseISO(s); return MONTHS[d.getMonth()] + " " + d.getFullYear(); }
+    const ds = parseISO(s), de = parseISO(e); return ds.getDate() + "–" + de.getDate() + " " + MONTHS[de.getMonth()];
+  }
+  function shift(dir) {
+    if (period === "day") anchor.setDate(anchor.getDate() + dir);
+    else if (period === "week") anchor.setDate(anchor.getDate() + 7 * dir);
+    else if (period === "month") anchor = new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
+    render();
+  }
+
+  // ---------- helpers ----------
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const findPatient = (name) => patients.find((p) => p.id === key(name));
+  function stats(pid) {
+    const list = payments.filter((x) => x.patientId === pid);
+    const paid = list.reduce((a, x) => a + Number(x.amount || 0), 0);
+    const treatPaid = list.filter((x) => x.kind === "treatment").reduce((a, x) => a + Number(x.amount || 0), 0);
+    const last = list.reduce((m, x) => (x.date > m ? x.date : m), "");
+    return { list, paid, treatPaid, last };
+  }
+  // Same rule as the «Ем жағдайы» column in the sheet.
+  function course(p, treatPaid) {
+    const today = iso(new Date());
+    if (!p.start) return treatPaid > 0 ? { label: "Ем күні жазылмаған", cls: "st-none" } : null;
+    const len = p.end ? daysBetween(p.start, p.end) + 1 : null;
+    let label, cls;
+    if (p.start > today) { label = "Басталмаған"; cls = ""; }
+    else if (!p.end || p.end >= today) { label = "Емделуде"; cls = "st-on"; }
+    else { label = "Аяқталды"; cls = "st-done"; }
+    const span = short(p.start) + " – " + (p.end ? short(p.end) : "…");
+    let dayN = "";
+    if (cls === "st-on") { const n = daysBetween(p.start, today) + 1; dayN = len ? " · " + n + "/" + len + "-күн" : " · " + n + "-күн"; }
+    return { label: label + dayN, cls, span, len };
+  }
+
+  // ---------- render ----------
+  function render() {
+    $("periodLabel").textContent = periodLabel();
+    $("prev").disabled = $("next").disabled = period === "all";
+    const [s, e] = range();
+    const inP = payments.filter((x) => x.date >= s && x.date <= e);
+    const inE = expenses.filter((x) => x.date >= s && x.date <= e);
+    const income = inP.reduce((a, x) => a + Number(x.amount || 0), 0);
+    const spent = inE.reduce((a, x) => a + Number(x.amount || 0), 0);
+    $("tTotal").textContent = money(income);
+    $("tExp").textContent = money(spent);
+    $("tProfit").textContent = money(income - spent);
+    $("tCount").textContent = new Set(inP.map((x) => x.patientId)).size;
+
+    renderSplit(inP, s, e);
+    const m = $("methods"); m.replaceChildren();
+    const byM = {};
+    inP.forEach((x) => { byM[x.method] = (byM[x.method] || 0) + Number(x.amount || 0); });
+    Object.keys(byM).sort((a, b) => (METHODS.indexOf(a) + 99) % 99 - (METHODS.indexOf(b) + 99) % 99).forEach((k) => {
+      if (!byM[k]) return; const sp = el("span", null, (k || "Тәсілі жазылмаған") + ": "); sp.append(el("b", "num", money(byM[k]))); m.append(sp);
+    });
+
+    const bars = $("bars"); bars.replaceChildren();
+    const byCat = ECATS.map((c) => [c, inE.filter((x) => x.category === c).reduce((a, x) => a + Number(x.amount || 0), 0)]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]);
+    $("expHint").textContent = spent ? "Барлығы " + money(spent) : "";
+    if (!byCat.length) bars.append(el("div", "empty", "Бұл кезеңде расход жоқ."));
+    else { const max = byCat[0][1]; byCat.forEach(([c, v]) => {
+      const r = el("div", "bar"); r.append(el("span", null, c));
+      const tr = el("div", "track"); const f = el("div", "fill"); f.style.width = (v / max * 100) + "%"; tr.append(f);
+      r.append(tr, el("span", "amt num", money(v))); bars.append(r);
+    }); }
+
+    const dl = $("plist"); dl.replaceChildren();
+    patients.forEach((p) => { const o = document.createElement("option"); o.value = p.name; dl.append(o); });
+    updatePatientInfo(false);
+    renderPatients();
+    renderJournal(inP, inE);
+  }
+
+  function renderSplit(inP, s, e) {
+    const cons = inP.filter((x) => x.kind === "consult");
+    const treat = inP.filter((x) => x.kind === "treatment");
+    const tot = (l) => l.reduce((a, x) => a + Number(x.amount || 0), 0);
+    const sub = (box, parts) => { box.replaceChildren(); parts.forEach(([label, val, cls], i) => { if (i) box.append(document.createTextNode(" · ")); const sp = el("span", cls || null, label + " "); sp.append(el("b", null, val)); box.append(sp); }); };
+    $("sConsult").textContent = money(tot(cons));
+    sub($("sConsultSub"), [["Пациент", String(new Set(cons.map((x) => x.patientId)).size)], ["Төлем", String(cons.length)]]);
+    $("sTreat").textContent = money(tot(treat));
+    const ids = [...new Set(treat.map((x) => x.patientId))];
+    let left = 0;
+    ids.forEach((pid) => { const p = patients.find((q) => q.id === pid); const c = Number(p?.treatmentCost || 0); const paid = stats(pid).treatPaid; if (c > paid) left += c - paid; });
+    const parts = [["Пациент", String(ids.length)], ["Төлем", String(treat.length)]];
+    if (left > 0) parts.push(["Олардың қарызы", money(left), "owe"]);
+    sub($("sTreatSub"), parts);
+    // Course dates, like «Ем күндері бойынша» on the report sheet.
+    const today = iso(new Date());
+    const inCourse = patients.filter((p) => p.start && p.start <= e && (!p.end || p.end >= s)).length;
+    const now = patients.filter((p) => p.start && p.start <= today && (!p.end || p.end >= today)).length;
+    sub($("sCourse"), [["Ем алғаны (күні бойынша)", String(inCourse)], ["Қазір емделуде", String(now)]]);
+  }
+
+  function renderPatients() {
+    const box = $("patients"); box.replaceChildren();
+    const q = key($("search").value || "");
+    let totalDebt = 0;
+    const rows = patients.map((p) => ({ p, st: stats(p.id) }));
+    rows.forEach(({ p, st }) => { const c = Number(p.treatmentCost || 0); if (c > st.treatPaid) totalDebt += c - st.treatPaid; });
+    $("debtTotal").textContent = totalDebt > 0 ? "Ем бойынша барлық қалдық: " + money(totalDebt) : "";
+    if (!patients.length) { box.append(el("div", "empty", "Әзірге пациент жоқ. Төлем қабылдағанда пациент өзі қосылады.")); return; }
+    const shown = rows.filter(({ p }) => !q || p.id.includes(q)).sort((a, b) => b.st.last.localeCompare(a.st.last) || a.p.name.localeCompare(b.p.name));
+    if (!shown.length) { box.append(el("div", "empty", "Мұндай атпен пациент табылмады.")); return; }
+    shown.forEach(({ p, st }) => {
+      const d = el("details", "pt");
+      if (openPatient === p.id) d.open = true;
+      d.addEventListener("toggle", () => { openPatient = d.open ? p.id : (openPatient === p.id ? null : openPatient); });
+      const sm = document.createElement("summary");
+      sm.append(el("span", "pname", p.name), el("span", "num", money(st.paid)));
+      const meta = el("div", "pmeta");
+      meta.append(el("span", null, st.list.length + " төлем" + (st.last ? " · соңғысы " + human(st.last) : "")));
+      const cost = Number(p.treatmentCost || 0);
+      if (cost > 0) {
+        meta.append(el("span", null, "Ем құны " + money(cost)));
+        const left = cost - st.treatPaid;
+        meta.append(left > 0 ? el("span", "owe", "Қалды " + money(left)) : el("span", "paid-off", "Ем толық төленді"));
+      }
+      const c = course(p, st.treatPaid);
+      if (c) {
+        if (c.span) meta.append(el("span", null, "Ем: " + c.span + (c.len ? " (" + c.len + " күн)" : "")));
+        meta.append(el("span", c.cls, c.label));
+      }
+      sm.append(meta);
+      d.append(sm);
+
+      const body = el("div", "pbody");
+      const ed = el("div", "pedit");
+      const field = (label, type, val, cls) => {
+        const lab = el("label", null, label); const inp = document.createElement("input");
+        inp.type = type; if (cls) inp.className = cls; inp.value = val || "";
+        if (type === "text") { inp.inputMode = "decimal"; inp.placeholder = "белгіленбеген"; }
+        lab.append(inp); ed.append(lab); return inp;
+      };
+      const iCost = field("Емнің жалпы құны, ₸", "text", cost || "", "amount");
+      const iStart = field("Ем басталған күні", "date", p.start);
+      const iEnd = field("Ем аяқталған күні", "date", p.end);
+      const sv = el("button", "mini", "Сақтау"); sv.type = "button";
+      const pmsg = el("span", "msg");
+      sv.onclick = async () => {
+        const v = toNum(iCost.value);
+        if (iCost.value && (!isFinite(v) || v < 0)) { pmsg.textContent = "Ем құнын сан түрінде жазыңыз."; return; }
+        if (iStart.value && iEnd.value && iEnd.value < iStart.value) { pmsg.textContent = "Аяқталған күні басталған күнінен ерте болмауы керек."; return; }
+        sv.disabled = true; pmsg.className = "msg"; pmsg.textContent = "";
+        try { await write("savePatient", p.name, { treatmentCost: iCost.value ? v : 0, start: iStart.value, end: iEnd.value }); }
+        catch (e) { pmsg.textContent = errText(e); sv.disabled = false; }
+      };
+      ed.append(sv);
+      body.append(ed, pmsg);
+      const acts = el("div", "pactions");
+      const pay = el("button", "mini", "Осы пациентке төлем қосу"); pay.type = "button";
+      pay.onclick = () => { $("pname").value = p.name; updatePatientInfo(true); $("amount").focus(); $("form").scrollIntoView({ behavior: "smooth", block: "start" }); };
+      acts.append(pay);
+      if (!st.list.length) {
+        const del = el("button", "mini" + (pendingDelete === "p" + p.id ? " danger" : ""), pendingDelete === "p" + p.id ? "Өшіру?" : "Пациентті өшіру"); del.type = "button";
+        del.onclick = () => confirmDel("p" + p.id, () => write("removePatient", p.name));
+        acts.append(del);
+      }
+      body.append(acts);
+      [...st.list].sort((a, b) => byWhen(b, a)).forEach((x) => body.append(paymentRow(x, false)));
+      d.append(body);
+      box.append(d);
+    });
+  }
+
+  function treatmentLedger() {
+    const out = {}, byP = {};
+    payments.filter((x) => x.kind === "treatment").forEach((x) => (byP[x.patientId] ||= []).push(x));
+    Object.keys(byP).forEach((pid) => {
+      const p = patients.find((q) => q.id === pid);
+      const cost = Number(p?.treatmentCost || 0);
+      let run = 0;
+      byP[pid].sort(byWhen).forEach((x) => { run += Number(x.amount || 0); out[x.id] = { cost, paidSoFar: run, left: cost > 0 ? Math.max(0, cost - run) : null }; });
+    });
+    return out;
+  }
+
+  function dayGroups(list, sign) {
+    const days = {};
+    list.forEach((x) => (days[x.date] ||= []).push(x));
+    return Object.keys(days).sort().reverse().map((d) => {
+      const items = days[d].sort((a, b) => byWhen(b, a));
+      const box = el("div", "day");
+      const head = el("div", "dayhead");
+      head.append(el("span", null, human(d) + " · " + items.length), el("span", "num", (sign < 0 ? "−" : "+") + money(items.reduce((a, x) => a + Number(x.amount || 0), 0))));
+      box.append(head);
+      return { box, items };
+    });
+  }
+
+  function renderJournal(inP, inE) {
+    const j = $("journal"); j.replaceChildren();
+    const cons = inP.filter((x) => x.kind === "consult");
+    const treat = inP.filter((x) => x.kind === "treatment");
+    $("cntConsult").textContent = cons.length ? "(" + cons.length + ")" : "";
+    $("cntTreat").textContent = treat.length ? "(" + treat.length + ")" : "";
+    $("cntExp").textContent = inE.length ? "(" + inE.length + ")" : "";
+    document.querySelectorAll("#jtabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.j === jtab)));
+
+    if (jtab === "consult") {
+      if (!cons.length) { j.append(el("div", "empty", "Бұл кезеңде консультация жоқ.")); return; }
+      dayGroups(cons, 1).forEach(({ box, items }) => { items.forEach((x) => box.append(paymentRow(x, true))); j.append(box); });
+      return;
+    }
+    if (jtab === "expense") {
+      if (!inE.length) { j.append(el("div", "empty", "Бұл кезеңде расход жоқ.")); return; }
+      dayGroups(inE, -1).forEach(({ box, items }) => { items.forEach((x) => box.append(expenseRow(x))); j.append(box); });
+      return;
+    }
+    if (!treat.length) { j.append(el("div", "empty", "Бұл кезеңде ем үшін төлем жоқ.")); return; }
+    const ledger = treatmentLedger();
+    const ids = [...new Set(treat.map((x) => x.patientId))];
+    const rows = ids.map((pid) => {
+      const p = patients.find((q) => q.id === pid) || { name: treat.find((x) => x.patientId === pid).patientName };
+      const st = stats(pid);
+      const cost = Number(p.treatmentCost || 0);
+      return { p, name: p.name, cost, paid: st.treatPaid, left: cost > 0 ? Math.max(0, cost - st.treatPaid) : null };
+    }).sort((a, b) => (b.left || 0) - (a.left || 0) || a.name.localeCompare(b.name));
+    const sumBox = el("div", "tsum");
+    const item = (label, val) => { const sp = el("span", null, label + ": "); sp.append(el("b", null, val)); sumBox.append(sp); };
+    item("Емнен түскен доход", money(treat.reduce((a, x) => a + Number(x.amount || 0), 0)));
+    item("Емделген пациент", String(ids.length));
+    j.append(sumBox);
+    j.append(el("div", "subh", "Емделген пациенттер"));
+    const wrap = el("div", "tablewrap");
+    const t = el("table", "tp");
+    const hr = el("tr");
+    ["Пациент", "Ем құны", "Төледі", "Қарыз"].forEach((h) => hr.append(el("th", null, h)));
+    const th = el("thead"); th.append(hr); t.append(th);
+    const tb = el("tbody");
+    let sCost = 0, sPaid = 0, sLeft = 0;
+    rows.forEach((r) => {
+      const tr = el("tr");
+      const nameTd = el("td", null, r.name);
+      if (r.p.start) nameTd.append(el("small", null, "ем " + short(r.p.start).slice(0, 5) + "–" + (r.p.end ? short(r.p.end).slice(0, 5) : "…")));
+      tr.append(nameTd, el("td", null, r.cost ? money(r.cost) : "—"), el("td", null, money(r.paid)));
+      tr.append(r.left == null ? el("td", null, "—") : r.left > 0 ? el("td", "owe", money(r.left)) : el("td", "ok", "төленді"));
+      tb.append(tr);
+      sCost += r.cost; sPaid += r.paid; if (r.left > 0) sLeft += r.left;
+    });
+    t.append(tb);
+    const fr = el("tr");
+    fr.append(el("td", null, "Барлығы"), el("td", null, money(sCost)), el("td", null, money(sPaid)), el("td", sLeft > 0 ? "owe" : "ok", money(sLeft)));
+    const tf = el("tfoot"); tf.append(fr); t.append(tf);
+    wrap.append(t); j.append(wrap);
+    j.append(el("div", "subh", "Ем төлемдері"));
+    dayGroups(treat, 1).forEach(({ box, items }) => {
+      items.forEach((x) => {
+        const row = paymentRow(x, true);
+        const L = ledger[x.id];
+        if (L) {
+          const line = el("div", "tline");
+          const part = (label, val, cls) => { const sp = el("span", cls || null, label + " "); sp.append(el("b", null, val)); line.append(sp); };
+          if (L.cost) part("Ем құны", money(L.cost));
+          part("Барлығы төледі", money(L.paidSoFar));
+          if (L.left != null) L.left > 0 ? part("Қарыз", money(L.left), "owe") : part("Қарыз", "жоқ", "ok");
+          row.querySelector(".what").append(line);
+        }
+        box.append(row);
+      });
+      j.append(box);
+    });
+  }
+
+  function expenseRow(x) {
+    const r = el("div", "entry");
+    const what = el("div", "what");
+    what.append(el("span", "chip expense", "Расход"), document.createTextNode(x.category));
+    const sub = [x.method, x.note].filter(Boolean).join(" · ");
+    if (sub) what.append(el("small", null, sub));
+    const id = "x" + x.id;
+    const del = el("button", "mini" + (pendingDelete === id ? " danger" : ""), pendingDelete === id ? "Өшіру?" : "×");
+    del.type = "button"; del.setAttribute("aria-label", "Расходты өшіру");
+    del.onclick = () => confirmDel(id, () => write("removeExpense", { row: x.row, date: x.date, category: x.category, amount: x.amount, method: x.method, note: x.note }));
+    r.append(what, el("span", "num minus", "−" + money(x.amount)), del);
+    return r;
+  }
+
+  function paymentRow(x, showName) {
+    const r = el("div", "entry");
+    const what = el("div", "what");
+    what.append(el("span", "chip " + x.kind, KIND[x.kind] || x.kind));
+    if (x.time) what.append(el("span", "tm", x.time));
+    what.append(document.createTextNode(showName ? x.patientName : human(x.date)));
+    const sub = [x.method, x.note].filter(Boolean).join(" · ");
+    if (sub) what.append(el("small", null, sub));
+    const id = "y" + x.id;
+    const del = el("button", "mini" + (pendingDelete === id ? " danger" : ""), pendingDelete === id ? "Өшіру?" : "×");
+    del.type = "button"; del.setAttribute("aria-label", "Төлемді өшіру");
+    del.onclick = () => confirmDel(id, () => write("removePayment", { row: x.row, date: x.date, time: x.time, patientName: x.patientName, kind: x.kind, method: x.method, amount: x.amount, note: x.note }));
+    r.append(what, el("span", "num plus", "+" + money(x.amount)), del);
+    return r;
+  }
+
+  function confirmDel(id, fn) {
+    if (pendingDelete === id) { pendingDelete = null; render(); fn().catch(() => {}); }
+    else { pendingDelete = id; render(); setTimeout(() => { if (pendingDelete === id) { pendingDelete = null; render(); } }, 4000); }
+  }
+
+  // fill: true when the patient was just chosen, so the course fields take the patient's saved values.
+  let filledFor = null;
+  function updatePatientInfo(fill) {
+    const name = $("pname").value;
+    const info = $("pinfo");
+    if (!name.trim()) { info.textContent = ""; filledFor = null; return; }
+    const p = findPatient(name);
+    if (!p) {
+      info.textContent = "Жаңа пациент — сақтағанда таблицаға қосылады.";
+      if (filledFor) { $("cost").value = ""; $("tstart").value = ""; $("tend").value = ""; filledFor = null; }
+      return;
+    }
+    const st = stats(p.id);
+    const cost = Number(p.treatmentCost || 0);
+    let t = "Бұрын төлегені: " + money(st.paid);
+    if (cost > 0) t += " · ем құны " + money(cost) + " · қалды " + money(Math.max(0, cost - st.treatPaid));
+    const c = course(p, st.treatPaid);
+    if (c && c.span) t += " · ем " + c.span;
+    info.textContent = t;
+    if (filledFor !== p.id) {
+      $("cost").value = cost || ""; $("tstart").value = p.start || ""; $("tend").value = p.end || "";
+      filledFor = p.id;
+    }
+  }
+
+  // ---------- form ----------
+  document.querySelectorAll(".methodSel").forEach((s) => METHODS.forEach((m) => s.append(new Option(m, m))));
+  ECATS.forEach((c) => $("ecat").append(new Option(c, c)));
+  function setKind(k) {
+    kind = k;
+    document.querySelectorAll("#kinds button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === k)));
+    $("treatBox").hidden = k !== "treatment";
+    if (k === "treatment" && !$("tstart").value) $("tstart").value = $("date").value || iso(new Date());
+  }
+  document.querySelectorAll("#kinds button").forEach((b) => b.onclick = () => setKind(b.dataset.k));
+  document.querySelectorAll("#periodSeg button").forEach((b) => b.onclick = () => {
+    period = b.dataset.p; anchor = new Date();
+    document.querySelectorAll("#periodSeg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    render();
+  });
+  $("prev").onclick = () => shift(-1);
+  $("next").onclick = () => shift(1);
+  $("search").addEventListener("input", renderPatients);
+  $("pname").addEventListener("input", () => updatePatientInfo(true));
+  $("date").value = iso(new Date()); $("time").value = nowTime(); $("edate").value = iso(new Date());
+  function setSplit(on) {
+    $("splitToggle").setAttribute("aria-pressed", String(on));
+    $("splitToggle").textContent = on ? "× Бір тәсілмен төледі" : "+ Екі тәсілмен бөліп төледі";
+    $("splitRow").hidden = !on;
+    $("amountLabel").textContent = on ? "1-сома, ₸" : "Төлеген сомасы, ₸";
+    if (on && $("method2").value === $("method").value) $("method2").value = $("method").value === "Қолма-қол" ? "Kaspi QR" : "Қолма-қол";
+    updateSplitTotal();
+  }
+  function updateSplitTotal() {
+    const on = $("splitToggle").getAttribute("aria-pressed") === "true";
+    const a = toNum($("amount").value), b = toNum($("amount2").value);
+    $("splitTotal").textContent = on && (isFinite(a) || isFinite(b)) ? "Барлығы: " + money((isFinite(a) ? a : 0) + (isFinite(b) ? b : 0)) : "";
+  }
+  $("splitToggle").onclick = () => setSplit($("splitToggle").getAttribute("aria-pressed") !== "true");
+  $("amount").addEventListener("input", updateSplitTotal);
+  $("amount2").addEventListener("input", updateSplitTotal);
+  document.querySelectorAll("#jtabs button").forEach((b) => b.onclick = () => { jtab = b.dataset.j; render(); });
+  document.querySelectorAll("#modeSeg button").forEach((b) => b.onclick = () => {
+    const m = b.dataset.m;
+    document.querySelectorAll("#modeSeg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    $("form").hidden = m !== "pay"; $("expForm").hidden = m !== "exp";
+  });
+
+  $("expForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const msg = $("emsg"); msg.className = "msg";
+    const amount = toNum($("eamount").value);
+    if (!isFinite(amount) || amount <= 0) { msg.textContent = "Соманы сан түрінде жазыңыз, мысалы 15000."; return; }
+    msg.textContent = ""; $("esave").disabled = true;
+    try {
+      const category = $("ecat").value;
+      await write("addExpense", { category, amount, date: $("edate").value || iso(new Date()), method: $("emethod").value, note: $("enote").value.trim() });
+      msg.className = "msg ok"; msg.textContent = category + ": " + money(amount) + " расход таблицаға жазылды.";
+      jtab = "expense"; render();
+      $("eamount").value = ""; $("enote").value = "";
+    } catch (e) { msg.textContent = "Сақталмады: " + errText(e); }
+    finally { $("esave").disabled = false; }
+  });
+
+  $("form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const msg = $("msg"); msg.className = "msg";
+    const name = $("pname").value.trim().replace(/\s+/g, " ");
+    const splitOn = $("splitToggle").getAttribute("aria-pressed") === "true";
+    const a1 = toNum($("amount").value);
+    const a2 = splitOn ? toNum($("amount2").value) : 0;
+    const amount = splitOn ? a1 + a2 : a1;
+    const costRaw = $("cost").value, cost = toNum(costRaw);
+    const tstart = $("tstart").value, tend = $("tend").value;
+    if (!name) { msg.textContent = "Пациенттің аты-жөнін жазыңыз."; return; }
+    if (!isFinite(a1) || a1 <= 0) { msg.textContent = "Соманы сан түрінде жазыңыз, мысалы 15000."; return; }
+    if (splitOn && (!isFinite(a2) || a2 <= 0)) { msg.textContent = "Екінші соманы да жазыңыз немесе бөліп төлеуді өшіріңіз."; return; }
+    if (splitOn && $("method").value === $("method2").value) { msg.textContent = "Екі тәсіл әртүрлі болуы керек."; return; }
+    if (kind === "treatment" && costRaw && (!isFinite(cost) || cost < 0)) { msg.textContent = "Ем құнын сан түрінде жазыңыз."; return; }
+    if (kind === "treatment" && tstart && tend && tend < tstart) { msg.textContent = "Ем аяқталған күні басталған күнінен ерте болмауы керек."; return; }
+    msg.textContent = ""; $("save").disabled = true;
+    const parts = splitOn ? [{ method: $("method").value, amount: a1 }, { method: $("method2").value, amount: a2 }] : [{ method: $("method").value, amount: a1 }];
+    const patient = {};
+    if (kind === "treatment") {
+      if (costRaw) patient.treatmentCost = cost;
+      patient.start = tstart; patient.end = tend;
+    }
+    try {
+      await write("addPayment", { name, kind, date: $("date").value || iso(new Date()), time: $("time").value || "", parts, note: $("note").value.trim(), patient });
+      msg.className = "msg ok"; msg.textContent = name + ": " + money(amount) + " таблицаға жазылды.";
+      jtab = kind; render();
+      $("pname").value = ""; $("amount").value = ""; $("amount2").value = ""; $("cost").value = ""; $("note").value = "";
+      $("tstart").value = ""; $("tend").value = ""; filledFor = null;
+      $("time").value = nowTime();
+      setSplit(false); setKind(kind); updatePatientInfo(false);
+    } catch (e) { msg.textContent = "Сақталмады: " + errText(e); }
+    finally { $("save").disabled = false; }
+  });
+
+  // Keep in step with edits made directly in the sheet or by another phone.
+  setInterval(() => { if (!document.hidden && Date.now() - lastLoad > 30000) refresh(); }, 5000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    if (!$("pname").value) { $("time").value = nowTime(); $("date").value = iso(new Date()); }
+    if (Date.now() - lastLoad > 5000) refresh();
+  });
+
+  setKind("consult");
+  render();
+  refresh();
+})();
+</script>
+</body>
+</html>
