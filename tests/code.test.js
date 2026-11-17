@@ -261,7 +261,7 @@ const bolat = courses.find(c => c.name === 'Болат');
 assert.ok(bolat, 'Болат курста болуы керек');
 assert.strictEqual(bolat.day, 4); assert.strictEqual(bolat.total, 10);
 assert.strictEqual(bolat.time, '08:30'); assert.strictEqual(bolat.placed, false);
-assert.strictEqual(bolat.missed, 1, '17.11-де келмеді');
+assert.strictEqual(bolat.missed, 1, '17.11 — жұмыс күні, Болат келмеді');
 // Аяқталған курс тізімге кірмейді
 let pl16 = run('getDay("16.11.2026")').physio[0].places[1];
 ctx.pl = pl16;
@@ -283,3 +283,13 @@ res2 = run('placeCourses("18.11.2026", items)');
 assert.strictEqual(res2.placed.length, 0); assert.strictEqual(res2.skipped[0].reason, 'бұрыннан қойылған');
 assert.ok(run('getActiveCourses("18.11.2026")').find(c => c.name === 'Болат').placed);
 console.log('Ем курстары тексерісі өтті ✔');
+
+// 16. Демалыс: бос парақ (ешкім жазылмаған күн) «келмеді» деп саналмайды
+const s17x = sheets.find(s => s.name === '17.11.2026');
+s17x.grid.forEach(r => { for (let c = 1; c <= 13; c++) if (c !== 9) r[c] = r[c] === 'ФИ пациента' ? r[c] : ''; });
+run('clearCache()');
+// 16.11 келді → 17.11 бос (демалыс) → 18.11 үшін «келмеді» болмауы керек
+const bolat2 = run('getActiveCourses("18.11.2026")').find(c => c.name === 'Болат');
+assert.strictEqual(bolat2.lastDate, '2026-11-16');
+assert.strictEqual(bolat2.missed, 0);
+console.log('Демалыс тексерісі өтті ✔');

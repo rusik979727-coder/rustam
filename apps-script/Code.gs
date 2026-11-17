@@ -702,7 +702,9 @@ function courseKey_(name, proc) {
  * Курс күні күнтізбемен емес, келген сайын санайды: арада күн жіберсе, келесі келгенінде курс жалғасады.
  * Курс белсенді деп саналады, егер «курс неше күн» мен «нешінші күн» толтырылған және day < total болса.
  * Қайтарады: [{ name, proc, total, day (келесі күн), time, lastDate, missed, placed }] — уақыт бойынша сұрыпталған.
- * missed — соңғы келгенінен бері неше жұмыс күні (күн парағы) келмеді; 0 болса, кеше келген.
+ * missed — соңғы келгенінен бері неше жұмыс күні келмеді; 0 болса, соңғы жұмыс күні келген.
+ * Жұмыс күні = күн парағы бар және ішінде кем дегенде бір жазба бар күн. Демалыс күндері
+ * (парағы жоқ немесе бос парақ) келмеді деп саналмайды.
  * placed=true — пациент бұл күнге (sheetName) бұрыннан қойылған.
  */
 function getActiveCourses(sheetName) {
@@ -720,6 +722,13 @@ function getActiveCourses(sheetName) {
     });
   }
 
+  // Жұмыс күндері: ішінде бір де болса жазба бар парақтар.
+  var workDays = list.filter(function (d) {
+    var day = loaded[d.sheet];
+    return day && (day.doctor.some(function (x) { return x.booked; }) ||
+      day.physio.some(function (b) { return b.taken > 0; }));
+  });
+
   var seen = {};
   var out = [];
   list.forEach(function (d) {
@@ -733,7 +742,7 @@ function getActiveCourses(sheetName) {
         seen[key] = true;
         var total = Number(p.total), dayNo = Number(p.day);
         if (!total || !dayNo || dayNo >= total) return; // курс белгісіз немесе аяқталған
-        var missed = list.filter(function (x) { return x.date > d.date; }).length;
+        var missed = workDays.filter(function (x) { return x.date > d.date; }).length;
         out.push({ name: p.name, proc: p.proc, total: total, day: dayNo + 1, time: b.time,
           lastDate: d.date, missed: missed, placed: Boolean(already[key]) });
       });
