@@ -19,6 +19,7 @@
   .course-list .cl-meta { display: block; color: var(--muted); font-size: 12.5px; }
   .course-list .cl-time { font-weight: 600; }
   .course-list li.done { opacity: .55; }
+  .course-list .cl-missed { color: var(--missed); font-weight: 500; }
   .courses-empty { color: var(--muted); margin: 12px 0 0; }
 ```
 
@@ -87,19 +88,22 @@
       coursesData = list;
       var todo = list.filter(function (c) { return !c.placed; }).length;
       if (!list.length) {
-        $('#coursesHint').textContent = 'Соңғы 14 күнде курсы аяқталмаған пациент табылмады. ' +
+        $('#coursesHint').textContent = 'Соңғы 30 күнде курсы аяқталмаған пациент табылмады. ' +
           'Тек «курс неше күн» мен «нешінші күн» толтырылған жазбалар есептеледі.';
         return;
       }
       $('#coursesHint').textContent = todo
-        ? 'Бүгін келетіндерді белгілеңіз. Әрқайсысы өз уақытына, ол толы болса — ең жақын бос орынға қойылады.'
+        ? 'Кеше келгендер белгіленді. Арада келмегендер (қызылмен) белгісіз тұр — бүгін келсе, белгілеңіз. ' +
+          'Әрқайсысы өз уақытына, ол толы болса — ең жақын бос орынға қойылады.'
         : 'Барлығы қойылған.';
       $('#coursesList').innerHTML = list.map(function (c, i) {
         return '<li' + (c.placed ? ' class="done"' : '') + '><label>' +
-          '<input type="checkbox" data-i="' + i + '"' + (c.placed ? ' disabled' : ' checked') + '>' +
+          '<input type="checkbox" data-i="' + i + '"' + (c.placed ? ' disabled' : c.missed ? '' : ' checked') + '>' +
           '<span><b>' + esc(c.name) + '</b><span class="cl-meta">' + esc(c.proc || 'ем') + ', ' +
           esc(c.day + '/' + c.total) + '-күн' +
-          (c.placed ? ', қойылған' : ', соңғы рет ' + esc(humanDate(c.lastDate))) + '</span></span>' +
+          (c.placed ? ', қойылған' : ', соңғы рет ' + esc(humanDate(c.lastDate))) +
+          (!c.placed && c.missed ? ' <span class="cl-missed">· ' + c.missed + ' күн келмеді</span>' : '') +
+          '</span></span>' +
           '<span class="cl-time">' + esc(c.time) + '</span></label></li>';
       }).join('');
       $('#coursesList').hidden = false;

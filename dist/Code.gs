@@ -694,7 +694,8 @@ function lastTreatment(name, beforeIso) {
 
 // ───────────────────────── Ем курстары ─────────────────────────
 
-var COURSE_LOOKBACK_DAYS = 14;
+// Пациент осыдан ұзақ келмесе, курсын тастады деп есептейміз (ауырып қалса да үлгеретіндей).
+var COURSE_LOOKBACK_DAYS = 30;
 
 function courseKey_(name, proc) {
   return normalizeName(name) + '|' + normalizeName(proc);
@@ -702,9 +703,11 @@ function courseKey_(name, proc) {
 
 /**
  * Курсы аяқталмаған пациенттер — кестедегі жазбалардан автоматты жиналады.
- * Әр пациент + ем түрі бойынша iso күнінен бұрынғы соңғы 14 күндегі ең соңғы жазба алынады.
+ * Әр пациент + ем түрі бойынша iso күнінен бұрынғы соңғы 30 күндегі ең соңғы жазба алынады.
+ * Курс күні күнтізбемен емес, келген сайын санайды: арада күн жіберсе, келесі келгенінде курс жалғасады.
  * Курс белсенді деп саналады, егер «курс неше күн» мен «нешінші күн» толтырылған және day < total болса.
- * Қайтарады: [{ name, proc, total, day (келесі күн), time, lastDate, placed }] — уақыт бойынша сұрыпталған.
+ * Қайтарады: [{ name, proc, total, day (келесі күн), time, lastDate, missed, placed }] — уақыт бойынша сұрыпталған.
+ * missed — соңғы келгенінен бері неше жұмыс күні (күн парағы) келмеді; 0 болса, кеше келген.
  * placed=true — пациент бұл күнге (sheetName) бұрыннан қойылған.
  */
 function getActiveCourses(sheetName) {
@@ -735,8 +738,9 @@ function getActiveCourses(sheetName) {
         seen[key] = true;
         var total = Number(p.total), dayNo = Number(p.day);
         if (!total || !dayNo || dayNo >= total) return; // курс белгісіз немесе аяқталған
+        var missed = list.filter(function (x) { return x.date > d.date; }).length;
         out.push({ name: p.name, proc: p.proc, total: total, day: dayNo + 1, time: b.time,
-          lastDate: d.date, placed: Boolean(already[key]) });
+          lastDate: d.date, missed: missed, placed: Boolean(already[key]) });
       });
     });
   });

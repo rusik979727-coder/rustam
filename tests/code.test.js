@@ -261,6 +261,7 @@ const bolat = courses.find(c => c.name === 'Болат');
 assert.ok(bolat, 'Болат курста болуы керек');
 assert.strictEqual(bolat.day, 4); assert.strictEqual(bolat.total, 10);
 assert.strictEqual(bolat.time, '08:30'); assert.strictEqual(bolat.placed, false);
+assert.strictEqual(bolat.missed, 1, '17.11-де келмеді');
 // Аяқталған курс тізімге кірмейді
 let pl16 = run('getDay("16.11.2026")').physio[0].places[1];
 ctx.pl = pl16;
