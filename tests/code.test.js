@@ -184,3 +184,16 @@ assert.ok(d18.physio.every(b => b.taken === 0));
 assert.strictEqual(sheets.findIndex(s => s.name === '18.11.2026'), 2);
 
 console.log('Барлық тексеру өтті ✔');
+
+// 11. Біреу таблицаға жол қосты (onEdit іске қосылмайды) → жазу тоқтатылады, кэш тазаланады
+const before17 = run('getDay("17.11.2026")');
+const s17 = sheets.find(s => s.name === '17.11.2026');
+s17.grid.splice(2, 0, Array(26).fill(''));       // 3-жолға бос жол қосылды
+s17.grid[2][0] = '8:40';
+s17.merges = s17.merges.map(m => ({ start: m.start + 1, end: m.end + 1 }));
+ctx.slot = before17.doctor[2];
+assert.throws(() => run('saveAppointment("17.11.2026", slot.row, {name:"Y", recorder:"Асель"}, slot.prev)'), /CONFLICT/);
+assert.ok(!s17.grid.some(r => r[1] === 'Y'), 'қате жолға жазылмауы керек');
+const after17 = run('getDay("17.11.2026")');
+assert.strictEqual(after17.doctor[0].time, '08:40');
+console.log('Жол қосу тексерісі өтті ✔');

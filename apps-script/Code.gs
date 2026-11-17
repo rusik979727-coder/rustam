@@ -341,6 +341,7 @@ function mutate_(sheetName, fn) {
     try {
       var sh = sheet_(sheetName);
       var data = readDayData_(sh);
+      assertSameStructure_(sheetName, data);
       var rows = fn(sh, data);
       return stamp_(refreshRows_(sheetName, sh, data, rows));
     } catch (e) {
@@ -348,6 +349,25 @@ function mutate_(sheetName, fn) {
       throw e;
     }
   });
+}
+
+/** Кестенің «қаңқасы»: қай жолда қай уақыт тұр. Жол қосылса/өшірілсе, бұл өзгереді. */
+function structureSig_(day) {
+  return day.doctor.map(function (s) { return s.row + '=' + s.time; }).join(',') + '|' +
+    day.physio.map(function (b) { return b.startRow + '=' + b.time; }).join(',');
+}
+
+/**
+ * Қауіпсіздік: кэштегі кесте мен таблицадағы нақты кестенің жолдары сәйкес пе?
+ * Біреу таблицаға жол қосып/өшірсе, клиенттегі жол нөмірлері басқа уақытқа сәйкес келуі мүмкін.
+ * Ондай жағдайда ештеңе жазбаймыз — кэшті тазалап, клиентке кестені жаңартуды айтамыз.
+ */
+function assertSameStructure_(sheetName, data) {
+  var cached = cacheGetMany_([sheetName])[sheetName];
+  if (cached && structureSig_(cached) !== structureSig_(data.day)) {
+    cacheDrop_(sheetName);
+    throw new Error('CONFLICT: Таблицада жолдар өзгерген екен. Кесте жаңартылды — қайта жазып көріңіз.');
+  }
 }
 
 function a1Col_(col) {
@@ -433,6 +453,8 @@ function moveAppointment(fromSheet, fromRow, toSheet, toRow, prev) {
       var srcData = readDayData_(src);
       var dst = same ? src : sheet_(toSheet);
       var dstData = same ? srcData : readDayData_(dst);
+      assertSameStructure_(fromSheet, srcData);
+      if (!same) assertSameStructure_(toSheet, dstData);
       assertDoctorRow_(srcData, fromRow);
       assertDoctorRow_(dstData, toRow);
       if (same && fromRow === toRow) return stamp_(buildPayload_(fromSheet, src, srcData));
