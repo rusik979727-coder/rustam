@@ -692,9 +692,15 @@ function moveAppointment(fromSheet, fromRow, toSheet, toRow, prev) {
  * input.name мен input.proc бос болса — орын толық босатылады.
  */
 function savePhysio(sheetName, row, input, prev) {
-  return mutate_(sheetName, function (sh, data) {
+  var cameAfterAll = null;
+  var result = mutate_(sheetName, function (sh, data) {
     assertPhysioRow_(data, row);
     assertUnchanged_(data.values, row, 'physio', prev);
+    var oldName = cell_(data.values, row, LAYOUT.physio.name);
+    if (oldName && isAbsentMark(cell_(data.values, row, LAYOUT.physio.day)) &&
+        String(input && input.day || '').trim() && !isAbsentMark(input.day)) {
+      cameAfterAll = oldName;
+    }
     var name = cleanText_(input && input.name, 120);
     var proc = cleanText_(input && input.proc, 120);
     var range = sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physioFields.length);
@@ -706,6 +712,11 @@ function savePhysio(sheetName, row, input, prev) {
     }
     return [row];
   });
+  // «Ауырды» деп белгіленген пациент сонда да келді — картадан сол күнгі белгіні алып тастаймыз.
+  if (cameAfterAll) {
+    try { removeAbsenceDay_(cameAfterAll, parseSheetName(sheetName)); } catch (e) { /* карта маңызды емес */ }
+  }
+  return result;
 }
 
 /**
@@ -728,7 +739,7 @@ function lastTreatment(name, beforeIso) {
         var block = day.physio[b];
         for (var p = 0; p < block.places.length; p++) {
           var place = block.places[p];
-          if (normalizeName(place.name) === key) {
+          if (!place.absent && normalizeName(place.name) === key) {
             return { date: group[i].date, sheet: group[i].sheet, time: block.time,
               proc: place.proc, total: place.total, day: place.day };
           }
@@ -785,7 +796,7 @@ function getActiveCourses(sheetName) {
   var presentName = {};
   if (target) {
     target.physio.forEach(function (b) {
-      b.places.forEach(function (p) { if (p.name) presentName[normalizeName(p.name)] = true; });
+      b.places.forEach(function (p) { if (p.name && !p.absent) presentName[normalizeName(p.name)] = true; });
     });
   }
 
@@ -817,7 +828,7 @@ function getActiveCourses(sheetName) {
     if (!day) return;
     day.physio.forEach(function (b) {
       b.places.forEach(function (p) {
-        if (!p.name || cardNames[normalizeName(p.name)]) return;
+        if (!p.name || p.absent || cardNames[normalizeName(p.name)]) return;
         var key = courseKey_(p.name, p.proc);
         if (seen[key]) return; // жаңарақ жазбасы бұрын қаралған
         seen[key] = true;
@@ -1201,7 +1212,7 @@ function patientVisits_(cards, beforeIso) {
     if (!day) return;
     day.physio.forEach(function (b) {
       b.places.forEach(function (p) {
-        if (!p.name) return;
+        if (!p.name || p.absent) return; // «ауырды» деп белгіленген күн курсқа саналмайды
         (byName[normalizeName(p.name)] || []).forEach(function (c) {
           if (c.start && d.date < c.start) return;
           out[c.id].push({ date: d.date, sheet: d.sheet, time: b.time, proc: p.proc, row: p.row });
@@ -1381,9 +1392,10 @@ function addAbsence(id, from, to, reason) {
 }
 
 /**
- * Емге қойылған пациент сол күні ауырып қалды: орны босатылады (сондықтан бұл күн курсқа
- * есептелмейді), ал картасы бар болса — картаға «келмейтін күн» болып жазылып, бітетін күн ұзарады.
- * Қайтарады: { day, name, card: { id, end } | null }.
+ * Емге қойылған пациент сол күні ауырып қалды. Аты кестеде орнында қалады, тек «нешінші күн» (N)
+ * бағанына «ауырды» деп жазылады — сондықтан бұл күн курсқа саналмайды. Картасы бар болса,
+ * картаға «келмейтін күн» болып жазылып, бітетін күн ұзарады.
+ * Қайтарады: { day, name, card: { id, end, oldEnd } | null }.
  */
 function markPhysioAbsent(sheetName, row, prev, reason) {
   var iso = parseSheetName(sheetName);
@@ -1394,21 +1406,49 @@ function markPhysioAbsent(sheetName, row, prev, reason) {
     assertUnchanged_(data.values, row, 'physio', prev);
     name = cell_(data.values, row, LAYOUT.physio.name);
     if (!name) throw new Error('Бұл орында пациент жоқ.');
-    sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physioFields.length).clearContent();
+    sh.getRange(row, LAYOUT.physio.day).setValue(ABSENT_MARK);
     return [row];
   });
-  var key = normalizeName(name);
-  var card = readPatients_(true).filter(function (c) {
-    return normalizeName(c.name) === key && c.start && c.start <= iso;
-  }).sort(function (a, b) { return a.start < b.start ? 1 : -1; })[0];
+  var card = cardForName_(name, iso);
   var cardInfo = null;
   if (card) {
-    var already = cardOffReason_(card, iso) && card.absences.some(function (a) { return iso >= a.from && iso <= a.to; });
+    var already = card.absences.some(function (a) { return iso >= a.from && iso <= a.to; });
     var res = already ? getPatients() : addAbsence(card.id, iso, iso, cleanText_(reason, 40) || 'Ауырды');
     var updated = res.patients.filter(function (p) { return p.id === card.id; })[0];
     cardInfo = { id: card.id, end: updated ? updated.end : card.end, oldEnd: card.end };
   }
   return { day: day, name: name, card: cardInfo };
+}
+
+/** Аты бойынша сол күнге қатысты карта (бірнеше болса — ең соңғы басталғаны). */
+function cardForName_(name, iso) {
+  var key = normalizeName(name);
+  return readPatients_(true).filter(function (c) {
+    return normalizeName(c.name) === key && c.start && c.start <= iso;
+  }).sort(function (a, b) { return a.start < b.start ? 1 : -1; })[0] || null;
+}
+
+/**
+ * «Ауырды» деп белгіленген пациент сонда да келді: картадан сол күнгі келмейтін күнді алып тастаймыз
+ * (бітетін күн бұрын автоматты есептелген болса, ол да қайта есептеледі).
+ */
+function removeAbsenceDay_(name, iso) {
+  var card = cardForName_(name, iso);
+  if (!card) return;
+  var keep = [];
+  var changed = false;
+  card.absences.forEach(function (a) {
+    if (a.from === iso && a.to === iso) { changed = true; return; }
+    keep.push(a);
+  });
+  if (!changed) return;
+  var wasAuto = !card.end || card.end === computeEnd_(card);
+  var updated = {};
+  Object.keys(card).forEach(function (k) { updated[k] = card[k]; });
+  updated.absences = keep;
+  savePatient({ id: card.id, name: card.name, phone: card.phone, start: card.start,
+    end: wasAuto ? computeEnd_(updated) : card.end, total: card.total, plan: card.plan,
+    nurse: card.nurse, doctor: card.doctor, note: card.note, restDays: card.restDays, absences: keep });
 }
 
 // ════════ Sheet.gs ════════
@@ -1433,6 +1473,13 @@ var LAYOUT = {
   physioBlockSize: 3,
   readCols: 14
 };
+
+// «Нешінші күн» (N) бағанында сан орнына осы сөз тұрса — пациент сол күні келмеген (ауырған).
+// Мұндай жазба кестеде көрініп тұрады, бірақ курс күні ретінде саналмайды.
+var ABSENT_MARK = 'ауырды';
+function isAbsentMark(v) {
+  return /ауыр|келмеді|келмеди|❌/i.test(String(v == null ? '' : v));
+}
 
 // Ем түрлері: батырма ретінде әрқашан көрсетіледі. Таблицада кездескен басқа түрлер соңынан қосылады.
 var TREATMENTS = ['Физио', 'Плазма'];
@@ -1517,6 +1564,7 @@ function parsePhysioBlocks(values, headerRow, merges) {
       var inBlock = r <= end;
       if (!inBlock && !name && !proc) continue;
       places.push({ row: r, name: name, proc: proc, total: total, day: dayNo, extra: !inBlock,
+        absent: Boolean(name) && isAbsentMark(dayNo),
         prev: rowSnapshot(values, r, 'physio') });
     }
     return {
@@ -1597,7 +1645,7 @@ function accumulateStats(acc, iso, day) {
   var physioCount = 0;
   day.physio.forEach(function (b) {
     b.places.forEach(function (p) {
-      if (!p.name) return;
+      if (!p.name || p.absent) return;
       physioCount++;
       var proc = p.proc || 'көрсетілмеген';
       acc.byProc[proc] = (acc.byProc[proc] || 0) + 1;

@@ -175,6 +175,9 @@
   .place.taken.plasma { background: var(--plasma-soft); }
   .place.taken.plasma small { color: var(--plasma); font-weight: 500; }
   .place.extra { box-shadow: inset 0 0 0 1px #e8b04a; }
+  .place.taken.absent { background: var(--missed-soft); }
+  .place.absent b { text-decoration: line-through; text-decoration-color: rgba(196, 60, 60, .55); }
+  .place.absent .course { color: var(--missed); }
   .block.past .place:not(.taken) { background: #fafbfc; }
 
   /* ── Телефон: кесте ықшам, қосымша бағандар атының астына түседі ── */
@@ -891,7 +894,7 @@
       var isNow = isToday && b.minutes <= now && (!next || next.minutes > now) && now < b.minutes + 60;
       var places = b.places.map(function (p) {
         var has = p.name || p.proc;
-        var cls = 'place' + (has ? ' taken' : '') + (p.extra ? ' extra' : '') + (isPlasma(p.proc) ? ' plasma' : '');
+        var cls = 'place' + (has ? ' taken' : '') + (p.extra ? ' extra' : '') + (p.absent ? ' absent' : isPlasma(p.proc) ? ' plasma' : '');
         var title = p.extra ? ' title="Қосымша жол (біріктірілген блоктан тыс)"' : '';
         return '<button class="' + cls + '" data-prow="' + p.row + '" data-block="' + i + '"' + title + '>' +
           (has ? '<b>' + esc(p.name || '—') + '</b><small>' + esc(p.proc) +
@@ -1052,13 +1055,15 @@
     var f = $('#physioForm');
     f.name.value = place.name;
     f.total.value = place.total;
-    f.day.value = place.day;
+    f.day.value = place.absent ? '' : place.day;
     state.physioEdit.isNew = !place.name;
-    showCourseHint('');
+    showCourseHint(place.absent
+      ? '🤒 Бұл күні <b>ауырды</b> деп белгіленген, курсқа саналмайды. Сонда да келсе, нешінші күн екенін жазып, «Емге жазу» басыңыз.'
+      : '');
     renderProcChips(place.proc || (place.name ? '' : state.day.procedures[0]));
     $('#physioTitle').textContent = (place.name ? 'Ем, ' : 'Емге жазу, ') + block.time;
     $('#physioFree').hidden = !(place.name || place.proc);
-    $('#physioSick').hidden = !place.name;
+    $('#physioSick').hidden = !place.name || place.absent;
     state.physioEdit.name = place.name;
     $('#physioDialog').showModal();
     if (!place.name) f.name.focus();
@@ -1068,6 +1073,7 @@
 
   // «3/10» — курстың нешінші күні; тек біреуі белгілі болса, соны ғана көрсетеміз.
   function courseText(p) {
+    if (p.absent) return 'ауырды';
     if (p.day && p.total) return p.day + '/' + p.total;
     if (p.day) return p.day + '-күн';
     if (p.total) return p.total + ' күн';
@@ -1123,17 +1129,17 @@
     }).catch(function (err) { handleWriteError(err, $('#physioDialog')); });
   }
 
-  // Емге қойылған пациент ауырып қалды: орны босайды, бұл күн курсқа есептелмейді, картасы ұзарады.
+  // Емге қойылған пациент ауырып қалды: аты кестеде қалады, бірақ бұл күн курсқа саналмайды, картасы ұзарады.
   function markPhysioSick() {
     var ed = state.physioEdit;
     if (!confirm(ed.name + ' ' + ed.time + ' уақытындағы емге келмейді (ауырды) деп белгілейміз бе?\n' +
-      'Орны босайды, бұл күн курсқа есептелмейді.')) return;
+      'Аты кестеде қалады, бірақ бұл күн курсқа саналмайды.')) return;
     var btn = $('#physioSick');
     busy(btn, true);
     call('markPhysioAbsent', ed.sheet, ed.row, ed.prev, 'Ауырды').then(function (res) {
       applyDay(res.day);
       $('#physioDialog').close();
-      var msg = res.name + ': ауырды деп белгіленді, орны босатылды';
+      var msg = res.name + ': ауырды деп белгіленді, бұл күн курсқа саналмайды';
       if (res.card) {
         msg += res.card.end && res.card.end !== res.card.oldEnd
           ? '. Курс ұзарды: енді ' + humanDate(res.card.end) + ' бітеді'

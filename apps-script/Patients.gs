@@ -218,7 +218,7 @@ function patientVisits_(cards, beforeIso) {
     if (!day) return;
     day.physio.forEach(function (b) {
       b.places.forEach(function (p) {
-        if (!p.name) return;
+        if (!p.name || p.absent) return; // «ауырды» деп белгіленген күн курсқа саналмайды
         (byName[normalizeName(p.name)] || []).forEach(function (c) {
           if (c.start && d.date < c.start) return;
           out[c.id].push({ date: d.date, sheet: d.sheet, time: b.time, proc: p.proc, row: p.row });
@@ -398,9 +398,10 @@ function addAbsence(id, from, to, reason) {
 }
 
 /**
- * Емге қойылған пациент сол күні ауырып қалды: орны босатылады (сондықтан бұл күн курсқа
- * есептелмейді), ал картасы бар болса — картаға «келмейтін күн» болып жазылып, бітетін күн ұзарады.
- * Қайтарады: { day, name, card: { id, end } | null }.
+ * Емге қойылған пациент сол күні ауырып қалды. Аты кестеде орнында қалады, тек «нешінші күн» (N)
+ * бағанына «ауырды» деп жазылады — сондықтан бұл күн курсқа саналмайды. Картасы бар болса,
+ * картаға «келмейтін күн» болып жазылып, бітетін күн ұзарады.
+ * Қайтарады: { day, name, card: { id, end, oldEnd } | null }.
  */
 function markPhysioAbsent(sheetName, row, prev, reason) {
   var iso = parseSheetName(sheetName);
@@ -411,19 +412,47 @@ function markPhysioAbsent(sheetName, row, prev, reason) {
     assertUnchanged_(data.values, row, 'physio', prev);
     name = cell_(data.values, row, LAYOUT.physio.name);
     if (!name) throw new Error('Бұл орында пациент жоқ.');
-    sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physioFields.length).clearContent();
+    sh.getRange(row, LAYOUT.physio.day).setValue(ABSENT_MARK);
     return [row];
   });
-  var key = normalizeName(name);
-  var card = readPatients_(true).filter(function (c) {
-    return normalizeName(c.name) === key && c.start && c.start <= iso;
-  }).sort(function (a, b) { return a.start < b.start ? 1 : -1; })[0];
+  var card = cardForName_(name, iso);
   var cardInfo = null;
   if (card) {
-    var already = cardOffReason_(card, iso) && card.absences.some(function (a) { return iso >= a.from && iso <= a.to; });
+    var already = card.absences.some(function (a) { return iso >= a.from && iso <= a.to; });
     var res = already ? getPatients() : addAbsence(card.id, iso, iso, cleanText_(reason, 40) || 'Ауырды');
     var updated = res.patients.filter(function (p) { return p.id === card.id; })[0];
     cardInfo = { id: card.id, end: updated ? updated.end : card.end, oldEnd: card.end };
   }
   return { day: day, name: name, card: cardInfo };
+}
+
+/** Аты бойынша сол күнге қатысты карта (бірнеше болса — ең соңғы басталғаны). */
+function cardForName_(name, iso) {
+  var key = normalizeName(name);
+  return readPatients_(true).filter(function (c) {
+    return normalizeName(c.name) === key && c.start && c.start <= iso;
+  }).sort(function (a, b) { return a.start < b.start ? 1 : -1; })[0] || null;
+}
+
+/**
+ * «Ауырды» деп белгіленген пациент сонда да келді: картадан сол күнгі келмейтін күнді алып тастаймыз
+ * (бітетін күн бұрын автоматты есептелген болса, ол да қайта есептеледі).
+ */
+function removeAbsenceDay_(name, iso) {
+  var card = cardForName_(name, iso);
+  if (!card) return;
+  var keep = [];
+  var changed = false;
+  card.absences.forEach(function (a) {
+    if (a.from === iso && a.to === iso) { changed = true; return; }
+    keep.push(a);
+  });
+  if (!changed) return;
+  var wasAuto = !card.end || card.end === computeEnd_(card);
+  var updated = {};
+  Object.keys(card).forEach(function (k) { updated[k] = card[k]; });
+  updated.absences = keep;
+  savePatient({ id: card.id, name: card.name, phone: card.phone, start: card.start,
+    end: wasAuto ? computeEnd_(updated) : card.end, total: card.total, plan: card.plan,
+    nurse: card.nurse, doctor: card.doctor, note: card.note, restDays: card.restDays, absences: keep });
 }

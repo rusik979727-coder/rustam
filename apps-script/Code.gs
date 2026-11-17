@@ -687,9 +687,15 @@ function moveAppointment(fromSheet, fromRow, toSheet, toRow, prev) {
  * input.name мен input.proc бос болса — орын толық босатылады.
  */
 function savePhysio(sheetName, row, input, prev) {
-  return mutate_(sheetName, function (sh, data) {
+  var cameAfterAll = null;
+  var result = mutate_(sheetName, function (sh, data) {
     assertPhysioRow_(data, row);
     assertUnchanged_(data.values, row, 'physio', prev);
+    var oldName = cell_(data.values, row, LAYOUT.physio.name);
+    if (oldName && isAbsentMark(cell_(data.values, row, LAYOUT.physio.day)) &&
+        String(input && input.day || '').trim() && !isAbsentMark(input.day)) {
+      cameAfterAll = oldName;
+    }
     var name = cleanText_(input && input.name, 120);
     var proc = cleanText_(input && input.proc, 120);
     var range = sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physioFields.length);
@@ -701,6 +707,11 @@ function savePhysio(sheetName, row, input, prev) {
     }
     return [row];
   });
+  // «Ауырды» деп белгіленген пациент сонда да келді — картадан сол күнгі белгіні алып тастаймыз.
+  if (cameAfterAll) {
+    try { removeAbsenceDay_(cameAfterAll, parseSheetName(sheetName)); } catch (e) { /* карта маңызды емес */ }
+  }
+  return result;
 }
 
 /**
@@ -723,7 +734,7 @@ function lastTreatment(name, beforeIso) {
         var block = day.physio[b];
         for (var p = 0; p < block.places.length; p++) {
           var place = block.places[p];
-          if (normalizeName(place.name) === key) {
+          if (!place.absent && normalizeName(place.name) === key) {
             return { date: group[i].date, sheet: group[i].sheet, time: block.time,
               proc: place.proc, total: place.total, day: place.day };
           }
@@ -780,7 +791,7 @@ function getActiveCourses(sheetName) {
   var presentName = {};
   if (target) {
     target.physio.forEach(function (b) {
-      b.places.forEach(function (p) { if (p.name) presentName[normalizeName(p.name)] = true; });
+      b.places.forEach(function (p) { if (p.name && !p.absent) presentName[normalizeName(p.name)] = true; });
     });
   }
 
@@ -812,7 +823,7 @@ function getActiveCourses(sheetName) {
     if (!day) return;
     day.physio.forEach(function (b) {
       b.places.forEach(function (p) {
-        if (!p.name || cardNames[normalizeName(p.name)]) return;
+        if (!p.name || p.absent || cardNames[normalizeName(p.name)]) return;
         var key = courseKey_(p.name, p.proc);
         if (seen[key]) return; // жаңарақ жазбасы бұрын қаралған
         seen[key] = true;

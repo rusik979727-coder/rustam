@@ -20,6 +20,13 @@ var LAYOUT = {
   readCols: 14
 };
 
+// «Нешінші күн» (N) бағанында сан орнына осы сөз тұрса — пациент сол күні келмеген (ауырған).
+// Мұндай жазба кестеде көрініп тұрады, бірақ курс күні ретінде саналмайды.
+var ABSENT_MARK = 'ауырды';
+function isAbsentMark(v) {
+  return /ауыр|келмеді|келмеди|❌/i.test(String(v == null ? '' : v));
+}
+
 // Ем түрлері: батырма ретінде әрқашан көрсетіледі. Таблицада кездескен басқа түрлер соңынан қосылады.
 var TREATMENTS = ['Физио', 'Плазма'];
 
@@ -103,6 +110,7 @@ function parsePhysioBlocks(values, headerRow, merges) {
       var inBlock = r <= end;
       if (!inBlock && !name && !proc) continue;
       places.push({ row: r, name: name, proc: proc, total: total, day: dayNo, extra: !inBlock,
+        absent: Boolean(name) && isAbsentMark(dayNo),
         prev: rowSnapshot(values, r, 'physio') });
     }
     return {
@@ -183,7 +191,7 @@ function accumulateStats(acc, iso, day) {
   var physioCount = 0;
   day.physio.forEach(function (b) {
     b.places.forEach(function (p) {
-      if (!p.name) return;
+      if (!p.name || p.absent) return;
       physioCount++;
       var proc = p.proc || 'көрсетілмеген';
       acc.byProc[proc] = (acc.byProc[proc] || 0) + 1;

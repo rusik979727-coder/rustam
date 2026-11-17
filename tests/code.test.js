@@ -377,9 +377,20 @@ d17a = run('savePhysio("17.11.2026", pl.row, {name:"Арман", proc:"Физи�
 assert.strictEqual(run('patientNext("' + arm.id + '", "2026-11-18")').day, 2);
 ctx.pl = d17a.physio.flatMap(b => b.places).find(p => p.name === 'Арман');
 const ms = run('markPhysioAbsent("17.11.2026", pl.row, pl.prev, "Ауырды")');
-assert.ok(!ms.day.physio.flatMap(b => b.places).some(p => p.name === 'Арман'), 'орны босауы керек');
+const armPlace = ms.day.physio.flatMap(b => b.places).find(p => p.name === 'Арман');
+assert.ok(armPlace, 'аты кестеде қалуы керек');
+assert.strictEqual(armPlace.day, 'ауырды'); assert.strictEqual(armPlace.absent, true);
 assert.strictEqual(ms.card.oldEnd, '2026-11-18'); assert.strictEqual(ms.card.end, '2026-11-19');
 const nx2 = run('patientNext("' + arm.id + '", "2026-11-18")');
 assert.strictEqual(nx2.day, 1, 'ауырған күн курсқа есептелмеуі керек'); assert.strictEqual(nx2.proc, 'Физио');
 assert.strictEqual(run('getPatientCard("' + arm.id + '")').card.absences[0].reason, 'Ауырды');
 console.log('Ауырып қалды тексерісі өтті ✔');
+
+// 20. «Ауырды» белгісі тұрған пациент сонда да келді: белгі алынады, картадан ауырған күн өшеді
+ctx.pl = run('getDay("17.11.2026")').physio.flatMap(b => b.places).find(p => p.name === 'Арман');
+run('savePhysio("17.11.2026", pl.row, {name:"Арман", proc:"Физио", total:"3", day:"1"}, pl.prev)');
+const armCard = run('getPatientCard("' + arm.id + '")');
+assert.strictEqual(armCard.card.absences.length, 0);
+assert.strictEqual(armCard.card.end, '2026-11-18');
+assert.strictEqual(run('patientNext("' + arm.id + '", "2026-11-18")').day, 2);
+console.log('Сонда да келді тексерісі өтті ✔');
