@@ -330,6 +330,41 @@
   .course-list .cl-missed { color: var(--missed); font-weight: 500; }
   .courses-empty { color: var(--muted); margin: 12px 0 0; }
 
+  /* ── Пациент карталары ── */
+  .pt-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+  .pt-bar input { flex: 1 1 220px; min-width: 0; padding: 11px 14px; font-size: 16px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); }
+  .pt-bar input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .pt-bar .primary { flex: none; }
+  .pt-filter { display: flex; gap: 6px; }
+  .pt-filter button { border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--radius); padding: 7px 12px; }
+  .pt-filter button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .pt-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .pt-card { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 6px; }
+  .pt-card:hover { border-color: var(--accent); }
+  .pt-card.done { opacity: .6; }
+  .pt-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .pt-name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pt-prog { flex: none; font-weight: 700; color: var(--accent); }
+  .pt-meta { color: var(--muted); font-size: 13px; }
+  .pt-next { font-size: 13px; }
+  .pt-next b.plasma { color: var(--plasma); }
+  .pt-bar-line { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .pt-bar-line span { display: block; height: 100%; background: var(--accent); }
+  .plan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; margin-top: 4px; }
+  .plan-day { border: 1px solid var(--line-strong); background: var(--accent-soft); border-radius: var(--radius); padding: 6px 4px; text-align: center; font-size: 12.5px; line-height: 1.2; }
+  .plan-day small { display: block; color: var(--muted); font-size: 11px; }
+  .plan-day.plasma { background: var(--plasma-soft); color: var(--plasma); border-color: transparent; }
+  .plan-day.done { box-shadow: inset 0 -3px 0 var(--came); }
+  .plan-fill { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .plan-fill button { border: 1px dashed var(--line-strong); background: transparent; border-radius: var(--radius); padding: 5px 10px; font-size: 13px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field-hint { color: var(--muted); font-size: 12.5px; margin: 4px 0 0; }
+  .visits { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); max-height: 30vh; overflow: auto; }
+  .visits li { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .visits li:last-child { border-bottom: 0; }
+  .visits .vn { font-weight: 700; color: var(--muted); }
+  .card-hint { margin: 10px 0 0; padding: 8px 10px; border-radius: var(--radius); background: var(--accent-soft); font-size: 13.5px; }
+
   @media (prefers-reduced-motion: reduce) {
     .toast { transition: none; }
   }
@@ -355,6 +390,7 @@
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="schedule" aria-selected="true">Консультация</button>
       <button role="tab" data-tab="physio" class="only-narrow">Ем</button>
+      <button role="tab" data-tab="patients">Пациенттер</button>
       <button role="tab" data-tab="search">Іздеу</button>
       <button role="tab" data-tab="stats">Есеп</button>
     </nav>
@@ -394,6 +430,19 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <section id="view-patients" class="view" hidden>
+      <div class="pt-bar">
+        <input type="search" id="ptSearch" placeholder="Аты немесе телефоны" autocomplete="off" aria-label="Пациентті іздеу">
+        <div class="pt-filter" id="ptFilter">
+          <button type="button" data-f="active" aria-pressed="true">Емделуде</button>
+          <button type="button" data-f="all">Барлығы</button>
+        </div>
+        <button type="button" class="primary" id="ptNew">＋ Жаңа карта</button>
+      </div>
+      <p class="hint" id="ptHint">Жүктелуде…</p>
+      <ul class="pt-list" id="ptList"></ul>
     </section>
 
     <section id="view-search" class="view" hidden>
@@ -486,8 +535,8 @@
         <button type="button" class="icon-btn" data-close aria-label="Жабу">×</button>
       </div>
       <label class="field">
-        <span>Аты</span>
-        <input name="name" autocomplete="off" required>
+        <span>Аты (картадан таңдаңыз немесе жазыңыз)</span>
+        <input name="name" autocomplete="off" list="patientNames" required>
       </label>
       <p class="course-hint" id="courseHint" hidden></p>
       <div class="course-row">
@@ -525,6 +574,68 @@
       </div>
     </form>
   </dialog>
+
+  <dialog id="patientDialog" class="sheet">
+    <form method="dialog" id="patientForm">
+      <div class="sheet-head">
+        <h3 id="patientTitle">Пациент картасы</h3>
+        <button type="button" class="icon-btn" data-close aria-label="Жабу">×</button>
+      </div>
+      <label class="field">
+        <span>Аты-жөні</span>
+        <input name="name" id="pfName" autocomplete="off" required>
+      </label>
+      <label class="field">
+        <span>Телефон</span>
+        <input name="phone" id="pfPhone" type="tel" inputmode="tel" autocomplete="off" placeholder="+7 7__ ___ __ __">
+      </label>
+      <div class="two-col">
+        <label class="field">
+          <span>Емге кірді</span>
+          <input name="start" id="pfStart" type="date" required>
+        </label>
+        <label class="field">
+          <span>Курс неше күн</span>
+          <input name="total" id="pfTotal" type="number" inputmode="numeric" min="1" max="99" placeholder="мысалы 12" required>
+        </label>
+      </div>
+      <label class="field">
+        <span>Емді бітіреді</span>
+        <input name="end" id="pfEnd" type="date">
+        <p class="field-hint" id="pfEndHint">Курс пен басталған күнді жазсаңыз, өзі есептеледі (жексенбі демалыс).</p>
+      </label>
+      <fieldset class="field">
+        <legend>Ем жоспары: күнді басып, емін ауыстырыңыз</legend>
+        <div class="plan-grid" id="planGrid"></div>
+        <div class="plan-fill" id="planFill"></div>
+      </fieldset>
+      <div class="two-col">
+        <label class="field">
+          <span>Жауапты медбике</span>
+          <input name="nurse" id="pfNurse" list="nurseOptions" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>Жауапты дәрігер</span>
+          <input name="doctor" id="pfDoctor" list="doctorOptions" autocomplete="off">
+        </label>
+      </div>
+      <label class="field">
+        <span>Ескерту</span>
+        <textarea name="note" id="pfNote" rows="2"></textarea>
+      </label>
+      <div class="field" id="pfVisitsBox" hidden>
+        <span id="pfVisitsTitle">Келген күндері</span>
+        <ul class="visits" id="pfVisits"></ul>
+      </div>
+      <div class="sheet-actions">
+        <button type="submit" class="primary" id="pfSave">Картаны сақтау</button>
+      </div>
+    </form>
+  </dialog>
+
+  <datalist id="nurseOptions"></datalist>
+  <datalist id="doctorOptions"></datalist>
+  <datalist id="patientNames"></datalist>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -944,6 +1055,8 @@
     var ed = state.physioEdit, f = $('#physioForm');
     var name = f.name.value.trim();
     if (!ed || !ed.isNew || name.length < 2) { showCourseHint(''); return; }
+    var card = findCardByName(name);
+    if (card) { fillFromCard(card); return; }
     var seq = ++courseSeq;
     call('lastTreatment', name, state.day.date).then(function (last) {
       if (seq !== courseSeq || !$('#physioDialog').open) return;
@@ -1008,10 +1121,11 @@
           '<input type="checkbox" data-i="' + i + '"' + (c.placed ? ' disabled' : c.missed ? '' : ' checked') + '>' +
           '<span><b>' + esc(c.name) + '</b><span class="cl-meta">' + esc(c.proc || 'ем') + ', ' +
           esc(c.day + '/' + c.total) + '-күн' +
-          (c.placed ? ', қойылған' : ', соңғы рет ' + esc(humanDate(c.lastDate))) +
+          (c.placed ? ', қойылған' : c.lastDate ? ', соңғы рет ' + esc(humanDate(c.lastDate)) : ', алғашқы күн') +
+          (c.nurse ? ', медбике: ' + esc(c.nurse) : '') +
           (!c.placed && c.missed ? ' <span class="cl-missed">· ' + c.missed + ' күн келмеді</span>' : '') +
           '</span></span>' +
-          '<span class="cl-time">' + esc(c.time) + '</span></label></li>';
+          '<span class="cl-time">' + esc(c.time || '—') + '</span></label></li>';
       }).join('');
       $('#coursesList').hidden = false;
       $('#coursesPlace').disabled = !todo;
@@ -1034,6 +1148,163 @@
       toast(msg, res.skipped.length > 0);
     }).catch(function (err) { handleWriteError(err, $('#coursesDialog')); })
       .then(function () { busy(btn, false); });
+  }
+
+  // ───────── Пациент карталары ─────────
+  var pt = { list: [], procedures: ['Физио', 'Плазма'], filter: 'active', edit: null, plan: [], endAuto: true };
+
+  function loadPatients() {
+    return call('getPatients').then(applyPatients).catch(function (err) {
+      $('#ptHint').textContent = errText(err);
+    });
+  }
+
+  function applyPatients(res) {
+    pt.list = res.patients;
+    pt.procedures = res.procedures && res.procedures.length ? res.procedures : ['Физио', 'Плазма'];
+    var opts = function (arr) { return arr.map(function (v) { return '<option value="' + esc(v) + '">'; }).join(''); };
+    $('#nurseOptions').innerHTML = opts(res.nurses);
+    $('#doctorOptions').innerHTML = opts(res.doctors);
+    $('#patientNames').innerHTML = opts(pt.list.filter(function (p) { return !p.finished; }).map(function (p) { return p.name; }));
+    renderPatients();
+  }
+
+  function normName(s) { return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim(); }
+
+  function findCardByName(name) {
+    var key = normName(name);
+    var found = pt.list.filter(function (p) { return normName(p.name) === key; });
+    return found.filter(function (p) { return !p.finished; })[0] || found[0] || null;
+  }
+
+  function shortIso(iso) { return iso ? shortDate(iso) : '…'; }
+
+  function renderPatients() {
+    var q = $('#ptSearch').value.trim().toLowerCase();
+    var qd = q.replace(/\D/g, '');
+    var rows = pt.list.filter(function (p) {
+      if (pt.filter === 'active' && p.finished) return false;
+      if (!q) return true;
+      if (p.name.toLowerCase().indexOf(q) !== -1) return true;
+      return qd.length >= 4 && p.phone.replace(/\D/g, '').indexOf(qd) !== -1;
+    }).sort(function (a, b) { return (a.finished - b.finished) || a.name.localeCompare(b.name); });
+    $('#ptHint').textContent = pt.list.length
+      ? (rows.length ? '' : 'Ешкім табылмады.')
+      : 'Әзірге карта жоқ. «＋ Жаңа карта» басып, бірінші пациентті қосыңыз.';
+    $('#ptList').innerHTML = rows.map(function (p) {
+      var pct = p.total ? Math.min(100, Math.round(p.visits / p.total * 100)) : 0;
+      var next = p.finished ? 'Курс аяқталды'
+        : 'Келесі: ' + p.nextDay + '-күн — <b class="' + (isPlasma(p.nextProc) ? 'plasma' : '') + '">' + esc(p.nextProc || '—') + '</b>';
+      var staff = [p.nurse && 'медбике ' + p.nurse, p.doctor && 'дәрігер ' + p.doctor].filter(Boolean).join(' · ');
+      return '<li><button type="button" class="pt-card' + (p.finished ? ' done' : '') + '" data-id="' + esc(p.id) + '">' +
+        '<span class="pt-top"><span class="pt-name">' + esc(p.name) + '</span><span class="pt-prog">' + p.visits + '/' + p.total + '</span></span>' +
+        '<span class="pt-bar-line"><span style="width:' + pct + '%"></span></span>' +
+        '<span class="pt-next">' + next + '</span>' +
+        '<span class="pt-meta">' + esc([p.phone, shortIso(p.start) + ' – ' + shortIso(p.end)].filter(Boolean).join(' · ')) + '</span>' +
+        (staff ? '<span class="pt-meta">' + esc(staff) + '</span>' : '') +
+        '</button></li>';
+    }).join('');
+  }
+
+  // Бітетін күн: басталған күннен бастап курс күндерін санаймыз, жексенбі — демалыс.
+  function suggestEnd(start, total) {
+    if (!start || !total) return '';
+    var iso = start, n = 1;
+    while (isoToDate(iso).getUTCDay() === 0) iso = addDays(iso, 1);
+    while (n < total) { iso = addDays(iso, 1); if (isoToDate(iso).getUTCDay() !== 0) n++; }
+    return iso;
+  }
+
+  function resizePlan() {
+    var total = Math.max(0, Math.min(99, Number($('#pfTotal').value) || 0));
+    while (pt.plan.length < total) pt.plan.push(pt.plan[pt.plan.length - 1] || pt.procedures[0]);
+    pt.plan.length = total;
+    renderPlan();
+    if (pt.endAuto) $('#pfEnd').value = suggestEnd($('#pfStart').value, total);
+  }
+
+  function renderPlan(doneCount) {
+    var done = doneCount == null ? (pt.edit ? pt.edit.visits : 0) : doneCount;
+    $('#planGrid').innerHTML = pt.plan.length ? pt.plan.map(function (proc, i) {
+      return '<button type="button" class="plan-day' + (isPlasma(proc) ? ' plasma' : '') + (i < done ? ' done' : '') +
+        '" data-i="' + i + '" title="' + (i < done ? 'Өтті' : 'Басып, емін ауыстырыңыз') + '">' +
+        '<small>' + (i + 1) + '-күн</small>' + esc(proc) + '</button>';
+    }).join('') : '<p class="field-hint">Алдымен «Курс неше күн» жазыңыз.</p>';
+    $('#planFill').innerHTML = pt.procedures.map(function (proc) {
+      return '<button type="button" data-all="' + esc(proc) + '">Бәрі: ' + esc(proc) + '</button>';
+    }).join('');
+  }
+
+  function openPatient(id) {
+    var p = id ? pt.list.filter(function (x) { return x.id === id; })[0] : null;
+    pt.edit = p;
+    var f = $('#patientForm');
+    f.reset();
+    $('#patientTitle').textContent = p ? 'Карта: ' + p.name : 'Жаңа пациент картасы';
+    $('#pfName').value = p ? p.name : '';
+    $('#pfPhone').value = p ? p.phone : '';
+    $('#pfStart').value = p ? p.start : state.date || state.boot.today;
+    $('#pfTotal').value = p ? p.total : '';
+    $('#pfEnd').value = p ? p.end : '';
+    $('#pfNurse').value = p ? p.nurse : '';
+    $('#pfDoctor').value = p ? p.doctor : '';
+    $('#pfNote').value = p ? p.note : '';
+    pt.plan = p ? p.plan.slice() : [];
+    pt.endAuto = !p || !p.end;
+    resizePlan();
+    $('#pfVisitsBox').hidden = !p;
+    $('#pfVisits').innerHTML = '';
+    $('#patientDialog').showModal();
+    if (!p) { $('#pfName').focus(); return; }
+    $('#pfVisitsTitle').textContent = 'Келген күндері: жүктелуде…';
+    call('getPatientCard', p.id).then(function (res) {
+      if (pt.edit !== p) return;
+      $('#pfVisitsTitle').textContent = 'Келген күндері (' + res.visits.length + '/' + res.card.total + ')';
+      $('#pfVisits').innerHTML = res.visits.length ? res.visits.map(function (v, i) {
+        return '<li><span class="vn">' + (i + 1) + '</span><span>' + esc(humanDate(v.date) + ', ' + weekday(v.date)) +
+          '</span><span>' + esc(v.time + ' · ' + (v.proc || '—')) + '</span></li>';
+      }).join('') : '<li><span></span><span class="hint">Әзірге келмеді</span><span></span></li>';
+      renderPlan(res.visits.length);
+    }).catch(function (err) { $('#pfVisitsTitle').textContent = errText(err); });
+  }
+
+  function savePatientForm(e) {
+    e.preventDefault();
+    var data = {
+      id: pt.edit ? pt.edit.id : null,
+      name: $('#pfName').value, phone: $('#pfPhone').value,
+      start: $('#pfStart').value, end: $('#pfEnd').value, total: $('#pfTotal').value,
+      plan: pt.plan, nurse: $('#pfNurse').value, doctor: $('#pfDoctor').value, note: $('#pfNote').value
+    };
+    if (!data.name.trim()) { toast('Пациенттің аты-жөнін жазыңыз.', true); return; }
+    if (!data.start) { toast('Емге кірген күнін көрсетіңіз.', true); return; }
+    if (!(Number(data.total) >= 1)) { toast('Курс неше күн екенін жазыңыз.', true); return; }
+    var btn = $('#pfSave');
+    busy(btn, true);
+    call('savePatient', data).then(function (res) {
+      applyPatients(res);
+      $('#patientDialog').close();
+      toast('Карта сақталды: ' + data.name.trim());
+    }).catch(function (err) { toast(errText(err), true); })
+      .then(function () { busy(btn, false); });
+  }
+
+  // Емге жазу формасында картадан толтыру: нешінші күн, курс ұзақтығы, жоспар бойынша ем.
+  function fillFromCard(card) {
+    var f = $('#physioForm'), seq = ++courseSeq;
+    showCourseHint('Карта: <b>' + esc(card.name) + '</b>, жүктелуде…');
+    call('patientNext', card.id, state.day.date).then(function (nx) {
+      if (seq !== courseSeq || !$('#physioDialog').open || !nx) return;
+      f.name.value = nx.name;
+      f.total.value = card.total || '';
+      f.day.value = nx.finished ? '' : nx.day;
+      if (nx.proc) renderProcChips(nx.proc);
+      var staff = [nx.nurse && 'медбике: ' + esc(nx.nurse), nx.doctor && 'дәрігер: ' + esc(nx.doctor)].filter(Boolean).join(', ');
+      showCourseHint(nx.finished
+        ? 'Карта бойынша курс аяқталған (' + card.total + ' күн). Жаңа курс болса, картаны өзгертіңіз.'
+        : 'Картадан: <b>' + nx.day + '/' + card.total + '-күн — ' + esc(nx.proc) + '</b>' + (staff ? '. ' + staff : '') +
+          (nx.lastDate ? '. Соңғы рет: ' + esc(humanDate(nx.lastDate)) : '. Алғашқы келуі'));
+    }).catch(function () { showCourseHint(''); });
   }
 
   // ───────── Жаңа күн ─────────
@@ -1167,6 +1438,7 @@
     $$('.view').forEach(function (v) { v.hidden = v.id !== 'view-' + view; });
     if (tab === 'search') setTimeout(function () { $('#searchInput').focus(); }, 0);
     if (tab === 'stats' && !$('#statsBody').innerHTML) setPeriod('week');
+    if (tab === 'patients') loadPatients();
   }
 
   // ───────── Оқиғалар ─────────
@@ -1231,6 +1503,37 @@
     });
     $('#physioFree').onclick = function () { savePhysio({ name: '', proc: '' }, 'Орын босатылды'); };
 
+    $('#ptNew').onclick = function () { openPatient(null); };
+    $('#ptSearch').addEventListener('input', renderPatients);
+    $('#ptFilter').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-f]');
+      if (!b) return;
+      pt.filter = b.dataset.f;
+      $$('#ptFilter button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      renderPatients();
+    });
+    $('#ptList').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-id]');
+      if (b) openPatient(b.dataset.id);
+    });
+    $('#patientForm').addEventListener('submit', savePatientForm);
+    $('#pfTotal').addEventListener('input', resizePlan);
+    $('#pfStart').addEventListener('change', resizePlan);
+    $('#pfEnd').addEventListener('input', function () { pt.endAuto = !$('#pfEnd').value; });
+    $('#planGrid').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-i]');
+      if (!b) return;
+      var i = Number(b.dataset.i), cur = pt.procedures.indexOf(pt.plan[i]);
+      pt.plan[i] = pt.procedures[(cur + 1) % pt.procedures.length];
+      renderPlan();
+    });
+    $('#planFill').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-all]');
+      if (!b) return;
+      pt.plan = pt.plan.map(function () { return b.dataset.all; });
+      renderPlan();
+    });
+
     $('#coursesBtn').onclick = openCourses;
     $('#coursesForm').addEventListener('submit', placeSelected);
 
@@ -1268,7 +1571,7 @@
   // ───────── Іске қосу ─────────
   bind();
   setTab('schedule');
-  loadBoot().then(function () { return loadDay(state.boot.today); })
+  loadBoot().then(function () { loadPatients(); return loadDay(state.boot.today); })
     .catch(function (err) {
       $('#dayState').innerHTML = '<div class="empty"><h3>Таблица ашылмады</h3><p>' + esc(errText(err)) +
         '</p><button class="primary" onclick="location.reload()">Қайта жүктеу</button></div>';

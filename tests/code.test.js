@@ -12,6 +12,11 @@ function makeSheet(name, grid, merges, validations) {
     name, grid, merges, validations,
     getName() { return this.name; },
     getMaxRows() { return 1000; },
+    getLastColumn() {
+      let m = 0;
+      this.grid.forEach(r => r.forEach((v, i) => { if (v !== '') m = Math.max(m, i + 1); }));
+      return m;
+    },
     getLastRow() {
       for (let r = this.grid.length; r > 0; r--) if (this.grid[r - 1].some(v => v !== '')) return r;
       return 0;
@@ -128,7 +133,7 @@ const ctx = {
   HtmlService: {}
 };
 vm.createContext(ctx);
-for (const f of ['Dates.gs', 'Sheet.gs', 'Code.gs']) {
+for (const f of ['Dates.gs', 'Sheet.gs', 'Code.gs', 'Patients.gs']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'apps-script', f), 'utf8'), ctx, { filename: f });
 }
 const run = (code) => vm.runInContext(code, ctx);
@@ -293,3 +298,45 @@ const bolat2 = run('getActiveCourses("18.11.2026")').find(c => c.name === 'Бо�
 assert.strictEqual(bolat2.lastDate, '2026-11-16');
 assert.strictEqual(bolat2.missed, 0);
 console.log('Демалыс тексерісі өтті ✔');
+
+// 17. Пациент картасы: жоспар бойынша келесі ем, «Курстағылар», қайта жазуды болдырмау
+run('setup()');
+const bs2 = sheets.find(s => s.name === 'Баптаулар');
+assert.ok(bs2.grid[0].includes('Медбике') && bs2.grid[0].includes('Дәрігер'), 'Баптаулар-ға жаңа бағандар қосылуы керек');
+ctx.card = { name: 'Нұрлан Ага', phone: '87071112233', start: '2026-11-16', total: '4',
+  plan: ['Физио', 'Плазма', 'Физио', 'Плазма'], nurse: 'Әсем', doctor: 'Ерлан', note: 'тізе' };
+let pr = run('savePatient(card)');
+const nid = pr.savedId;
+const nur = pr.patients.find(p => p.id === nid);
+assert.strictEqual(nur.phone, '+7 707 111 22 33');
+assert.deepStrictEqual(Array.from(nur.plan), ['Физио', 'Плазма', 'Физио', 'Плазма']);
+assert.strictEqual(nur.visits, 0); assert.strictEqual(nur.nextProc, 'Физио');
+assert.ok(pr.nurses.includes('Әсем'));
+// Сол атпен екінші карта — қате
+assert.throws(() => run('savePatient(card)'), /картасы бар/);
+// 16.11-де келді (Физио, 1/4)
+let p16 = run('getDay("16.11.2026")').physio[2].places[0];
+ctx.pl = p16;
+run('savePhysio("16.11.2026", pl.row, {name:"нұрлан ага", proc:"Физио", total:"4", day:"1"}, pl.prev)');
+const nx = run('patientNext("' + nid + '", "2026-11-18")');
+assert.strictEqual(nx.day, 2); assert.strictEqual(nx.proc, 'Плазма'); assert.strictEqual(nx.nurse, 'Әсем');
+// Курстағылар: картадан, ем — Плазма, уақыты — соңғы келген уақыты
+run('createDay("2026-11-19")');
+const cc = run('getActiveCourses("19.11.2026")').find(c => c.cardId === nid);
+assert.ok(cc, 'карталы пациент курстағылар тізімінде болуы керек');
+assert.strictEqual(cc.proc, 'Плазма'); assert.strictEqual(cc.day, 2); assert.strictEqual(cc.time, '10:30');
+ctx.items = [cc];
+const pres = run('placeCourses("19.11.2026", items)');
+assert.strictEqual(pres.placed.length, 1);
+const placedN = pres.day.physio.flatMap(b => b.places).find(p => p.name === 'Нұрлан Ага');
+assert.strictEqual(placedN.proc, 'Плазма'); assert.strictEqual(placedN.day, '2');
+assert.ok(run('getActiveCourses("19.11.2026")').find(c => c.cardId === nid).placed);
+// Карта өзгерту: курс 4 → 6, жоспар толықтырылады
+ctx.card2 = Object.assign({}, ctx.card, { id: nid, total: '6' });
+pr = run('savePatient(card2)');
+const nur2 = pr.patients.find(p => p.id === nid);
+assert.strictEqual(nur2.total, 6); assert.strictEqual(nur2.plan.length, 6); assert.strictEqual(nur2.visits, 2);
+assert.strictEqual(pr.patients.filter(p => p.name === 'Нұрлан Ага').length, 1, 'жаңа жол қосылмауы керек');
+const card = run('getPatientCard("' + nid + '")');
+assert.strictEqual(card.visits.map(v => v.date).join(','), '2026-11-16,2026-11-19');
+console.log('Пациент картасы тексерісі өтті ✔');

@@ -35,7 +35,9 @@ var CONFIG = {
   cacheTtlSec: 60 * 60,
   cachePrefix: 'day:v2:',
   settingsSheetName: 'Баптаулар',
-  settingsCacheKey: 'settings:v1'
+  settingsCacheKey: 'settings:v1',
+  patientsSheetName: 'Пациенттер',
+  patientsCacheKey: 'patients:v1'
 };
 
 // «Баптаулар» парағының бағандары (1-жол — тақырып, 2-жолдан бастап мәндер).
@@ -43,7 +45,9 @@ var SETTINGS_COLUMNS = [
   { field: 'recorder', title: 'Менеджер' },
   { field: 'source', title: 'Қайдан келді' },
   { field: 'service', title: 'Қызмет' },
-  { field: 'procedures', title: 'Ем түрлері' }
+  { field: 'procedures', title: 'Ем түрлері' },
+  { field: 'nurse', title: 'Медбике' },
+  { field: 'doctor', title: 'Дәрігер' }
 ];
 
 function doGet() {
@@ -82,6 +86,7 @@ function onEdit(e) {
   try {
     var name = e && e.range ? e.range.getSheet().getName() : null;
     if (name === CONFIG.settingsSheetName) clearCache(); // тізімдер өзгерді — барлық күн жаңарады
+    else if (name === CONFIG.patientsSheetName) cache_().remove(CONFIG.patientsCacheKey);
     else if (name) cacheDrop_(name);
   } catch (err) {
     // кэш маңызды емес — қате болса, елемейміз
@@ -124,7 +129,10 @@ function setup() {
 function ensureSettingsSheet_() {
   var ss = ss_();
   var sh = ss.getSheetByName(CONFIG.settingsSheetName);
-  if (sh) return { sheet: sh, created: false };
+  if (sh) {
+    ensureSettingsColumns_(sh);
+    return { sheet: sh, created: false };
+  }
 
   var opts = { recorder: DEFAULT_OPTIONS.recorder, source: DEFAULT_OPTIONS.source, service: DEFAULT_OPTIONS.service };
   var procs = TREATMENTS.slice();
@@ -138,7 +146,7 @@ function ensureSettingsSheet_() {
       b.places.forEach(function (p) { if (p.proc && procs.indexOf(p.proc) === -1) procs.push(p.proc); });
     });
   }
-  var cols = [opts.recorder, opts.source, opts.service, procs];
+  var cols = [opts.recorder, opts.source, opts.service, procs, [], []];
   var height = Math.max.apply(null, cols.map(function (c) { return c.length; }));
   var grid = [SETTINGS_COLUMNS.map(function (c) { return c.title; })];
   for (var i = 0; i < height; i++) grid.push(cols.map(function (c) { return c[i] || ''; }));
@@ -148,6 +156,18 @@ function ensureSettingsSheet_() {
   sh.getRange(1, 1, 1, SETTINGS_COLUMNS.length).setFontWeight('bold');
   sh.setFrozenRows(1);
   return { sheet: sh, created: true };
+}
+
+/** Ескі «Баптаулар» парағында жоқ бағандарды (мысалы «Медбике», «Дәрігер») соңына қосады. */
+function ensureSettingsColumns_(sh) {
+  var width = Math.max(sh.getLastColumn(), 1);
+  var header = sh.getRange(1, 1, 1, width).getDisplayValues()[0].map(function (h) { return String(h).trim(); });
+  var missing = SETTINGS_COLUMNS.filter(function (c) { return header.indexOf(c.title) === -1; });
+  if (!missing.length) return;
+  var at = header.filter(function (h) { return h; }).length + 1;
+  sh.getRange(1, at, 1, missing.length).setValues([missing.map(function (c) { return c.title; })]);
+  sh.getRange(1, at, 1, missing.length).setFontWeight('bold');
+  try { cache_().remove(CONFIG.settingsCacheKey); } catch (e) { /* елемейміз */ }
 }
 
 /**
@@ -189,10 +209,15 @@ function settings_() {
   var sh = ss_().getSheetByName(CONFIG.settingsSheetName);
   var st = null;
   if (sh) {
-    var values = sh.getDataRange().getDisplayValues().slice(1);
+    var all = sh.getDataRange().getDisplayValues();
+    var header = (all[0] || []).map(function (h) { return String(h).trim(); });
+    var values = all.slice(1);
     st = {};
-    SETTINGS_COLUMNS.forEach(function (c, i) {
+    SETTINGS_COLUMNS.forEach(function (c, pos) {
       var seen = {};
+      var i = header.indexOf(c.title);
+      if (i === -1) i = pos < 4 ? pos : -1; // ескі парақта тақырып өзгерген болса, бастапқы орны
+      if (i === -1) { st[c.field] = []; return; }
       st[c.field] = values.map(function (r) { return String(r[i] == null ? '' : r[i]).trim(); })
         .filter(function (v) { if (!v || seen[v]) return false; seen[v] = true; return true; });
     });
@@ -213,7 +238,9 @@ function onTableChange(e) {
 /** Кэшті толық тазалау (setup пен onTableChange қолданады; қолмен де іске қосуға болады). */
 function clearCache() {
   var names = ss_().getSheets().map(function (sh) { return sh.getName(); });
-  try { cache_().removeAll(names.map(cacheKey_).concat([CONFIG.settingsCacheKey])); } catch (e) { /* елемейміз */ }
+  try {
+    cache_().removeAll(names.map(cacheKey_).concat([CONFIG.settingsCacheKey, CONFIG.patientsCacheKey]));
+  } catch (e) { /* елемейміз */ }
   return names.length;
 }
 
@@ -749,14 +776,40 @@ function getActiveCourses(sheetName) {
       day.physio.some(function (b) { return b.taken > 0; }));
   });
 
-  var seen = {};
   var out = [];
+  var presentName = {};
+  if (target) {
+    target.physio.forEach(function (b) {
+      b.places.forEach(function (p) { if (p.name) presentName[normalizeName(p.name)] = true; });
+    });
+  }
+
+  // 1) Картасы бар пациенттер: курс күні мен емі картадағы жоспардан алынады.
+  var cardNames = {};
+  var cards = readPatients_().filter(function (c) { return c.start && c.start <= iso; });
+  var visitsMap = patientVisits_(cards, iso);
+  cards.forEach(function (c) {
+    var key = normalizeName(c.name);
+    cardNames[key] = true;
+    var visits = visitsMap[c.id] || [];
+    var next = nextForCard_(c, visits);
+    if (next.finished) return;
+    var ref = next.lastDate || c.start;
+    if (ref < from) return; // 30 күннен астам келмеген — курсты тастаған
+    var missed = workDays.filter(function (x) { return next.lastDate ? x.date > next.lastDate : x.date >= c.start; }).length;
+    out.push({ cardId: c.id, name: c.name, proc: next.proc, total: c.total, day: next.day,
+      time: next.lastTime, lastDate: next.lastDate, missed: missed, placed: Boolean(presentName[key]),
+      nurse: c.nurse });
+  });
+
+  // 2) Картасы жоқтар: бұрынғыдай, соңғы жазбасынан.
+  var seen = {};
   list.forEach(function (d) {
     var day = loaded[d.sheet];
     if (!day) return;
     day.physio.forEach(function (b) {
       b.places.forEach(function (p) {
-        if (!p.name) return;
+        if (!p.name || cardNames[normalizeName(p.name)]) return;
         var key = courseKey_(p.name, p.proc);
         if (seen[key]) return; // жаңарақ жазбасы бұрын қаралған
         seen[key] = true;
@@ -784,8 +837,13 @@ function placeCourses(sheetName, items) {
   var day = mutate_(sheetName, function (sh, data) {
     var blocks = data.day.physio;
     var present = {};
+    var presentName = {};
     blocks.forEach(function (b) {
-      b.places.forEach(function (p) { if (p.name) present[courseKey_(p.name, p.proc)] = true; });
+      b.places.forEach(function (p) {
+        if (!p.name) return;
+        present[courseKey_(p.name, p.proc)] = true;
+        presentName[normalizeName(p.name)] = true;
+      });
     });
     var rows = [];
     (items || []).forEach(function (it) {
@@ -793,7 +851,9 @@ function placeCourses(sheetName, items) {
       var proc = cleanText_(it && it.proc, 120);
       if (!name) return;
       var key = courseKey_(name, proc);
-      if (present[key]) { skipped.push({ name: name, reason: 'бұрыннан қойылған' }); return; }
+      if (present[key] || (it.cardId && presentName[normalizeName(name)])) {
+        skipped.push({ name: name, reason: 'бұрыннан қойылған' }); return;
+      }
       var course;
       try { course = parseCourse(it.total, it.day); } catch (e) {
         skipped.push({ name: name, reason: e.message }); return;
@@ -815,6 +875,7 @@ function placeCourses(sheetName, items) {
       best.place.name = name; // осы айналымда орын бос емес деп белгілейміз
       best.place.proc = proc;
       present[key] = true;
+      presentName[normalizeName(name)] = true;
       rows.push(best.place.row);
       placed.push({ name: name, time: best.block.time });
     });
