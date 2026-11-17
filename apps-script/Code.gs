@@ -470,6 +470,10 @@ function loadDays_(names) {
  * Бүкіл парақты екінші рет оқымаймыз.
  */
 function refreshRows_(sheetName, sh, data, rows) {
+  if (!rows.length) {
+    var c = cacheGetMany_([sheetName])[sheetName];
+    return buildPayload_(sheetName, sh, data, c && c.options);
+  }
   var lo = Math.min.apply(null, rows);
   var hi = Math.max.apply(null, rows);
   var fresh = sh.getRange(lo, 1, hi - lo + 1, LAYOUT.readCols).getDisplayValues();
@@ -681,6 +685,109 @@ function lastTreatment(name, beforeIso) {
     }
   }
   return null;
+}
+
+// ───────────────────────── Ем курстары ─────────────────────────
+
+var COURSE_LOOKBACK_DAYS = 14;
+
+function courseKey_(name, proc) {
+  return normalizeName(name) + '|' + normalizeName(proc);
+}
+
+/**
+ * Курсы аяқталмаған пациенттер — кестедегі жазбалардан автоматты жиналады.
+ * Әр пациент + ем түрі бойынша iso күнінен бұрынғы соңғы 14 күндегі ең соңғы жазба алынады.
+ * Курс белсенді деп саналады, егер «курс неше күн» мен «нешінші күн» толтырылған және day < total болса.
+ * Қайтарады: [{ name, proc, total, day (келесі күн), time, lastDate, placed }] — уақыт бойынша сұрыпталған.
+ * placed=true — пациент бұл күнге (sheetName) бұрыннан қойылған.
+ */
+function getActiveCourses(sheetName) {
+  var iso = parseSheetName(sheetName);
+  if (!iso) throw new Error('Күн парағы емес: ' + sheetName);
+  var from = addDays(iso, -COURSE_LOOKBACK_DAYS);
+  var list = dateSheets_().filter(function (d) { return d.date < iso && d.date >= from; }).reverse();
+  var loaded = loadDays_(list.map(function (d) { return d.sheet; }).concat([sheetName]));
+
+  var already = {};
+  var target = loaded[sheetName];
+  if (target) {
+    target.physio.forEach(function (b) {
+      b.places.forEach(function (p) { if (p.name) already[courseKey_(p.name, p.proc)] = true; });
+    });
+  }
+
+  var seen = {};
+  var out = [];
+  list.forEach(function (d) {
+    var day = loaded[d.sheet];
+    if (!day) return;
+    day.physio.forEach(function (b) {
+      b.places.forEach(function (p) {
+        if (!p.name) return;
+        var key = courseKey_(p.name, p.proc);
+        if (seen[key]) return; // жаңарақ жазбасы бұрын қаралған
+        seen[key] = true;
+        var total = Number(p.total), dayNo = Number(p.day);
+        if (!total || !dayNo || dayNo >= total) return; // курс белгісіз немесе аяқталған
+        out.push({ name: p.name, proc: p.proc, total: total, day: dayNo + 1, time: b.time,
+          lastDate: d.date, placed: Boolean(already[key]) });
+      });
+    });
+  });
+  out.sort(function (a, b) { return a.time < b.time ? -1 : a.time > b.time ? 1 : a.name < b.name ? -1 : 1; });
+  return out;
+}
+
+/**
+ * Таңдалған курстағы пациенттерді күнге қою. Әрқайсысы өз уақытына, ол толы болса —
+ * ең жақын бос орынға (тең болса, кейінгі уақытқа) қойылады. Бұрыннан қойылғандар өткізіледі.
+ * items: [{ name, proc, total, day, time }].
+ * Қайтарады: { day, placed: [{name, time}], skipped: [{name, reason}] }.
+ */
+function placeCourses(sheetName, items) {
+  var placed = [];
+  var skipped = [];
+  var day = mutate_(sheetName, function (sh, data) {
+    var blocks = data.day.physio;
+    var present = {};
+    blocks.forEach(function (b) {
+      b.places.forEach(function (p) { if (p.name) present[courseKey_(p.name, p.proc)] = true; });
+    });
+    var rows = [];
+    (items || []).forEach(function (it) {
+      var name = cleanText_(it && it.name, 120);
+      var proc = cleanText_(it && it.proc, 120);
+      if (!name) return;
+      var key = courseKey_(name, proc);
+      if (present[key]) { skipped.push({ name: name, reason: 'бұрыннан қойылған' }); return; }
+      var course;
+      try { course = parseCourse(it.total, it.day); } catch (e) {
+        skipped.push({ name: name, reason: e.message }); return;
+      }
+      var want = parseTime(it.time);
+      var best = null;
+      blocks.forEach(function (b) {
+        var free = b.places.filter(function (p) { return !p.extra && !p.name && !p.proc; })[0];
+        if (!free) return;
+        var dist = want === null ? 0 : Math.abs(b.minutes - want);
+        var later = want === null || b.minutes >= want;
+        if (!best || dist < best.dist || (dist === best.dist && later && !best.later)) {
+          best = { place: free, block: b, dist: dist, later: later };
+        }
+      });
+      if (!best) { skipped.push({ name: name, reason: 'бос орын жоқ' }); return; }
+      sh.getRange(best.place.row, LAYOUT.physio.name, 1, LAYOUT.physioFields.length)
+        .setValues([[safeCell_(name), safeCell_(proc), course.total, course.day]]);
+      best.place.name = name; // осы айналымда орын бос емес деп белгілейміз
+      best.place.proc = proc;
+      present[key] = true;
+      rows.push(best.place.row);
+      placed.push({ name: name, time: best.block.time });
+    });
+    return rows;
+  });
+  return { day: day, placed: placed, skipped: skipped };
 }
 
 /**

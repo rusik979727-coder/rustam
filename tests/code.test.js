@@ -254,3 +254,31 @@ assert.strictEqual(saved.doctor.find(x => x.row === ctx.slot.row).recorder, 'Д�
 run('createDay("2026-11-20")');
 assert.ok(sheets.find(s => s.name === '20.11.2026').validations[5].rangeRule);
 console.log('Баптаулар тексерісі өтті ✔');
+
+// 15. Ем курстары: 16.11-де Болат 3/10 (08:30) — 18.11-ге 4/10 болып ұсынылады
+const courses = run('getActiveCourses("18.11.2026")');
+const bolat = courses.find(c => c.name === 'Болат');
+assert.ok(bolat, 'Болат курста болуы керек');
+assert.strictEqual(bolat.day, 4); assert.strictEqual(bolat.total, 10);
+assert.strictEqual(bolat.time, '08:30'); assert.strictEqual(bolat.placed, false);
+// Аяқталған курс тізімге кірмейді
+let pl16 = run('getDay("16.11.2026")').physio[0].places[1];
+ctx.pl = pl16;
+run('savePhysio("16.11.2026", pl.row, {name:"Сәуле", proc:"Плазма", total:"5", day:"5"}, pl.prev)');
+assert.ok(!run('getActiveCourses("18.11.2026")').some(c => c.name === 'Сәуле'));
+// 08:30 блогын толтырып қоямыз → Болат ең жақын бос уақытқа (09:30) қойылуы керек
+let d18b = run('getDay("18.11.2026")');
+for (const [i, nm] of ['А', 'Б', 'В'].entries()) {
+  ctx.pl = d18b.physio[0].places[i];
+  d18b = run('savePhysio("18.11.2026", pl.row, {name:"' + nm + '", proc:"Физио"}, pl.prev)');
+}
+ctx.items = [bolat];
+let res2 = run('placeCourses("18.11.2026", items)');
+assert.deepStrictEqual(Array.from(res2.placed.map(p => p.time)), ['09:30']);
+const placedPlace = res2.day.physio[1].places[0];
+assert.strictEqual(placedPlace.name, 'Болат'); assert.strictEqual(placedPlace.day, '4'); assert.strictEqual(placedPlace.total, '10');
+// Қайта басса — екінші рет қойылмайды
+res2 = run('placeCourses("18.11.2026", items)');
+assert.strictEqual(res2.placed.length, 0); assert.strictEqual(res2.skipped[0].reason, 'бұрыннан қойылған');
+assert.ok(run('getActiveCourses("18.11.2026")').find(c => c.name === 'Болат').placed);
+console.log('Ем курстары тексерісі өтті ✔');
