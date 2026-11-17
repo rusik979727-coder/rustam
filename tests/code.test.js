@@ -342,12 +342,12 @@ assert.strictEqual(card.visits.map(v => v.date).join(','), '2026-11-16,2026-11-1
 console.log('Пациент картасы тексерісі өтті ✔');
 
 // 18. Демалыс және ауырған күндер
-const d18c = run('parseAbsences_("20.11.2026-22.11.2026 Ауырды; 25.11.2026 Демалыс")');
-assert.strictEqual(JSON.stringify(d18c), JSON.stringify([{from:'2026-11-20',to:'2026-11-22',reason:'Ауырды'},{from:'2026-11-25',to:'2026-11-25',reason:'Демалыс'}]));
+const d18c = run('parseAbsences_("20.11.2026-22.11.2026 Келмейді; 25.11.2026 Демалыс")');
+assert.strictEqual(JSON.stringify(d18c), JSON.stringify([{from:'2026-11-20',to:'2026-11-22',reason:'Келмейді'},{from:'2026-11-25',to:'2026-11-25',reason:'Демалыс'}]));
 assert.strictEqual(JSON.stringify(run('parseRestDays_("Сб, Жс")')), '[6,0]');
 assert.strictEqual(JSON.stringify(run('parseRestDays_("")')), '[0]');
 ctx.card3 = { name: 'Гүлім', start: '2026-11-16', total: '5', plan: ['Физио'], restDays: [0, 6],
-  absences: [{ from: '2026-11-18', to: '2026-11-19', reason: 'Ауырды' }] };
+  absences: [{ from: '2026-11-18', to: '2026-11-19', reason: 'Келмейді' }] };
 pr = run('savePatient(card3)');
 const g = pr.patients.find(p => p.name === 'Гүлім');
 // 16 Дс, 17 Сс, (18-19 ауырды), 20 Жм, (21 Сб, 22 Жс демалыс), 23 Дс, 24 Сс → 5-ші күн 24.11
@@ -355,14 +355,14 @@ assert.strictEqual(g.autoEnd, '2026-11-24');
 assert.strictEqual(sheets.find(s => s.name === 'Пациенттер').grid[0].includes('Келмейтін күндері'), true);
 const gRow = sheets.find(s => s.name === 'Пациенттер').grid.find(r => r[1] === 'Гүлім');
 assert.ok(gRow.includes('Дс'.length ? 'Сб, Жс' : ''), 'демалыс күндері жазылуы керек');
-assert.ok(gRow.includes('18.11.2026-19.11.2026 Ауырды'));
+assert.ok(gRow.includes('18.11.2026-19.11.2026 Келмейді'));
 // 19.11 курстағылар: Гүлім ауырып жатыр
 const g19 = run('getActiveCourses("19.11.2026")').find(c => c.cardId === g.id);
-assert.strictEqual(g19.off, 'Ауырды');
+assert.strictEqual(g19.off, 'Келмейді');
 // addAbsence → бітетін күн ұзарады (бұрын автоматты болса)
 ctx.card3b = Object.assign({}, ctx.card3, { id: g.id, end: '2026-11-24' });
 run('savePatient(card3b)');
-pr = run('addAbsence("' + g.id + '", "2026-11-23", "", "Ауырды")');
+pr = run('addAbsence("' + g.id + '", "2026-11-23", "", "Келмейді")');
 assert.strictEqual(pr.patients.find(p => p.id === g.id).end, '2026-11-25');
 console.log('Демалыс/ауырған күндер тексерісі өтті ✔');
 
@@ -376,17 +376,17 @@ ctx.pl = d17a.physio[0].places.find(p => !p.name);
 d17a = run('savePhysio("17.11.2026", pl.row, {name:"Арман", proc:"Физио", total:"3", day:"1"}, pl.prev)');
 assert.strictEqual(run('patientNext("' + arm.id + '", "2026-11-18")').day, 2);
 ctx.pl = d17a.physio.flatMap(b => b.places).find(p => p.name === 'Арман');
-const ms = run('markPhysioAbsent("17.11.2026", pl.row, pl.prev, "Ауырды")');
+const ms = run('markPhysioAbsent("17.11.2026", pl.row, pl.prev, "Келмейді")');
 const armPlace = ms.day.physio.flatMap(b => b.places).find(p => p.name === 'Арман');
 assert.ok(armPlace, 'аты кестеде қалуы керек');
-assert.strictEqual(armPlace.day, 'ауырды'); assert.strictEqual(armPlace.absent, true);
+assert.strictEqual(armPlace.day, 'келмейді'); assert.strictEqual(armPlace.absent, true);
 assert.strictEqual(ms.card.oldEnd, '2026-11-18'); assert.strictEqual(ms.card.end, '2026-11-19');
 const nx2 = run('patientNext("' + arm.id + '", "2026-11-18")');
 assert.strictEqual(nx2.day, 1, 'ауырған күн курсқа есептелмеуі керек'); assert.strictEqual(nx2.proc, 'Физио');
-assert.strictEqual(run('getPatientCard("' + arm.id + '")').card.absences[0].reason, 'Ауырды');
+assert.strictEqual(run('getPatientCard("' + arm.id + '")').card.absences[0].reason, 'Келмейді');
 console.log('Ауырып қалды тексерісі өтті ✔');
 
-// 20. «Ауырды» белгісі тұрған пациент сонда да келді: белгі алынады, картадан ауырған күн өшеді
+// 20. «Келмейді» белгісі тұрған пациент сонда да келді: белгі алынады, картадан ауырған күн өшеді
 ctx.pl = run('getDay("17.11.2026")').physio.flatMap(b => b.places).find(p => p.name === 'Арман');
 run('savePhysio("17.11.2026", pl.row, {name:"Арман", proc:"Физио", total:"3", day:"1"}, pl.prev)');
 const armCard = run('getPatientCard("' + arm.id + '")');

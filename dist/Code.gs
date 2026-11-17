@@ -712,7 +712,7 @@ function savePhysio(sheetName, row, input, prev) {
     }
     return [row];
   });
-  // «Ауырды» деп белгіленген пациент сонда да келді — картадан сол күнгі белгіні алып тастаймыз.
+  // «Келмейді» деп белгіленген пациент сонда да келді — картадан сол күнгі белгіні алып тастаймыз.
   if (cameAfterAll) {
     try { removeAbsenceDay_(cameAfterAll, parseSheetName(sheetName)); } catch (e) { /* карта маңызды емес */ }
   }
@@ -1022,7 +1022,7 @@ var PATIENT_COLUMNS = [
 
 // Апта күндері: JS getUTCDay() нөмірі → қысқа атауы (таблицада осылай жазылады).
 var WEEKDAY_SHORT = ['Жс', 'Дс', 'Сс', 'Ср', 'Бс', 'Жм', 'Сб'];
-var ABSENCE_REASONS = ['Ауырды', 'Демалыс', 'Басқа себеп'];
+var ABSENCE_REASONS = ['Келмейді', 'Демалыс'];
 
 /** "Сб, Жс" → [6, 0]. Бос болса — жексенбі; "жоқ" — демалыссыз. */
 function parseRestDays_(s) {
@@ -1043,7 +1043,7 @@ function formatRestDays_(days) {
     .map(function (d) { return WEEKDAY_SHORT[d]; }).join(', ');
 }
 
-/** "20.11.2026-22.11.2026 Ауырды; 25.11.2026 Демалыс" → [{from, to, reason}] */
+/** "20.11.2026-22.11.2026 Келмейді; 25.11.2026 Демалыс" → [{from, to, reason}] */
 function parseAbsences_(s) {
   return String(s == null ? '' : s).split(/[;\n]/).map(function (part) {
     var m = /^\s*([\d.]+)(?:\s*[–—-]\s*([\d.]+))?\s*(.*)$/.exec(part);
@@ -1052,7 +1052,7 @@ function parseAbsences_(s) {
     var to = m[2] ? parseCardDate_(m[2]) : from;
     if (!from) return null;
     if (!to || to < from) to = from;
-    return { from: from, to: to, reason: m[3].trim() || 'Ауырды' };
+    return { from: from, to: to, reason: m[3].trim() || 'Келмейді' };
   }).filter(function (a) { return a; });
 }
 
@@ -1069,14 +1069,14 @@ function cleanAbsences_(list) {
     var to = parseCardDate_(a && a.to) || from;
     if (!from) return;
     if (to < from) { var t = to; to = from; from = t; }
-    var reason = cleanText_(a.reason, 40) || 'Ауырды';
+    var reason = cleanText_(a.reason, 40) || 'Келмейді';
     out.push({ from: from, to: to, reason: reason });
   });
   out.sort(function (a, b) { return a.from < b.from ? -1 : 1; });
   return out;
 }
 
-/** Пациент бұл күні келмейді ме? Себебін қайтарады ('Демалыс', 'Ауырды', …) немесе ''. */
+/** Пациент бұл күні келмейді ме? Себебін қайтарады ('Демалыс', 'Келмейді', …) немесе ''. */
 function cardOffReason_(card, iso) {
   for (var i = 0; i < (card.absences || []).length; i++) {
     var a = card.absences[i];
@@ -1212,7 +1212,7 @@ function patientVisits_(cards, beforeIso) {
     if (!day) return;
     day.physio.forEach(function (b) {
       b.places.forEach(function (p) {
-        if (!p.name || p.absent) return; // «ауырды» деп белгіленген күн курсқа саналмайды
+        if (!p.name || p.absent) return; // «келмейді» деп белгіленген күн курсқа саналмайды
         (byName[normalizeName(p.name)] || []).forEach(function (c) {
           if (c.start && d.date < c.start) return;
           out[c.id].push({ date: d.date, sheet: d.sheet, time: b.time, proc: p.proc, row: p.row });
@@ -1373,7 +1373,7 @@ function savePatient(p) {
 }
 
 /**
- * Картаға келмейтін күн(дер) қосу — мысалы «Курстағылар» тізімінен «Ауырды» басқанда.
+ * Картаға келмейтін күн(дер) қосу — мысалы «Курстағылар» тізімінен «Келмейді» басқанда.
  * Бітетін күн бұрын автоматты есептелген болса, ол да ұзартылады.
  */
 function addAbsence(id, from, to, reason) {
@@ -1392,8 +1392,8 @@ function addAbsence(id, from, to, reason) {
 }
 
 /**
- * Емге қойылған пациент сол күні ауырып қалды. Аты кестеде орнында қалады, тек «нешінші күн» (N)
- * бағанына «ауырды» деп жазылады — сондықтан бұл күн курсқа саналмайды. Картасы бар болса,
+ * Емге қойылған пациент сол күні келмейді. Аты кестеде орнында қалады, тек «нешінші күн» (N)
+ * бағанына «келмейді» деп жазылады — сондықтан бұл күн курсқа саналмайды. Картасы бар болса,
  * картаға «келмейтін күн» болып жазылып, бітетін күн ұзарады.
  * Қайтарады: { day, name, card: { id, end, oldEnd } | null }.
  */
@@ -1413,7 +1413,7 @@ function markPhysioAbsent(sheetName, row, prev, reason) {
   var cardInfo = null;
   if (card) {
     var already = card.absences.some(function (a) { return iso >= a.from && iso <= a.to; });
-    var res = already ? getPatients() : addAbsence(card.id, iso, iso, cleanText_(reason, 40) || 'Ауырды');
+    var res = already ? getPatients() : addAbsence(card.id, iso, iso, cleanText_(reason, 40) || 'Келмейді');
     var updated = res.patients.filter(function (p) { return p.id === card.id; })[0];
     cardInfo = { id: card.id, end: updated ? updated.end : card.end, oldEnd: card.end };
   }
@@ -1429,7 +1429,7 @@ function cardForName_(name, iso) {
 }
 
 /**
- * «Ауырды» деп белгіленген пациент сонда да келді: картадан сол күнгі келмейтін күнді алып тастаймыз
+ * «Келмейді» деп белгіленген пациент сонда да келді: картадан сол күнгі келмейтін күнді алып тастаймыз
  * (бітетін күн бұрын автоматты есептелген болса, ол да қайта есептеледі).
  */
 function removeAbsenceDay_(name, iso) {
@@ -1474,11 +1474,11 @@ var LAYOUT = {
   readCols: 14
 };
 
-// «Нешінші күн» (N) бағанында сан орнына осы сөз тұрса — пациент сол күні келмеген (ауырған).
+// «Нешінші күн» (N) бағанында сан орнына осы сөз тұрса — пациент сол күні келмейді.
 // Мұндай жазба кестеде көрініп тұрады, бірақ курс күні ретінде саналмайды.
-var ABSENT_MARK = 'ауырды';
+var ABSENT_MARK = 'келмейді';
 function isAbsentMark(v) {
-  return /ауыр|келмеді|келмеди|❌/i.test(String(v == null ? '' : v));
+  return /келмейді|келмейди|келмеді|келмеди|ауыр|❌/i.test(String(v == null ? '' : v));
 }
 
 // Ем түрлері: батырма ретінде әрқашан көрсетіледі. Таблицада кездескен басқа түрлер соңынан қосылады.

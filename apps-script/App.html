@@ -572,7 +572,7 @@
       </fieldset>
       <div class="sheet-actions">
         <button type="submit" class="primary">Емге жазу</button>
-        <button type="button" class="ghost" id="physioSick" hidden>🤒 Ауырды, бүгін келмеді</button>
+        <button type="button" class="ghost" id="physioSick" hidden>Бүгін келмейді</button>
         <button type="button" class="danger" id="physioFree" hidden>Орынды босату</button>
       </div>
     </form>
@@ -626,7 +626,7 @@
         <div class="seg week" id="pfRest"></div>
       </fieldset>
       <fieldset class="field">
-        <legend>Келмейтін күндері: ауырды, демалды, т.б.</legend>
+        <legend>Келмейтін күндері</legend>
         <ul class="absences" id="pfAbs"></ul>
         <div class="abs-add">
           <input type="date" id="absFrom" aria-label="Қай күннен">
@@ -1058,7 +1058,7 @@
     f.day.value = place.absent ? '' : place.day;
     state.physioEdit.isNew = !place.name;
     showCourseHint(place.absent
-      ? '🤒 Бұл күні <b>ауырды</b> деп белгіленген, курсқа саналмайды. Сонда да келсе, нешінші күн екенін жазып, «Емге жазу» басыңыз.'
+      ? 'Бұл күні <b>келмейді</b> деп белгіленген, курсқа саналмайды. Сонда да келсе, нешінші күн екенін жазып, «Емге жазу» басыңыз.'
       : '');
     renderProcChips(place.proc || (place.name ? '' : state.day.procedures[0]));
     $('#physioTitle').textContent = (place.name ? 'Ем, ' : 'Емге жазу, ') + block.time;
@@ -1073,7 +1073,7 @@
 
   // «3/10» — курстың нешінші күні; тек біреуі белгілі болса, соны ғана көрсетеміз.
   function courseText(p) {
-    if (p.absent) return 'ауырды';
+    if (p.absent) return 'келмейді';
     if (p.day && p.total) return p.day + '/' + p.total;
     if (p.day) return p.day + '-күн';
     if (p.total) return p.total + ' күн';
@@ -1129,17 +1129,17 @@
     }).catch(function (err) { handleWriteError(err, $('#physioDialog')); });
   }
 
-  // Емге қойылған пациент ауырып қалды: аты кестеде қалады, бірақ бұл күн курсқа саналмайды, картасы ұзарады.
+  // Емге қойылған пациент бүгін келмейді: аты кестеде қалады, бірақ бұл күн курсқа саналмайды, картасы ұзарады.
   function markPhysioSick() {
     var ed = state.physioEdit;
-    if (!confirm(ed.name + ' ' + ed.time + ' уақытындағы емге келмейді (ауырды) деп белгілейміз бе?\n' +
+    if (!confirm(ed.name + ' ' + ed.time + ' уақытындағы емге келмейді деп белгілейміз бе?\n' +
       'Аты кестеде қалады, бірақ бұл күн курсқа саналмайды.')) return;
     var btn = $('#physioSick');
     busy(btn, true);
-    call('markPhysioAbsent', ed.sheet, ed.row, ed.prev, 'Ауырды').then(function (res) {
+    call('markPhysioAbsent', ed.sheet, ed.row, ed.prev, 'Келмейді').then(function (res) {
       applyDay(res.day);
       $('#physioDialog').close();
-      var msg = res.name + ': ауырды деп белгіленді, бұл күн курсқа саналмайды';
+      var msg = res.name + ': келмейді деп белгіленді, бұл күн курсқа саналмайды';
       if (res.card) {
         msg += res.card.end && res.card.end !== res.card.oldEnd
           ? '. Курс ұзарды: енді ' + humanDate(res.card.end) + ' бітеді'
@@ -1187,7 +1187,7 @@
             : !c.placed && c.missed ? ' <span class="cl-missed">· ' + c.missed + ' күн келмеді</span>' : '') +
           '</span></span>' +
           '<span class="cl-time">' + esc(c.time || '—') + '</span></label>' +
-          (c.cardId && !c.placed && !off ? '<button type="button" class="cl-sick" data-sick="' + i + '" title="Картаға бүгін ауырды деп жазу">Ауырды</button>' : '') +
+          (c.cardId && !c.placed && !off ? '<button type="button" class="cl-sick" data-sick="' + i + '" title="Картаға бүгін келмейді деп жазу">Келмейді</button>' : '') +
           '</li>';
       }).join('');
       $('#coursesList').hidden = false;
@@ -1198,9 +1198,9 @@
   function markSick(i) {
     var c = coursesData[i];
     if (!c || !c.cardId) return;
-    call('addAbsence', c.cardId, state.day.date, '', 'Ауырды').then(function (res) {
+    call('addAbsence', c.cardId, state.day.date, '', 'Келмейді').then(function (res) {
       applyPatients(res);
-      toast(c.name + ': ' + humanDate(state.day.date) + ' ауырды деп картаға жазылды');
+      toast(c.name + ': ' + humanDate(state.day.date) + ' келмейді деп картаға жазылды');
       openCourses();
     }).catch(function (err) { toast(errText(err), true); });
   }
@@ -1224,7 +1224,7 @@
   }
 
   // ───────── Пациент карталары ─────────
-  var pt = { list: [], procedures: ['Физио', 'Плазма'], reasons: ['Ауырды', 'Демалыс', 'Басқа себеп'], filter: 'active',
+  var pt = { list: [], procedures: ['Физио', 'Плазма'], reasons: ['Келмейді', 'Демалыс'], filter: 'active',
     edit: null, plan: [], endAuto: true, rest: [0], abs: [], visitDates: [] };
   var WEEK = [[1, 'Дс'], [2, 'Сс'], [3, 'Ср'], [4, 'Бс'], [5, 'Жм'], [6, 'Сб'], [0, 'Жс']];
 

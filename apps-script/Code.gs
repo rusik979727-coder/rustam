@@ -707,7 +707,7 @@ function savePhysio(sheetName, row, input, prev) {
     }
     return [row];
   });
-  // «Ауырды» деп белгіленген пациент сонда да келді — картадан сол күнгі белгіні алып тастаймыз.
+  // «Келмейді» деп белгіленген пациент сонда да келді — картадан сол күнгі белгіні алып тастаймыз.
   if (cameAfterAll) {
     try { removeAbsenceDay_(cameAfterAll, parseSheetName(sheetName)); } catch (e) { /* карта маңызды емес */ }
   }
