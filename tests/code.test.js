@@ -101,6 +101,14 @@ const ctx = {
       removeAll(ks) { apiCalls++; ks.forEach(k => store.delete(k)); }
     })
   },
+  ScriptApp: (() => {
+    const triggers = [];
+    return {
+      triggers,
+      getProjectTriggers: () => triggers,
+      newTrigger: (fn) => ({ forSpreadsheet: () => ({ onChange: () => ({ create: () => triggers.push({ getHandlerFunction: () => fn }) }) }) })
+    };
+  })(),
   LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) },
   Utilities: { formatDate: () => '2026-11-17' },
   Session: { getScriptTimeZone: () => 'Asia/Almaty' },
@@ -197,3 +205,15 @@ assert.ok(!s17.grid.some(r => r[1] === 'Y'), 'қате жолға жазылма
 const after17 = run('getDay("17.11.2026")');
 assert.strictEqual(after17.doctor[0].time, '08:40');
 console.log('Жол қосу тексерісі өтті ✔');
+
+// 12. setup триггерді бір рет орнатады; құрылым өзгерісі кэшті тазалайды
+assert.strictEqual(run('setup()'), 'Триггер орнатылды');
+assert.strictEqual(run('setup()'), 'Триггер бұрыннан орнатылған');
+assert.strictEqual(ctx.ScriptApp.triggers.length, 1);
+run('getDay("17.11.2026")');
+assert.ok(store.has('day:v2:17.11.2026'));
+run('onTableChange({ changeType: "EDIT" })');
+assert.ok(store.has('day:v2:17.11.2026'), 'EDIT кезінде бүкіл кэш тазаланбайды');
+run('onTableChange({ changeType: "INSERT_ROW" })');
+assert.ok(!store.has('day:v2:17.11.2026'), 'жол қосылғанда кэш тазалануы керек');
+console.log('Триггер тексерісі өтті ✔');
