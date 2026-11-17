@@ -1,4 +1,4 @@
-// Белес График. Бұл файл автоматты түрде жиналған (apps-script/*.gs).
+// Белес График — Код.gs
 // Apps Script-тегі ескі кодты толық өшіріп, осы файлды түгел қойыңыз.
 // Қойғаннан кейін БІР РЕТ: ▶ Выполнить → setup → рұқсат беру.
 
@@ -52,10 +52,26 @@ var SETTINGS_COLUMNS = [
 ];
 
 function doGet() {
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
+  var t = HtmlService.createTemplateFromFile('App');
+  t.logo = logoSrc_();
+  return t.evaluate()
     .setTitle(CONFIG.appTitle)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+}
+
+/**
+ * Логотип суреті ескі «Index» файлынан алынады (сурет коды өте ұзын, сондықтан App.html-ге
+ * қайта көшірмейміз). Index файлын өшірмеңіз — өшірілсе, қолданба логотипсіз ашылады.
+ */
+function logoSrc_() {
+  try {
+    var html = HtmlService.createHtmlOutputFromFile('Index').getContent();
+    var m = /class="brand-mark"[^>]*?src="(data:image\/[^"]+)"/.exec(html) ||
+      /src="(data:image\/[^"]+)"[^>]*?class="brand-mark"/.exec(html);
+    return m ? m[1] : '';
+  } catch (e) {
+    return '';
+  }
 }
 
 /** HTML шаблонына басқа файлды қосу үшін: <?!= include('Styles') ?> */
