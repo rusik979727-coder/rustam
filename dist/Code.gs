@@ -697,15 +697,18 @@ function savePhysio(sheetName, row, input, prev) {
     assertPhysioRow_(data, row);
     assertUnchanged_(data.values, row, 'physio', prev);
     var oldName = cell_(data.values, row, LAYOUT.physio.name);
-    if (oldName && isAbsentMark(cell_(data.values, row, LAYOUT.physio.day)) &&
-        String(input && input.day || '').trim() && !isAbsentMark(input.day)) {
+    var oldAbsent = isAbsentMark(cell_(data.values, row, LAYOUT.physio.day)) ||
+      cell_(data.values, row, LAYOUT.physio.att) === '❌';
+    if (oldName && oldAbsent && String(input && input.day || '').trim() && !isAbsentMark(input.day)) {
       cameAfterAll = oldName;
+      sh.getRange(row, LAYOUT.physio.att).clearContent(); // «келмеді» белгісін алып тастаймыз
     }
     var name = cleanText_(input && input.name, 120);
     var proc = cleanText_(input && input.proc, 120);
     var range = sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physioFields.length);
     if (!name && !proc) {
-      range.clearContent();
+      // Орын босатылады: келді/келмеді белгісі (O) де тазаланады.
+      sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physio.att - LAYOUT.physio.name + 1).clearContent();
     } else {
       var course = parseCourse(input && input.total, input && input.day);
       range.setValues([[safeCell_(name), safeCell_(proc), course.total, course.day]]);
@@ -937,7 +940,7 @@ function createDay(iso) {
     var last = data.values.length;
     if (last > day.headerRow) {
       a1.push(a1Col_(LAYOUT.physio.name) + (day.headerRow + 1) + ':' +
-        a1Col_(LAYOUT.physio.name + LAYOUT.physioFields.length - 1) + last);
+        a1Col_(LAYOUT.physio.att) + last);
     }
     if (a1.length) sh.getRangeList(a1).clearContent();
     cacheDrop_(name);
@@ -1017,7 +1020,9 @@ var PATIENT_COLUMNS = [
   { field: 'doctor', title: 'Дәрігер' },
   { field: 'note', title: 'Ескерту' },
   { field: 'restDays', title: 'Демалыс күндері' },
-  { field: 'absences', title: 'Келмейтін күндері' }
+  { field: 'absences', title: 'Келмейтін күндері' },
+  { field: 'complaint', title: 'Шағымы' },
+  { field: 'complaintDate', title: 'Шағым күні' }
 ];
 
 // Апта күндері: JS getUTCDay() нөмірі → қысқа атауы (таблицада осылай жазылады).
@@ -1156,7 +1161,9 @@ function readPatients_(fresh) {
         doctor: get('doctor'),
         note: get('note'),
         restDays: ix.restDays < row.length ? parseRestDays_(get('restDays')) : [0],
-        absences: ix.absences < row.length ? parseAbsences_(get('absences')) : []
+        absences: ix.absences < row.length ? parseAbsences_(get('absences')) : [],
+        complaint: ix.complaint < row.length ? get('complaint') : '',
+        complaintDate: ix.complaintDate < row.length ? parseCardDate_(get('complaintDate')) : ''
       });
     }
   }
@@ -1364,6 +1371,11 @@ function savePatient(p) {
     put('note', safeCell_(cleanText_(p.note, 300)));
     put('restDays', formatRestDays_(restDays));
     put('absences', formatAbsences_(absences));
+    // Шағым: мәтін бар болса — пациент ерекше назарда. Күні берілмесе, бүгінгі күн.
+    var complaint = cleanText_(p.complaint, 300);
+    var complaintDate = complaint ? (parseCardDate_(p.complaintDate) || todayIso_()) : '';
+    put('complaint', safeCell_(complaint));
+    put('complaintDate', complaintDate ? formatSheetName(complaintDate) : '');
     sh.getRange(row, 1, 1, width).setValues([values]);
     try { cache_().remove(CONFIG.patientsCacheKey); } catch (e) { /* елемейміз */ }
   });
@@ -1388,36 +1400,55 @@ function addAbsence(id, from, to, reason) {
   var end = wasAuto ? computeEnd_(updated) : card.end;
   return savePatient({ id: card.id, name: card.name, phone: card.phone, start: card.start, end: end,
     total: card.total, plan: card.plan, nurse: card.nurse, doctor: card.doctor, note: card.note,
-    restDays: card.restDays, absences: updated.absences });
+    restDays: card.restDays, absences: updated.absences,
+    complaint: card.complaint, complaintDate: card.complaintDate });
 }
 
 /**
- * Емге қойылған пациент сол күні келмейді. Аты кестеде орнында қалады, тек «нешінші күн» (N)
- * бағанына «келмейді» деп жазылады — сондықтан бұл күн курсқа саналмайды. Картасы бар болса,
- * картаға «келмейтін күн» болып жазылып, бітетін күн ұзарады.
+ * Ем уақытында келді/келмеді белгісі (O бағаны): value — '✅', '❌' немесе '' (белгіні алу).
+ *  ✅ — келді, бұл күн курсқа саналады;
+ *  ❌ — келмеді: бұл күн курсқа саналмайды, картаға «Келмейді» болып жазылады, бітетін күн жылжиды;
+ *  '' — белгі алынады; бұрын ❌ болса, картадағы сол күнгі белгі де алынады.
  * Қайтарады: { day, name, card: { id, end, oldEnd } | null }.
  */
-function markPhysioAbsent(sheetName, row, prev, reason) {
+function setPhysioAttendance(sheetName, row, value, prev, reason) {
   var iso = parseSheetName(sheetName);
   if (!iso) throw new Error('Күн парағы емес: ' + sheetName);
+  value = value === '✅' || value === '❌' ? value : '';
   var name = '';
+  var wasAbsent = false;
   var day = mutate_(sheetName, function (sh, data) {
     assertPhysioRow_(data, row);
     assertUnchanged_(data.values, row, 'physio', prev);
     name = cell_(data.values, row, LAYOUT.physio.name);
     if (!name) throw new Error('Бұл орында пациент жоқ.');
-    sh.getRange(row, LAYOUT.physio.day).setValue(ABSENT_MARK);
+    var dayCell = cell_(data.values, row, LAYOUT.physio.day);
+    wasAbsent = cell_(data.values, row, LAYOUT.physio.att) === '❌' || isAbsentMark(dayCell);
+    var cell = sh.getRange(row, LAYOUT.physio.att);
+    if (value) cell.setValue(value); else cell.clearContent();
+    // Ескі тәсілмен N бағанына жазылған «келмейді» белгісі болса — оны да алып тастаймыз.
+    if (value !== '❌' && isAbsentMark(dayCell)) sh.getRange(row, LAYOUT.physio.day).clearContent();
     return [row];
   });
   var card = cardForName_(name, iso);
   var cardInfo = null;
   if (card) {
-    var already = card.absences.some(function (a) { return iso >= a.from && iso <= a.to; });
-    var res = already ? getPatients() : addAbsence(card.id, iso, iso, cleanText_(reason, 40) || 'Келмейді');
-    var updated = res.patients.filter(function (p) { return p.id === card.id; })[0];
-    cardInfo = { id: card.id, end: updated ? updated.end : card.end, oldEnd: card.end };
+    var oldEnd = card.end;
+    if (value === '❌') {
+      var already = card.absences.some(function (a) { return iso >= a.from && iso <= a.to; });
+      if (!already) addAbsence(card.id, iso, iso, cleanText_(reason, 40) || 'Келмейді');
+    } else if (wasAbsent) {
+      removeAbsenceDay_(name, iso);
+    }
+    var fresh = readPatients_(true).filter(function (c) { return c.id === card.id; })[0];
+    cardInfo = { id: card.id, end: fresh ? fresh.end : oldEnd, oldEnd: oldEnd };
   }
   return { day: day, name: name, card: cardInfo };
+}
+
+/** «Бүгін келмейді» батырмасы — setPhysioAttendance(…, '❌'). */
+function markPhysioAbsent(sheetName, row, prev, reason) {
+  return setPhysioAttendance(sheetName, row, '❌', prev, reason);
 }
 
 /** Аты бойынша сол күнге қатысты карта (бірнеше болса — ең соңғы басталғаны). */
@@ -1448,7 +1479,39 @@ function removeAbsenceDay_(name, iso) {
   updated.absences = keep;
   savePatient({ id: card.id, name: card.name, phone: card.phone, start: card.start,
     end: wasAuto ? computeEnd_(updated) : card.end, total: card.total, plan: card.plan,
-    nurse: card.nurse, doctor: card.doctor, note: card.note, restDays: card.restDays, absences: keep });
+    nurse: card.nurse, doctor: card.doctor, note: card.note, restDays: card.restDays, absences: keep,
+    complaint: card.complaint, complaintDate: card.complaintDate });
+}
+
+/**
+ * Бос ем орнына картасы бар пациентті қою: курс күні мен емі сол күнге дейінгі келулерден
+ * және картадағы жоспардан есептеледі. Пациент бұл күнге бұрын қойылған болса — қате.
+ * Қайтарады: { day, name, dayNo, proc }.
+ */
+function placeCardPatient(sheetName, row, prev, cardId) {
+  var iso = parseSheetName(sheetName);
+  if (!iso) throw new Error('Күн парағы емес: ' + sheetName);
+  var card = readPatients_().filter(function (c) { return c.id === cardId; })[0];
+  if (!card) throw new Error('Карта табылмады. Тізімді жаңартып көріңіз.');
+  var visits = patientVisits_([card], iso)[card.id] || [];
+  var next = nextForCard_(card, visits);
+  if (next.finished) throw new Error(card.name + ': курс аяқталған (' + card.total + ' күн). Жаңа курс болса, картаны өзгертіңіз.');
+  var key = normalizeName(card.name);
+  var day = mutate_(sheetName, function (sh, data) {
+    assertPhysioRow_(data, row);
+    assertUnchanged_(data.values, row, 'physio', prev);
+    if (cell_(data.values, row, LAYOUT.physio.name)) {
+      throw new Error('CONFLICT: Бұл орынға біреу жазылып қойыпты. Кесте жаңартылды — басқа орынды таңдаңыз.');
+    }
+    var already = data.day.physio.some(function (b) {
+      return b.places.some(function (p) { return p.name && normalizeName(p.name) === key; });
+    });
+    if (already) throw new Error(card.name + ' бұл күнге бұрын қойылған.');
+    sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physio.att - LAYOUT.physio.name + 1)
+      .setValues([[safeCell_(card.name), safeCell_(next.proc), card.total || '', next.day, '']]);
+    return [row];
+  });
+  return { day: day, name: card.name, dayNo: next.day, proc: next.proc };
 }
 
 // ════════ Sheet.gs ════════
@@ -1468,10 +1531,11 @@ var LAYOUT = {
   defaultHeaderRow: 2,
   doctor: { time: 1, name: 2, phone: 3, comment: 4, recorder: 5, source: 6, service: 7, attended: 8 },
   doctorFields: ['name', 'phone', 'comment', 'recorder', 'source', 'service', 'attended'],
-  physio: { time: 10, name: 11, proc: 12, total: 13, day: 14 },
+  // att (O) — ем уақытында келді ✅ / келмеді ❌.
+  physio: { time: 10, name: 11, proc: 12, total: 13, day: 14, att: 15 },
   physioFields: ['name', 'proc', 'total', 'day'],
   physioBlockSize: 3,
-  readCols: 14
+  readCols: 15
 };
 
 // «Нешінші күн» (N) бағанында сан орнына осы сөз тұрса — пациент сол күні келмейді.
@@ -1561,10 +1625,13 @@ function parsePhysioBlocks(values, headerRow, merges) {
       var proc = cell_(values, r, C.proc);
       var total = cell_(values, r, C.total);
       var dayNo = cell_(values, r, C.day);
+      var att = cell_(values, r, C.att);
       var inBlock = r <= end;
       if (!inBlock && !name && !proc) continue;
       places.push({ row: r, name: name, proc: proc, total: total, day: dayNo, extra: !inBlock,
-        absent: Boolean(name) && isAbsentMark(dayNo),
+        att: att,
+        came: Boolean(name) && att === '✅',
+        absent: Boolean(name) && (isAbsentMark(dayNo) || att === '❌'),
         prev: rowSnapshot(values, r, 'physio') });
     }
     return {
@@ -1588,7 +1655,7 @@ function sortByTime_(list) {
 /** Жолдың ағымдағы мәндері — қақтығысты анықтау үшін клиентке беріледі. */
 function rowSnapshot(values, row, kind) {
   var cols = kind === 'doctor' ? LAYOUT.doctor : LAYOUT.physio;
-  var fields = kind === 'doctor' ? LAYOUT.doctorFields : LAYOUT.physioFields;
+  var fields = kind === 'doctor' ? LAYOUT.doctorFields : LAYOUT.physioFields.concat(['att']);
   return fields.map(function (f) { return cell_(values, row, cols[f]); }).join('␟');
 }
 

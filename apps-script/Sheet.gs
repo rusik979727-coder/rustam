@@ -14,10 +14,11 @@ var LAYOUT = {
   defaultHeaderRow: 2,
   doctor: { time: 1, name: 2, phone: 3, comment: 4, recorder: 5, source: 6, service: 7, attended: 8 },
   doctorFields: ['name', 'phone', 'comment', 'recorder', 'source', 'service', 'attended'],
-  physio: { time: 10, name: 11, proc: 12, total: 13, day: 14 },
+  // att (O) — ем уақытында келді ✅ / келмеді ❌.
+  physio: { time: 10, name: 11, proc: 12, total: 13, day: 14, att: 15 },
   physioFields: ['name', 'proc', 'total', 'day'],
   physioBlockSize: 3,
-  readCols: 14
+  readCols: 15
 };
 
 // «Нешінші күн» (N) бағанында сан орнына осы сөз тұрса — пациент сол күні келмейді.
@@ -107,10 +108,13 @@ function parsePhysioBlocks(values, headerRow, merges) {
       var proc = cell_(values, r, C.proc);
       var total = cell_(values, r, C.total);
       var dayNo = cell_(values, r, C.day);
+      var att = cell_(values, r, C.att);
       var inBlock = r <= end;
       if (!inBlock && !name && !proc) continue;
       places.push({ row: r, name: name, proc: proc, total: total, day: dayNo, extra: !inBlock,
-        absent: Boolean(name) && isAbsentMark(dayNo),
+        att: att,
+        came: Boolean(name) && att === '✅',
+        absent: Boolean(name) && (isAbsentMark(dayNo) || att === '❌'),
         prev: rowSnapshot(values, r, 'physio') });
     }
     return {
@@ -134,7 +138,7 @@ function sortByTime_(list) {
 /** Жолдың ағымдағы мәндері — қақтығысты анықтау үшін клиентке беріледі. */
 function rowSnapshot(values, row, kind) {
   var cols = kind === 'doctor' ? LAYOUT.doctor : LAYOUT.physio;
-  var fields = kind === 'doctor' ? LAYOUT.doctorFields : LAYOUT.physioFields;
+  var fields = kind === 'doctor' ? LAYOUT.doctorFields : LAYOUT.physioFields.concat(['att']);
   return fields.map(function (f) { return cell_(values, row, cols[f]); }).join('␟');
 }
 

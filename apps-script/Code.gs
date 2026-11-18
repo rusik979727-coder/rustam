@@ -692,15 +692,18 @@ function savePhysio(sheetName, row, input, prev) {
     assertPhysioRow_(data, row);
     assertUnchanged_(data.values, row, 'physio', prev);
     var oldName = cell_(data.values, row, LAYOUT.physio.name);
-    if (oldName && isAbsentMark(cell_(data.values, row, LAYOUT.physio.day)) &&
-        String(input && input.day || '').trim() && !isAbsentMark(input.day)) {
+    var oldAbsent = isAbsentMark(cell_(data.values, row, LAYOUT.physio.day)) ||
+      cell_(data.values, row, LAYOUT.physio.att) === '❌';
+    if (oldName && oldAbsent && String(input && input.day || '').trim() && !isAbsentMark(input.day)) {
       cameAfterAll = oldName;
+      sh.getRange(row, LAYOUT.physio.att).clearContent(); // «келмеді» белгісін алып тастаймыз
     }
     var name = cleanText_(input && input.name, 120);
     var proc = cleanText_(input && input.proc, 120);
     var range = sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physioFields.length);
     if (!name && !proc) {
-      range.clearContent();
+      // Орын босатылады: келді/келмеді белгісі (O) де тазаланады.
+      sh.getRange(row, LAYOUT.physio.name, 1, LAYOUT.physio.att - LAYOUT.physio.name + 1).clearContent();
     } else {
       var course = parseCourse(input && input.total, input && input.day);
       range.setValues([[safeCell_(name), safeCell_(proc), course.total, course.day]]);
@@ -932,7 +935,7 @@ function createDay(iso) {
     var last = data.values.length;
     if (last > day.headerRow) {
       a1.push(a1Col_(LAYOUT.physio.name) + (day.headerRow + 1) + ':' +
-        a1Col_(LAYOUT.physio.name + LAYOUT.physioFields.length - 1) + last);
+        a1Col_(LAYOUT.physio.att) + last);
     }
     if (a1.length) sh.getRangeList(a1).clearContent();
     cacheDrop_(name);

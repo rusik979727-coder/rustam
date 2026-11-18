@@ -379,7 +379,7 @@ ctx.pl = d17a.physio.flatMap(b => b.places).find(p => p.name === 'Арман');
 const ms = run('markPhysioAbsent("17.11.2026", pl.row, pl.prev, "Келмейді")');
 const armPlace = ms.day.physio.flatMap(b => b.places).find(p => p.name === 'Арман');
 assert.ok(armPlace, 'аты кестеде қалуы керек');
-assert.strictEqual(armPlace.day, 'келмейді'); assert.strictEqual(armPlace.absent, true);
+assert.strictEqual(armPlace.day, '1'); assert.strictEqual(armPlace.att, '❌'); assert.strictEqual(armPlace.absent, true);
 assert.strictEqual(ms.card.oldEnd, '2026-11-18'); assert.strictEqual(ms.card.end, '2026-11-19');
 const nx2 = run('patientNext("' + arm.id + '", "2026-11-18")');
 assert.strictEqual(nx2.day, 1, 'ауырған күн курсқа есептелмеуі керек'); assert.strictEqual(nx2.proc, 'Физио');
@@ -394,3 +394,46 @@ assert.strictEqual(armCard.card.absences.length, 0);
 assert.strictEqual(armCard.card.end, '2026-11-18');
 assert.strictEqual(run('patientNext("' + arm.id + '", "2026-11-18")').day, 2);
 console.log('Сонда да келді тексерісі өтті ✔');
+
+// 21. Ем уақытында келді/келмеді (O бағаны), картадан қою, шағым
+ctx.c5 = { name: 'Дәулет', start: '2026-11-16', total: '3', plan: ['Физио', 'Плазма', 'Физио'], restDays: [0],
+  complaint: 'басы айналады' };
+pr = run('savePatient(c5)');
+const dl = pr.patients.find(p => p.name === 'Дәулет');
+assert.strictEqual(dl.complaint, 'басы айналады'); assert.ok(dl.complaintDate, 'шағым күні қойылуы керек');
+assert.strictEqual(dl.end, '2026-11-18');
+// Картадан қою
+let d17p = run('getDay("17.11.2026")');
+ctx.fp = d17p.physio.flatMap(b => b.places).find(p => !p.name && !p.extra);
+let pc = run('placeCardPatient("17.11.2026", fp.row, fp.prev, "' + dl.id + '")');
+assert.strictEqual(pc.dayNo, 1); assert.strictEqual(pc.proc, 'Физио');
+const dPlace = pc.day.physio.flatMap(b => b.places).find(p => p.name === 'Дәулет');
+assert.strictEqual(dPlace.day, '1'); assert.strictEqual(dPlace.total, '3');
+// Екінші рет қою — қате
+ctx.fp2 = pc.day.physio.flatMap(b => b.places).find(p => !p.name && !p.extra);
+assert.throws(() => run('placeCardPatient("17.11.2026", fp2.row, fp2.prev, "' + dl.id + '")'), /бұрын қойылған/);
+// ✅ келді
+ctx.dp = dPlace;
+let at = run('setPhysioAttendance("17.11.2026", dp.row, "✅", dp.prev)');
+let dp2 = at.day.physio.flatMap(b => b.places).find(p => p.name === 'Дәулет');
+assert.strictEqual(dp2.came, true); assert.strictEqual(dp2.att, '✅');
+assert.strictEqual(run('patientNext("' + dl.id + '", "2026-11-18")').day, 2);
+// ❌ келмеді — саналмайды, курс ұзарады
+ctx.dp = dp2;
+at = run('setPhysioAttendance("17.11.2026", dp.row, "❌", dp.prev)');
+assert.strictEqual(at.card.end, '2026-11-19');
+const nxD = run('patientNext("' + dl.id + '", "2026-11-18")');
+assert.strictEqual(nxD.day, 1); assert.strictEqual(nxD.proc, 'Физио');
+// Белгіні алу — картадағы «Келмейді» де алынады
+ctx.dp = at.day.physio.flatMap(b => b.places).find(p => p.name === 'Дәулет');
+at = run('setPhysioAttendance("17.11.2026", dp.row, "", dp.prev)');
+assert.strictEqual(at.card.end, '2026-11-18');
+assert.strictEqual(run('getPatientCard("' + dl.id + '")').card.absences.length, 0);
+assert.strictEqual(run('getPatientCard("' + dl.id + '")').card.complaint, 'басы айналады', 'шағым сақталуы керек');
+// Орынды босату O бағанын да тазалайды
+ctx.dp = at.day.physio.flatMap(b => b.places).find(p => p.name === 'Дәулет');
+run('setPhysioAttendance("17.11.2026", dp.row, "✅", dp.prev)');
+ctx.dp = run('getDay("17.11.2026")').physio.flatMap(b => b.places).find(p => p.name === 'Дәулет');
+run('savePhysio("17.11.2026", dp.row, {name:"", proc:""}, dp.prev)');
+assert.strictEqual(sheets.find(s => s.name === '17.11.2026').grid[ctx.dp.row - 1][14], '');
+console.log('Келді/келмеді, картадан қою, шағым тексерісі өтті ✔');

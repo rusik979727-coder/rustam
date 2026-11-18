@@ -176,6 +176,43 @@
   .place.taken.plasma small { color: var(--plasma); font-weight: 500; }
   .place.extra { box-shadow: inset 0 0 0 1px #e8b04a; }
   .place.taken.absent { background: var(--missed-soft); }
+  .place.taken.came { background: var(--came-soft); }
+  .place { position: relative; padding: 0; display: flex; flex-direction: column; }
+  .place-open { display: block; width: 100%; flex: 1 1 auto; min-height: var(--row-h); border: 0; background: transparent;
+    text-align: left; padding: 5px 8px; font: inherit; color: inherit; }
+  .place.taken .place-open { min-height: 0; padding-bottom: 2px; }
+  .p-att { display: flex; justify-content: flex-end; gap: 4px; padding: 0 6px 5px; }
+  .p-att button { width: 26px; height: 24px; padding: 0; border-radius: 5px; border: 1px solid var(--line-strong);
+    background: var(--surface); color: var(--faint); font-size: 12px; font-weight: 700; }
+  .p-att .yes[aria-pressed="true"] { background: var(--came); border-color: var(--came); color: #fff; }
+  .p-att .no[aria-pressed="true"] { background: var(--missed); border-color: var(--missed); color: #fff; }
+  .p-att .yes:hover { border-color: var(--came); color: var(--came); }
+  .p-att .no:hover { border-color: var(--missed); color: var(--missed); }
+  .p-att button[aria-pressed="true"]:hover { color: #fff; filter: brightness(.92); }
+  .warn { color: var(--missed); font-weight: 700; }
+  .pick-list { list-style: none; margin: 10px 0 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); max-height: 55vh; overflow: auto; }
+  .pick-list li { border-bottom: 1px solid var(--line); }
+  .pick-list li:last-child { border-bottom: 0; }
+  .pick-list button { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; text-align: left; border: 0; background: transparent; padding: 10px 12px; }
+  .pick-list button:hover:not(:disabled) { background: var(--accent-soft); }
+  .pick-list button:disabled { opacity: .5; cursor: default; }
+  .pick-list .pk-name { font-weight: 600; }
+  .pick-list .pk-next { font-weight: 600; color: var(--accent); white-space: nowrap; }
+  .pick-list .pk-next.plasma { color: var(--plasma); }
+  .pick-list .pk-meta { grid-column: 1 / -1; color: var(--muted); font-size: 12.5px; }
+  .pick-list .pk-alert { grid-column: 1 / -1; color: var(--missed); font-size: 12.5px; font-weight: 600; }
+  .pick-search { width: 100%; margin-top: 12px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); }
+  .pick-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .pick-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-top: 14px; }
+  .linkish { border: 0; background: none; color: var(--muted); text-decoration: underline; font-size: 13.5px; padding: 0; }
+  .complaint-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+  .complaint-box.on { border-color: var(--missed); background: var(--missed-soft); }
+  .complaint-box legend { padding: 0 4px; }
+  .complaint-box.on legend { color: var(--missed); }
+  .complaint-box .with-actions { margin-top: 4px; }
+  .complaint-box .field-hint { margin-top: 6px; }
+  .pt-card.alert { border-color: var(--missed); box-shadow: inset 3px 0 0 var(--missed); }
+  .pt-alert { color: var(--missed); font-size: 13px; font-weight: 600; }
   .place.absent b { text-decoration: line-through; text-decoration-color: rgba(196, 60, 60, .55); }
   .place.absent .course { color: var(--missed); }
   .block.past .place:not(.taken) { background: #fafbfc; }
@@ -193,7 +230,9 @@
     .row button.d-fields > .c-phone, .row button.d-fields > .c-tag { font-size: 12.5px; color: var(--muted); }
     .d-cols { grid-template-columns: var(--time-w) minmax(0, 1fr) 76px; }
     .att { width: 30px; height: 30px; }
-    .place { padding: 5px 6px; }
+    .place-open { padding: 5px 6px; }
+    .p-att { padding: 0 4px 4px; gap: 3px; }
+    .p-att button { width: 28px; height: 28px; }
   }
 
   /* ── Бос күй ── */
@@ -432,6 +471,7 @@
         <input type="search" id="ptSearch" placeholder="Аты немесе телефоны" autocomplete="off" aria-label="Пациентті іздеу">
         <div class="pt-filter" id="ptFilter">
           <button type="button" data-f="active" aria-pressed="true">Емделуде</button>
+          <button type="button" data-f="alert">⚠ Назардағылар</button>
           <button type="button" data-f="all">Барлығы</button>
         </div>
         <button type="button" class="primary" id="ptNew">＋ Жаңа карта</button>
@@ -557,6 +597,22 @@
     </form>
   </dialog>
 
+  <dialog id="pickDialog" class="sheet">
+    <div class="sheet-head">
+      <h3 id="pickTitle">Пациентті таңдаңыз</h3>
+      <button type="button" class="icon-btn" data-close aria-label="Жабу">×</button>
+    </div>
+    <div class="field" style="margin-top:0">
+      <input type="search" id="pickSearch" class="pick-search" placeholder="Аты немесе телефоны" autocomplete="off" aria-label="Пациентті іздеу">
+      <ul class="pick-list" id="pickList"></ul>
+      <div class="pick-actions">
+        <button type="button" class="ghost" id="pickNewCard">＋ Жаңа карта</button>
+        <button type="button" class="linkish" id="pickManual">Картасыз қолмен жазу</button>
+      </div>
+      <p class="field-hint" style="padding-bottom:16px">Пациентті бассаңыз, ол бірден қойылады: курс күні мен емі картадан алынады.</p>
+    </div>
+  </dialog>
+
   <dialog id="patientDialog" class="sheet">
     <form method="dialog" id="patientForm">
       <div class="sheet-head">
@@ -571,6 +627,14 @@
         <span>Телефон</span>
         <input name="phone" id="pfPhone" type="tel" inputmode="tel" autocomplete="off" placeholder="+7 7__ ___ __ __">
       </label>
+      <fieldset class="field complaint-box" id="pfComplaintBox">
+        <legend>⚠ Шағым (ерекше назар)</legend>
+        <div class="with-actions">
+          <input id="pfComplaint" autocomplete="off" placeholder="Мысалы: басы айналады, қысымы көтеріледі">
+          <button type="button" class="ghost" id="pfComplaintDone" hidden>Шешілді</button>
+        </div>
+        <p class="field-hint" id="pfComplaintHint">Жағдайы нашар болса, жазыңыз — пациент тізімде және кестеде ⚠ белгісімен көрінеді.</p>
+      </fieldset>
       <div class="two-col">
         <label class="field">
           <span>Емге кірді</span>
@@ -859,12 +923,23 @@
       var isNow = isToday && b.minutes <= now && (!next || next.minutes > now) && now < b.minutes + 60;
       var places = b.places.map(function (p) {
         var has = p.name || p.proc;
-        var cls = 'place' + (has ? ' taken' : '') + (p.extra ? ' extra' : '') + (p.absent ? ' absent' : isPlasma(p.proc) ? ' plasma' : '');
+        var cls = 'place' + (has ? ' taken' : '') + (p.extra ? ' extra' : '') +
+          (p.absent ? ' absent' : p.came ? ' came' : isPlasma(p.proc) ? ' plasma' : '');
         var title = p.extra ? ' title="Қосымша жол (біріктірілген блоктан тыс)"' : '';
-        return '<button class="' + cls + '" data-prow="' + p.row + '" data-block="' + i + '"' + title + '>' +
-          (has ? '<b>' + esc(p.name || '—') + '</b><small>' + esc(p.proc) +
+        var card = p.name ? findCardByName(p.name) : null;
+        var warn = card && card.complaint
+          ? '<span class="warn" title="' + esc('Шағым: ' + card.complaint) + '">⚠ </span>' : '';
+        var att = p.name
+          ? '<span class="p-att">' +
+              '<button type="button" class="yes" data-patt="✅" data-prow-att="' + p.row + '" aria-pressed="' + (p.att === '✅') + '" title="Келді" aria-label="Келді">✓</button>' +
+              '<button type="button" class="no" data-patt="❌" data-prow-att="' + p.row + '" aria-pressed="' + Boolean(p.absent) + '" title="Келмеді" aria-label="Келмеді">✕</button>' +
+            '</span>'
+          : '';
+        return '<div class="' + cls + '"' + title + '>' +
+          '<button type="button" class="place-open" data-prow="' + p.row + '" data-block="' + i + '">' +
+          (has ? '<b>' + warn + esc(p.name || '—') + '</b><small>' + esc(p.proc) +
             (courseText(p) ? ' <span class="course">' + esc(courseText(p)) + '</span>' : '') + '</small>'
-            : '<span class="c-empty">+</span>') + '</button>';
+            : '<span class="c-empty">+</span>') + '</button>' + att + '</div>';
       }).join('');
       return '<li class="row block' + (isNow ? ' now' : '') + (isToday && !isNow && b.minutes < now ? ' past' : '') + '" id="block-' + b.startRow + '">' +
         '<span class="c-time">' + esc(b.time) + '</span><div class="places">' + places + '</div></li>';
@@ -1136,6 +1211,7 @@
     $('#doctorOptions').innerHTML = opts(res.doctors);
     $('#patientNames').innerHTML = opts(pt.list.filter(function (p) { return !p.finished; }).map(function (p) { return p.name; }));
     renderPatients();
+    if (state.day) renderDay(); // ем кестесінде ⚠ белгілері шықсын
   }
 
   function normName(s) { return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim(); }
@@ -1153,10 +1229,13 @@
     var qd = q.replace(/\D/g, '');
     var rows = pt.list.filter(function (p) {
       if (pt.filter === 'active' && p.finished) return false;
+      if (pt.filter === 'alert' && !p.complaint) return false;
       if (!q) return true;
       if (p.name.toLowerCase().indexOf(q) !== -1) return true;
       return qd.length >= 4 && p.phone.replace(/\D/g, '').indexOf(qd) !== -1;
-    }).sort(function (a, b) { return (a.finished - b.finished) || a.name.localeCompare(b.name); });
+    }).sort(function (a, b) {
+      return (a.finished - b.finished) || (Boolean(b.complaint) - Boolean(a.complaint)) || a.name.localeCompare(b.name);
+    });
     $('#ptHint').textContent = pt.list.length
       ? (rows.length ? '' : 'Ешкім табылмады.')
       : 'Әзірге карта жоқ. «＋ Жаңа карта» басып, бірінші пациентті қосыңыз.';
@@ -1165,9 +1244,10 @@
       var next = p.finished ? 'Курс аяқталды'
         : 'Келесі: ' + p.nextDay + '-күн — <b class="' + (isPlasma(p.nextProc) ? 'plasma' : '') + '">' + esc(p.nextProc || '—') + '</b>';
       var staff = [p.nurse && 'медбике ' + p.nurse, p.doctor && 'дәрігер ' + p.doctor].filter(Boolean).join(' · ');
-      return '<li><button type="button" class="pt-card' + (p.finished ? ' done' : '') + '" data-id="' + esc(p.id) + '">' +
+      return '<li><button type="button" class="pt-card' + (p.finished ? ' done' : '') + (p.complaint ? ' alert' : '') + '" data-id="' + esc(p.id) + '">' +
         '<span class="pt-top"><span class="pt-name">' + esc(p.name) + '</span><span class="pt-prog">' + p.visits + '/' + p.total + '</span></span>' +
         (p.offToday && !p.finished ? '<span><span class="pt-off">Бүгін: ' + esc(p.offToday) + '</span></span>' : '') +
+        (p.complaint ? '<span class="pt-alert">⚠ ' + esc(p.complaint) + '</span>' : '') +
         '<span class="pt-bar-line"><span style="width:' + pct + '%"></span></span>' +
         '<span class="pt-next">' + next + '</span>' +
         '<span class="pt-meta">' + esc([p.phone, shortIso(p.start) + ' – ' + shortIso(p.end)].filter(Boolean).join(' · ')) + '</span>' +
@@ -1258,6 +1338,10 @@
     $('#pfNurse').value = p ? p.nurse : '';
     $('#pfDoctor').value = p ? p.doctor : '';
     $('#pfNote').value = p ? p.note : '';
+    $('#pfComplaint').value = p ? p.complaint || '' : '';
+    pt.complaintDate = p ? p.complaintDate || '' : '';
+    pt.complaintOrig = p ? p.complaint || '' : '';
+    renderComplaint();
     pt.plan = p ? p.plan.slice() : [];
     pt.rest = p ? (p.restDays || [0]).slice() : [0];
     pt.abs = p ? (p.absences || []).map(function (a) { return { from: a.from, to: a.to, reason: a.reason }; }) : [];
@@ -1292,7 +1376,9 @@
       name: $('#pfName').value, phone: $('#pfPhone').value,
       start: $('#pfStart').value, end: $('#pfEnd').value, total: $('#pfTotal').value,
       plan: pt.plan, nurse: $('#pfNurse').value, doctor: $('#pfDoctor').value, note: $('#pfNote').value,
-      restDays: pt.rest, absences: pt.abs
+      restDays: pt.rest, absences: pt.abs,
+      complaint: $('#pfComplaint').value,
+      complaintDate: $('#pfComplaint').value.trim() === pt.complaintOrig ? pt.complaintDate : ''
     };
     if (!data.name.trim()) { toast('Пациенттің аты-жөнін жазыңыз.', true); return; }
     if (!data.start) { toast('Емге кірген күнін көрсетіңіз.', true); return; }
@@ -1305,6 +1391,113 @@
       toast('Карта сақталды: ' + data.name.trim());
     }).catch(function (err) { toast(errText(err), true); })
       .then(function () { busy(btn, false); });
+  }
+
+  function renderComplaint() {
+    var text = $('#pfComplaint').value.trim();
+    $('#pfComplaintBox').classList.toggle('on', Boolean(text));
+    $('#pfComplaintDone').hidden = !pt.complaintOrig;
+    $('#pfComplaintHint').textContent = pt.complaintOrig && pt.complaintDate
+      ? 'Шағым ' + humanDate(pt.complaintDate) + ' жазылған. Жағдайы жақсарса, «Шешілді» басыңыз.'
+      : 'Жағдайы нашар болса, жазыңыз — пациент тізімде және кестеде ⚠ белгісімен көрінеді.';
+  }
+
+  // Шағым шешілді: белгі алынады, шағым мәтіні күнімен «Ескерту» өрісіне тарих ретінде көшеді.
+  function resolveComplaint() {
+    var text = $('#pfComplaint').value.trim() || pt.complaintOrig;
+    if (text) {
+      var line = shortDate(pt.complaintDate || state.boot.today) + ' шағым: ' + text + ' (шешілді ' + shortDate(state.boot.today) + ')';
+      var note = $('#pfNote').value.trim();
+      $('#pfNote').value = note ? note + '; ' + line : line;
+    }
+    $('#pfComplaint').value = '';
+    pt.complaintOrig = '';
+    renderComplaint();
+    toast('Шағым шешілді деп белгіленді. «Картаны сақтау» басыңыз.');
+  }
+
+  // ───────── Ем орнына пациентті картадан қою ─────────
+  function findPlace(row) {
+    var found = null;
+    (state.day ? state.day.physio : []).forEach(function (b) {
+      b.places.forEach(function (p) { if (p.row === row) found = p; });
+    });
+    return found;
+  }
+
+  function openPick(row, blockIndex) {
+    var block = state.day.physio[blockIndex];
+    state.pick = { sheet: state.day.sheet, row: row, block: blockIndex, prev: findPlace(row).prev, time: block.time };
+    $('#pickTitle').textContent = 'Емге қою, ' + block.time + ', ' + humanDate(state.day.date);
+    $('#pickSearch').value = '';
+    renderPick();
+    $('#pickDialog').showModal();
+    if (pt.list.length > 8) $('#pickSearch').focus();
+  }
+
+  function renderPick() {
+    var q = $('#pickSearch').value.trim().toLowerCase(), qd = q.replace(/\D/g, '');
+    var present = {};
+    state.day.physio.forEach(function (b) {
+      b.places.forEach(function (p) { if (p.name) present[normName(p.name)] = true; });
+    });
+    var rows = pt.list.filter(function (p) {
+      if (p.finished || (p.start && p.start > state.day.date)) return false;
+      if (!q) return true;
+      return p.name.toLowerCase().indexOf(q) !== -1 || (qd.length >= 4 && p.phone.replace(/\D/g, '').indexOf(qd) !== -1);
+    }).sort(function (a, b) {
+      var pa = present[normName(a.name)] ? 1 : 0, pb = present[normName(b.name)] ? 1 : 0;
+      return (pa - pb) || (Boolean(b.complaint) - Boolean(a.complaint)) || a.name.localeCompare(b.name);
+    });
+    $('#pickList').innerHTML = rows.length ? rows.map(function (p) {
+      var placed = present[normName(p.name)];
+      var off = state.day.date === state.boot.today ? p.offToday : '';
+      var meta = [p.nurse && 'медбике ' + p.nurse, p.doctor && 'дәрігер ' + p.doctor, placed ? 'бұл күнге қойылған' : '',
+        off ? 'картада: ' + off : ''].filter(Boolean).join(' · ');
+      return '<li><button type="button" data-card="' + esc(p.id) + '"' + (placed ? ' disabled' : '') + '>' +
+        '<span class="pk-name">' + (p.complaint ? '<span class="warn">⚠ </span>' : '') + esc(p.name) + '</span>' +
+        '<span class="pk-next' + (isPlasma(p.nextProc) ? ' plasma' : '') + '">' + p.nextDay + '/' + p.total + ' · ' + esc(p.nextProc || '—') + '</span>' +
+        (meta ? '<span class="pk-meta">' + esc(meta) + '</span>' : '') +
+        (p.complaint ? '<span class="pk-alert">Шағым: ' + esc(p.complaint) + '</span>' : '') +
+        '</button></li>';
+    }).join('') : '<li><p class="hint" style="padding:10px 12px;margin:0">' +
+      (pt.list.length ? 'Ешкім табылмады.' : 'Әзірге карта жоқ. «＋ Жаңа карта» басып, пациентті қосыңыз.') + '</p></li>';
+  }
+
+  function placeFromCard(cardId) {
+    var pk = state.pick;
+    call('placeCardPatient', pk.sheet, pk.row, pk.prev, cardId).then(function (res) {
+      applyDay(res.day);
+      $('#pickDialog').close();
+      toast(res.name + ' қойылды: ' + pk.time + ', ' + res.dayNo + '-күн — ' + res.proc);
+      loadPatients();
+    }).catch(function (err) { handleWriteError(err, $('#pickDialog')); });
+  }
+
+  // Ем уақытында келді ✓ / келмеді ✕. Белгі серверді күтпей бірден көрінеді.
+  var physAttPending = {};
+  function setPhysioAtt(row, value) {
+    var place = findPlace(row);
+    if (!place || physAttPending[row]) return;
+    var current = place.absent ? '❌' : place.att;
+    var next = current === value ? '' : value;
+    var old = { att: place.att, came: place.came, absent: place.absent };
+    physAttPending[row] = true;
+    place.att = next; place.came = next === '✅'; place.absent = next === '❌';
+    renderDay();
+    call('setPhysioAttendance', state.day.sheet, row, next, place.prev).then(function (res) {
+      applyDay(res.day);
+      if (res.card) {
+        if (res.card.end !== res.card.oldEnd && res.card.end) {
+          toast(res.name + (next === '❌' ? ': келмеді. Курс ұзарды — енді ' : ': курс қайта есептелді — ') + humanDate(res.card.end) + ' бітеді');
+        }
+        loadPatients();
+      }
+    }).catch(function (err) {
+      place.att = old.att; place.came = old.came; place.absent = old.absent;
+      renderDay();
+      handleWriteError(err);
+    }).then(function () { delete physAttPending[row]; });
   }
 
   // Емге жазу формасында картадан толтыру: нешінші күн, курс ұзақтығы, жоспар бойынша ем.
@@ -1475,9 +1668,27 @@
       if (open) openAppt(Number(open.dataset.row));
     });
     $('#physioList').addEventListener('click', function (e) {
+      var a = e.target.closest('[data-patt]');
+      if (a) { setPhysioAtt(Number(a.dataset.prowAtt), a.dataset.patt); return; }
       var p = e.target.closest('[data-prow]');
-      if (p) openPhysio(Number(p.dataset.prow), Number(p.dataset.block));
+      if (!p) return;
+      var row = Number(p.dataset.prow), bi = Number(p.dataset.block);
+      var place = findPlace(row);
+      if (place && !place.name && !place.proc) openPick(row, bi); else openPhysio(row, bi);
     });
+    $('#pickSearch').addEventListener('input', renderPick);
+    $('#pickList').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-card]');
+      if (b && !b.disabled) placeFromCard(b.dataset.card);
+    });
+    $('#pickNewCard').onclick = function () { $('#pickDialog').close(); openPatient(null); };
+    $('#pickManual').onclick = function () {
+      var pk = state.pick;
+      $('#pickDialog').close();
+      openPhysio(pk.row, pk.block);
+    };
+    $('#pfComplaint').addEventListener('input', renderComplaint);
+    $('#pfComplaintDone').onclick = resolveComplaint;
 
     $$('.seg').forEach(function (box) {
       box.addEventListener('click', function (e) {
