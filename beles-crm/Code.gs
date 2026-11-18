@@ -249,7 +249,13 @@ function writeLinks_() {
 
 /* ---------- көмекші функциялар ---------- */
 
-function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
+/** CRM кестесі. Скрипт кестенің ішінде болса — сол кесте, бөлек жоба болса — осы ID. */
+const CRM_SHEET_ID = '18UamClXbiihmyE7qpY5FwbiTY_S8PZ0hPCGhsdX4jRU';
+function ss_() {
+  let ss = null;
+  try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) { ss = null; }
+  return ss || SpreadsheetApp.openById(CRM_SHEET_ID);
+}
 function tz_() { return ss_().getSpreadsheetTimeZone() || Session.getScriptTimeZone(); }
 function now_() { return Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd HH:mm'); }
 function keys_() { return JSON.parse(PropertiesService.getScriptProperties().getProperty('KEYS') || '{}'); }
