@@ -10,7 +10,19 @@ const LINKS = 'Сілтемелер';
 const BOSS = 'Бастық';
 const COLS = ['ID', 'Құрылды', 'Аты', 'Телефон', 'Жарнама', 'Қызмет', 'Статус', 'Менеджер', 'Келесі байланыс', 'Жазылу уақыты', 'Ескерту', 'Жаңартылды', 'Тарих'];
 const F = ['id', 'created', 'name', 'phone', 'source', 'service', 'status', 'manager', 'nextCall', 'appt', 'note', 'updated', 'history'];
-const STATUSES = ['Жаңа', 'Жауап бермеді', 'Ойланып жүр', 'Жазылды', 'Келді', 'Келмеді', 'Сатып алды', 'Бас тартты'];
+/** Воронка кезеңдері: [код, таблицада жазылатын атауы]. */
+const STAGES = [['new', 'Новый'], ['work', 'Обработка'], ['noans', 'Не ответил'], ['booked', 'Запись'],
+  ['came', 'Пришёл'], ['noshow', 'Не пришёл'], ['bought', 'Купил'], ['refused', 'Отказ']];
+const STAGE_CODES = STAGES.map(function (x) { return x[0]; });
+const STAGE_LABEL = {}; STAGES.forEach(function (x) { STAGE_LABEL[x[0]] = x[1]; });
+const STAGE_BY_LABEL = {
+  'Новый': 'new', 'Обработка': 'work', 'Не ответил': 'noans', 'Запись': 'booked', 'Пришёл': 'came', 'Пришел': 'came',
+  'Не пришёл': 'noshow', 'Не пришел': 'noshow', 'Купил': 'bought', 'Отказ': 'refused',
+  // ескі нұсқаның атаулары
+  'Жаңа': 'new', 'Ойланып жүр': 'work', 'Жауап бермеді': 'noans', 'Жазылды': 'booked', 'Келді': 'came',
+  'Келмеді': 'noshow', 'Сатып алды': 'bought', 'Бас тартты': 'refused'
+};
+function stageCode_(label) { return STAGE_BY_LABEL[String(label || '').trim()] || 'new'; }
 const DT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
 
 /* ---------- веб-қосымша ---------- */
@@ -37,7 +49,7 @@ function crmData(key) {
   return {
     me: u.name, boss: u.boss, now: now_(),
     leads: leads,
-    sources: s.sources, services: s.services, statuses: STATUSES,
+    sources: s.sources, services: s.services, stages: STAGE_CODES,
     managers: u.boss ? s.managers : [u.name]
   };
 }
@@ -67,7 +79,7 @@ function crmSave(key, input) {
         if (u.boss || dup.manager === u.name) return { duplicate: true, lead: publicLead_(dup) };
         return { duplicate: true, other: dup.manager };
       }
-      lead = { id: 'L' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), created: now, status: 'Жаңа', manager: u.name, history: '' };
+      lead = { id: 'L' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), created: now, status: 'Новый', manager: u.name, history: '' };
       changes.push('Лид жасалды');
     }
 
@@ -88,8 +100,11 @@ function crmSave(key, input) {
     set('source', cut_(input.source, 100), 'Жарнама');
     set('service', cut_(input.service, 100), 'Қызмет');
     if (input.status !== undefined) {
-      if (STATUSES.indexOf(input.status) < 0) throw new Error('Статус дұрыс емес.');
-      set('status', input.status, 'Статус');
+      if (STAGE_CODES.indexOf(input.status) < 0) throw new Error('Кезең дұрыс емес.');
+      if (stageCode_(lead.status) !== input.status || !input.id) {
+        if (input.id) changes.push('Кезең: ' + STAGE_LABEL[stageCode_(lead.status)] + ' → ' + STAGE_LABEL[input.status]);
+        lead.status = STAGE_LABEL[input.status];
+      }
     }
     if (input.nextCall !== undefined) { if (input.nextCall && !DT.test(input.nextCall)) throw new Error('Қоңырау уақыты дұрыс емес.'); set('nextCall', input.nextCall, 'Келесі байланыс'); }
     if (input.appt !== undefined) { if (input.appt && !DT.test(input.appt)) throw new Error('Жазылу уақыты дұрыс емес.'); set('appt', input.appt, 'Жазылу'); }
@@ -144,7 +159,7 @@ function doPost(e) {
     const lead = {
       id: 'L' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36),
       created: now, name: cut_(body.name || p.name, 100), phone: phone,
-      source: cut_(body.source || p.source || 'WhatsApp', 100), service: '', status: 'Жаңа',
+      source: cut_(body.source || p.source || 'WhatsApp', 100), service: '', status: 'Новый',
       manager: nextManager_(s.managers), nextCall: '', appt: '', note: text, updated: now,
       history: now + ' · WhatsApp · Лид автоматты түрде түсті' + (text ? ': ' + text : '')
     };
@@ -339,5 +354,6 @@ function writeLead_(sh, lead) {
 function publicLead_(l) {
   const o = {};
   F.forEach(function (f) { o[f] = l[f] || ''; });
+  o.status = stageCode_(l.status);
   return o;
 }
