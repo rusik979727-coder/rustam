@@ -176,6 +176,7 @@ tbody tr:last-child td{border-bottom:0}
     <a href="#svodka" data-v="svodka"></a>
     <a href="#vvod" data-v="vvod"></a>
     <a href="#analitika" data-v="analitika"></a>
+    <a href="#bailanys" data-v="bailanys"></a>
     <a href="#tablica" data-v="tablica"></a>
   </nav>
   <main id="view">
@@ -199,8 +200,8 @@ const MONEY = new Set(["spend","cpl"]);
 const CC_STATUS = ["booked","noanswer","inwork","refused"];
 const REC_STATUS = ["bought","thinking","refused"];
 const ROLE = ["boss","target","cc","rec"].includes(CFG.role) ? CFG.role : "target";
-const ROLES = { boss:{types:null, views:["svodka","vvod","analitika","tablica"]}, target:{types:["target"], views:["vvod","analitika","tablica"]},
-  cc:{types:["cc"], skipFirstCc:true, views:["vvod","analitika","tablica"]}, rec:{types:["rec"], views:["vvod","analitika","tablica"]} };
+const ROLES = { boss:{types:null, views:["svodka","vvod","analitika","bailanys","tablica"]}, target:{types:["target"], views:["vvod","analitika","bailanys","tablica"]},
+  cc:{types:["cc"], skipFirstCc:true, views:["vvod","analitika","bailanys","tablica"]}, rec:{types:["rec"], views:["vvod","analitika","tablica"]} };
 const RC = ROLES[ROLE];
 const visible = b => true; // сервер тек рұқсат етілген блоктарды жібереді
 const ROLE_NAME = { ru:{target:"Таргет", cc:"Колл-центр", rec:"Ресепшн"}, kk:{target:"Таргет", cc:"Колл-орталық", rec:"Ресепшн"} };
@@ -210,7 +211,7 @@ const plRu = (n,a,b,c) => { n=Math.abs(Math.round(n))%100; const n1=n%10; if(n>1
 const T = {
   ru:{
     sub:"таргет → колл-центр → ресепшн", reload:"Обновить", loading:"Загрузка…", updated:"Обновлено",
-    tabs:["Сводка","Ввод за день","Аналитика","Таблица"],
+    tabs:["Сводка","Ввод за день","Аналитика","Таргет + КЦ","Таблица"],
     k_leads:"Лиды таргета", k_spend:"Расход", k_cpl:"Цена лида", k_conv:"Конверсия в запись", k_booked:"Записи", k_came:"Пришли", k_bought:"Купили", k_cash:"Касса",
     ch_leads:"Лиды по дням", ch_leads_sub:p=>`таргет, ${p}`, upto:d=>`по ${d}`, nodata:"нет данных",
     funnel:"Воронка месяца", f:["Лиды таргета","Обработаны колл-центром","Записались","Пришли","Купили"], ofprev:"от пред.",
@@ -251,6 +252,15 @@ const T = {
       no_mcp:["Откройте приложение в Claude","Данные берутся из вашей Google Таблицы через коннектор Google Sheets. Это работает, когда страница открыта на claude.ai."],
       other:["Не удалось загрузить данные","Попробуйте обновить. Если ошибка повторится, проверьте подключение Google Sheets."]
     },
+    L:{title:"Таргет и колл-центр", sub:"путь лидов от рекламы до записи", t_leads:"Лиды таргета", cc_leads:"Обработал колл-центр",
+      booked:"Записались", conv:"Конверсия в запись", noans:"Недозвон", cpb:"Цена одной записи", unproc:"Не обработано", my_leads:"Мои лиды", my_share:"Моя доля лидов",
+      ins:"Что видно", tbl:"По дням", tbl_sub:"сначала последние дни",
+      cols:["Дата","Таргет","Колл-центр","Разница","Запись","Недозвон","Конверсия","Цена лида","Цена записи"], notfilled:"не заполнено",
+      noans_hi:{target:p=>`<b>${p} лидов не берут трубку.</b> Проверьте качество лидов: аудиторию, форму заявки, правильность номеров.`,
+        cc:p=>`<b>${p} лидов не берут трубку.</b> Перезвоните в другое время и напишите в WhatsApp.`,
+        boss:p=>`<b>${p} лидов не берут трубку.</b> Таргетологу — проверить качество лидов, колл-центру — перезванивать и писать в WhatsApp.`},
+      conv_lo:p=>`<b>Конверсия в запись ${p}</b> — ниже 10%. Разберите вместе: с каких объявлений приходят те, кто записывается, а с каких — отказы.`,
+      hint:n=>`По таргету в этот день пришло ${n} ${plRu(n,"лид","лида","лидов")}.`, ok:"Таргет и колл-центр сходятся, тревожных сигналов нет."},
     A:{days:"Дней с рекламой", best:"Самый дешёвый лид", worst:"Самый дорогой лид", ch_leads:"Лиды по дням", cc_leads:"Новые лиды",
       cc_ch_leads:"Новые лиды по дням", cc_ch_conv:"Конверсия в запись по дням", cc_where:"Куда уходят лиды", of_leads:n=>`из ${n} лидов`,
       show_rate:"Доходимость", buy_conv:"Конверсия в покупку", avg_check:"Средний чек", rec_ch_came:"Пришли по дням", rec_ch_cash:"Касса по дням",
@@ -261,7 +271,7 @@ const T = {
   },
   kk:{
     sub:"таргет → колл-орталық → ресепшн", reload:"Жаңарту", loading:"Жүктелуде…", updated:"Жаңартылды",
-    tabs:["Жиынтық","Күнді енгізу","Аналитика","Кесте"],
+    tabs:["Жиынтық","Күнді енгізу","Аналитика","Таргет + КЦ","Кесте"],
     k_leads:"Таргет лидтері", k_spend:"Шығын", k_cpl:"Лид бағасы", k_conv:"Жазылу конверсиясы", k_booked:"Жазылғандар", k_came:"Келгендер", k_bought:"Сатып алғандар", k_cash:"Касса",
     ch_leads:"Күн сайынғы лидтер", ch_leads_sub:p=>`таргет, ${p}`, upto:d=>`${d} дейін`, nodata:"дерек жоқ",
     funnel:"Айлық воронка", f:["Таргет лидтері","Колл-орталық өңдеді","Жазылды","Келді","Сатып алды"], ofprev:"алдыңғыдан",
@@ -302,6 +312,15 @@ const T = {
       no_mcp:["Қосымшаны Claude ішінде ашыңыз","Деректер Google Sheets коннекторы арқылы сіздің кестеңізден алынады. Бет claude.ai-да ашылғанда жұмыс істейді."],
       other:["Деректерді жүктеу мүмкін болмады","Жаңартып көріңіз. Қате қайталанса, Google Sheets қосылымын тексеріңіз."]
     },
+    L:{title:"Таргет пен колл-орталық", sub:"лидтің жарнамадан жазылуға дейінгі жолы", t_leads:"Таргет лидтері", cc_leads:"Колл-орталық өңдеді",
+      booked:"Жазылды", conv:"Жазылу конверсиясы", noans:"Жауап бермеді", cpb:"Бір жазылудың бағасы", unproc:"Өңделмеген", my_leads:"Менің лидтерім", my_share:"Менің үлесім",
+      ins:"Не көрінеді", tbl:"Күндер бойынша", tbl_sub:"соңғы күндер жоғарыда",
+      cols:["Күн","Таргет","Колл-орт.","Айырма","Жазылды","Жауап жоқ","Конверсия","Лид бағасы","Жазылу бағасы"], notfilled:"толтырылмаған",
+      noans_hi:{target:p=>`<b>Лидтердің ${p} телефон көтермейді.</b> Лид сапасын тексеріңіз: аудиторияны, өтінім формасын, нөмірлердің дұрыстығын.`,
+        cc:p=>`<b>Лидтердің ${p} телефон көтермейді.</b> Басқа уақытта қайта қоңырау шалып, WhatsApp-қа жазыңыз.`,
+        boss:p=>`<b>Лидтердің ${p} телефон көтермейді.</b> Таргетологқа — лид сапасын тексеру, колл-орталыққа — қайта қоңырау шалу және WhatsApp-қа жазу.`},
+      conv_lo:p=>`<b>Жазылу конверсиясы ${p}</b> — 10%-дан төмен. Бірге талдаңыз: жазылатындар қай жарнамадан келеді, бас тартатындар қайдан келеді.`,
+      hint:n=>`Таргет бойынша бұл күні ${n} лид келді.`, ok:"Таргет пен колл-орталық сәйкес, қауіпті белгі жоқ."},
     A:{days:"Жарнама күндері", best:"Ең арзан лид", worst:"Ең қымбат лид", ch_leads:"Күн сайынғы лидтер", cc_leads:"Жаңа лидтер",
       cc_ch_leads:"Күн сайынғы жаңа лидтер", cc_ch_conv:"Күн сайынғы жазылу конверсиясы", cc_where:"Лидтер қайда кетеді", of_leads:n=>`${n} лидтен`,
       show_rate:"Келу үлесі", buy_conv:"Сатып алу конверсиясы", avg_check:"Орташа чек", rec_ch_came:"Күн сайын келгендер", rec_ch_cash:"Күн сайынғы касса",
@@ -401,7 +420,7 @@ function firstDataDay(){ const TB=byType("target")[0]; if(TB) for(let d=0; d<S.n
 const gs = (fn, ...args) => new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...args));
 function ingest(d){
   S.blocks = d.blocks.map(b => { const m = {}; b.metrics.forEach(x => { if (!m[x.key]) m[x.key] = x; }); return Object.assign({}, b, {m}); });
-  S.dates = d.dates; S.nDays = d.nDays; S.funnel = d.funnel;
+  S.dates = d.dates; S.nDays = d.nDays; S.funnel = d.funnel; S.link = d.link;
 }
 function fillMonths(){
   const sel = $("#month");
@@ -444,6 +463,7 @@ function render(){
   if (v === "svodka") { el.innerHTML = banner + viewSummary(); drawCharts(); bindSummary(); }
   if (v === "vvod") { el.innerHTML = banner + viewEntry(); bindEntry(); }
   if (v === "analitika") { el.innerHTML = banner + viewAnalytics(); drawAnCharts(); bindAn(); }
+  if (v === "bailanys") el.innerHTML = banner + viewLink();
   if (v === "tablica") el.innerHTML = banner + viewTable();
 }
 function errorState(e){
@@ -770,6 +790,55 @@ function teamFunnel(){
   }).join("");
   return `<section class="panel"><div class="panel-head"><h2>${esc(t("A").team)}</h2><span class="sub">${esc(t("A").team_sub)}</span></div><div class="funnel">${rows}</div></section>`;
 }
+function viewLink(){
+  const L = t("L"), K = S.link;
+  if (!K) return emptyAn();
+  const money = Array.isArray(K.spend);
+  const days = []; for (let d=0; d<S.nDays; d++) if (K.tLeads[d]!=null || K.ccLeads[d]!=null) days.push(d);
+  if (!days.length) return emptyAn();
+  const s = (arr, ds) => { let x=null; ds.forEach(d=>{ if (arr && arr[d]!=null) x=(x||0)+arr[d]; }); return x; };
+  const matched = days.filter(d => K.tLeads[d]!=null && K.ccLeads[d]!=null);
+  const tAll = s(K.tLeads,days), cAll = s(K.ccLeads,days), bk = s(K.booked,days), na = s(K.noanswer,days);
+  const unproc = s(K.tLeads, days.filter(d => K.ccLeads[d]==null));
+  const cpb = money ? ratio(s(K.spend,matched), s(K.booked,matched)) : null;
+  const sm = x => `<small>${x}</small>`;
+  const mine = ROLE === "cc";
+  const tiles = mine ? [[L.t_leads, fmt("leads",tAll)], [L.my_leads, fmt("leads",cAll)], [L.my_share, pct(ratio(cAll,tAll,100))],
+    [L.booked, fmt("booked",bk)], [L.conv, pct(ratio(bk,cAll,100))], [L.noans, pct(ratio(na,cAll,100))]]
+  : [[L.t_leads, fmt("leads",tAll)], [L.cc_leads, `${fmt("leads",cAll)} ${tAll&&cAll!=null?sm(nf0.format(cAll/tAll*100)+"%"):""}`],
+    [L.booked, fmt("booked",bk)], [L.conv, pct(ratio(bk,cAll,100))], [L.noans, pct(ratio(na,cAll,100))],
+    money ? [L.cpb, fmt("cpl",cpb), "money"] : [L.unproc, fmt("leads",unproc)]];
+  // сигналдар
+  const ins = [];
+  let runs=[], start=null, cnt=0;
+  const lim = days[days.length-1];
+  for (let d=0; d<=lim; d++){ const tl=K.tLeads[d];
+    if (tl && K.ccLeads[d]==null){ if(start==null) start=d; cnt+=tl; } else if (start!=null){ runs.push([start,d-1,cnt]); start=null; cnt=0; } }
+  if (start!=null) runs.push([start,lim,cnt]);
+  if (mine) runs = [];
+  runs.forEach(([a,z,c]) => ins.push({level:"warn", text:t("a_ccgap")(a===z?S.dates[a]:S.dates[a]+"–"+S.dates[z], t("leadsGen")(c))}));
+  const diff = matched.filter(d => K.tLeads[d]!==K.ccLeads[d]).map(d => `${S.dates[d]} (${K.tLeads[d]} → ${K.ccLeads[d]})`);
+  if (diff.length && ROLE !== "cc") ins.push({level:"bad", text:t("a_diff")(diff.length, diff.join(", "))});
+  const naP = ratio(na,cAll,100);
+  if (naP!=null && naP>30) ins.push({level:"warn", text:L.noans_hi[ROLE](nf0.format(naP)+"%")});
+  const cv_ = ratio(bk,cAll,100);
+  if (cv_!=null && cAll>=20 && cv_<10) ins.push({level:"warn", text:L.conv_lo(nf1.format(cv_)+"%")});
+  const insHtml = ins.length ? `<ul class="alerts">${ins.map(a=>`<li class="alert ${a.level}"><span class="pill">${esc(a.level==="bad"?t("pill_bad"):t("pill_warn"))}</span><span>${a.text}</span></li>`).join("")}</ul>` : `<p class="ok">${esc(L.ok)}</p>`;
+  // кесте
+  const cols = mine ? [L.cols[0], L.cols[1], L.my_leads, L.cols[4], L.cols[5], L.cols[6]] : L.cols.slice(0, money ? 9 : 7);
+  const rows = days.slice().reverse().map(d => {
+    const tl=K.tLeads[d], cl=K.ccLeads[d];
+    const df = tl!=null && cl!=null ? cl-tl : null;
+    const dfCell = cl==null ? `<td class="flag" style="color:var(--warn)">${esc(L.notfilled)}</td>` : `<td class="${df?"flag":""}">${df==null?"":(df>0?"+":"")+nf0.format(df)}</td>`;
+    const conv = ratio(K.booked[d], cl, 100);
+    const extra = money ? `<td>${fmt("cpl",ratio(K.spend[d],tl))}</td><td>${fmt("cpl",ratio(K.spend[d],K.booked[d]))}</td>` : "";
+    return `<tr><td>${esc(S.dates[d])}</td><td>${tl==null?"":nf0.format(tl)}</td><td>${cl==null?"":nf0.format(cl)}</td>${mine?"":dfCell}<td>${K.booked[d]==null?"":nf0.format(K.booked[d])}</td><td>${K.noanswer[d]==null?"":nf0.format(K.noanswer[d])}</td><td>${conv==null?"":nf1.format(conv)+"%"}</td>${extra}</tr>`;
+  }).join("");
+  return `${kpiGrid(tiles)}
+  <section class="panel"><div class="panel-head"><h2>${esc(L.ins)}</h2><span class="sub">${esc(L.sub)}</span></div>${insHtml}</section>
+  <section class="panel"><div class="panel-head"><h2>${esc(L.tbl)}</h2><span class="sub">${esc(L.tbl_sub)}</span></div>
+    <div class="scroll"><table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div></section>`;
+}
 function drawAnCharts(){
   const css = getComputedStyle(document.documentElement);
   S.anCharts.forEach(([id,ser,kind,col,fv,aria,axf]) => chart(id, ser, kind, css.getPropertyValue(col).trim(), fv, aria, axf));
@@ -801,6 +870,7 @@ function viewEntry(){
   <form class="panel" id="form" autocomplete="off">
     <div class="panel-head"><h2>${esc(bName(b))} · ${esc(S.dates[d])}</h2><span class="sub">${esc(t("writes")(b.metrics[0]?.row, b.metrics[b.metrics.length-1]?.row, colLetter(d+1)))}</span></div>
     <div class="fields">${fields}</div>
+    <div class="check" id="hint" hidden></div>
     <div class="check" id="check" hidden></div>
     <div class="actions"><button class="btn primary" type="submit" id="save">${esc(t("save"))}</button><span class="msg" id="msg"></span></div>
   </form>${ROLE === "boss" ? "" : roleAlerts()}`;
@@ -825,6 +895,8 @@ function calcDraft(b, v){
 function updateLive(){
   const {b, v} = draft(); const c = calcDraft(b, v);
   b.metrics.forEach((m,i)=>{ const el=document.getElementById("f_"+S.entry.block+"_"+i); if (el && el.tagName!=="INPUT" && m.key in c) el.textContent = fmt(m.key, c[m.key]); });
+  const hint = $("#hint"); const tl = b.type==="cc" && S.link ? S.link.tLeads[S.entry.day] : null;
+  if (hint){ hint.hidden = tl==null; if (tl!=null) hint.textContent = t("L").hint(tl); }
   const chk = $("#check"); const parts = b.type==="cc" ? CC_STATUS : b.type==="rec" ? REC_STATUS : null;
   const baseKey = b.type==="cc" ? "leads" : "came";
   if (!parts || v[baseKey]==null || !parts.some(k=>v[k]!=null)){ chk.hidden = true; return; }

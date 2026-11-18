@@ -53,7 +53,8 @@ function getData(key, sheetName) {
     dates: p.dates,
     nDays: p.nDays,
     blocks: visibleBlocks_(role, p.blocks).map(stripBlock_),
-    funnel: funnel_(p)
+    funnel: funnel_(p),
+    link: link_(role, p)
   };
 }
 
@@ -271,6 +272,33 @@ function funnel_(p) {
     out.booked.push(sum('cc', 'booked', d));
     out.came.push(sum('rec', 'came', d));
     out.bought.push(sum('rec', 'bought', d));
+  }
+  return out;
+}
+
+/**
+ * Таргет пен колл-орталықты байланыстыратын күндік деректер.
+ * Колл-орталық ақшаны көрмейді; 2-менеджер тек өз блогының статустарын көреді.
+ */
+function link_(role, p) {
+  if (role === 'rec') return null;
+  const vis = visibleBlocks_(role, p.blocks);
+  const cc = role === 'cc' ? vis.filter(function (b) { return b.type === 'cc'; }) : p.blocks.filter(function (b) { return b.type === 'cc'; });
+  const tg = p.blocks.filter(function (b) { return b.type === 'target'; });
+  const sum = function (bs, key, d) {
+    let s = null;
+    bs.forEach(function (b) { const v = get_(b, key, d); if (v !== null) s = (s || 0) + v; });
+    return s;
+  };
+  const out = { tLeads: [], spend: role === 'cc' ? null : [], ccLeads: [], booked: [], noanswer: [], inwork: [], refused: [] };
+  for (let d = 0; d < p.nDays; d++) {
+    out.tLeads.push(sum(tg, 'leads', d));
+    if (out.spend) out.spend.push(sum(tg, 'spend', d));
+    out.ccLeads.push(sum(cc, 'leads', d));
+    out.booked.push(sum(cc, 'booked', d));
+    out.noanswer.push(sum(cc, 'noanswer', d));
+    out.inwork.push(sum(cc, 'inwork', d));
+    out.refused.push(sum(cc, 'refused', d));
   }
   return out;
 }
