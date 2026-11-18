@@ -46,8 +46,8 @@ a.btn{display:inline-flex;align-items:center;text-decoration:none;color:var(--in
 .lang button{border:0;background:var(--surface);padding:0 10px;font-weight:700;font-size:12.5px;cursor:pointer;color:var(--muted)}
 .lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:12px;overflow-x:auto}
-.tabs a{flex:1 0 auto;text-align:center;padding:9px 12px;border-radius:9px;color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;white-space:nowrap}
-.tabs a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .08)}
+.tabs button{border:0;background:none;cursor:pointer;font:inherit;flex:1 0 auto;text-align:center;padding:9px 12px;border-radius:9px;color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;white-space:nowrap}
+.tabs button[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .08)}
 h2{font-family:var(--display);font-weight:500;font-size:16px;margin:0}
 .label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .sub{color:var(--muted);font-size:13px}
@@ -180,9 +180,9 @@ tbody tr:last-child td{border-bottom:0}
     </div>
   </header>
   <nav class="tabs" aria-label="Sections">
-    <a href="#voronka" data-v="voronka"></a>
-    <a href="#esep" data-v="esep"></a>
-    <a href="#taldau" data-v="taldau"></a>
+    <button type="button" data-v="voronka"></button>
+    <button type="button" data-v="esep"></button>
+    <button type="button" data-v="taldau"></button>
   </nav>
   <main id="view"><div class="skeleton"></div><div class="skeleton"></div></main>
 </div>
@@ -268,11 +268,11 @@ async function load(){
   catch(e){ S.err = String((e && e.message) || e); }
   $("#reload").disabled = false; render();
 }
-function route(){ const h=location.hash.slice(1); return ["voronka","esep","taldau"].includes(h) ? h : "voronka"; }
+function route(){ return ["voronka","esep","taldau"].includes(S.view) ? S.view : "voronka"; }
 function chrome(){
   document.documentElement.lang = LANG;
   document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.lang===LANG));
-  document.querySelectorAll(".tabs a").forEach(a=>{ a.textContent=t("tabs")[a.dataset.v]; a.setAttribute("aria-current", a.dataset.v===route()?"page":"false"); });
+  document.querySelectorAll(".tabs button").forEach(a=>{ a.textContent=t("tabs")[a.dataset.v]; a.setAttribute("aria-current", a.dataset.v===route()?"page":"false"); });
   $("#reload").textContent = t("reload");
   $("#who").textContent = S.me ? (S.boss ? `${S.me} · ${LANG==="ru"?"все лиды":"барлық лидтер"}` : S.me) : "";
 }
@@ -389,7 +389,7 @@ function renderCard(){
   sh.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="cardTitle">
     <div class="card-head"><div><span class="pill ${ST_CLASS[l.status]}">${esc(sn(l.status))}</span><h2 id="cardTitle" class="num" style="margin-top:6px">${esc(phoneFmt(digits))}</h2><span class="sub">${esc(t("since"))}: ${esc(fullDT(l.created))}${l.name?" · "+esc(l.name):""}</span></div>
       <button class="x" type="button" id="close" aria-label="×">×</button></div>
-    <div class="contact"><a class="btn wa" href="https://wa.me/${esc(digits)}" target="_blank" rel="noopener">${esc(t("wa"))}</a><a class="btn" href="tel:+${esc(digits)}">${esc(t("call"))}</a></div>
+    <div class="contact"><a class="btn wa" href="https://wa.me/${esc(digits)}" target="_blank" rel="noopener">${esc(t("wa"))}</a><a class="btn" href="tel:+${esc(digits)}" target="_top">${esc(t("call"))}</a></div>
     <form id="leadForm" class="panel" autocomplete="off">
       <div class="fields">
         <div class="field wide"><label>${esc(t("stage"))}</label><div class="status-grid" id="stGrid">${STAGES.map(c=>`<button type="button" data-s="${c}" aria-pressed="${c===l.status}">${esc(sn(c))}</button>`).join("")}</div></div>
@@ -492,7 +492,7 @@ function bindStats(){
 }
 
 /* ---------- іске қосу ---------- */
-window.addEventListener("hashchange", render);
+document.querySelector(".tabs").onclick = e => { const b=e.target.closest("button[data-v]"); if(!b) return; S.view=b.dataset.v; window.scrollTo(0,0); render(); };
 $("#reload").onclick = load;
 document.querySelectorAll(".lang button").forEach(b => b.onclick = () => { LANG=b.dataset.lang; try{localStorage.setItem("beles_lang",LANG);}catch{} render(); });
 chrome();

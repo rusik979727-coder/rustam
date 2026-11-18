@@ -50,8 +50,8 @@ select,.btn{height:38px;border-radius:10px;border:1px solid var(--line);backgrou
 .lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 
 .tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:12px;overflow-x:auto}
-.tabs a{flex:1 0 auto;text-align:center;padding:9px 10px;border-radius:9px;color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;white-space:nowrap}
-.tabs a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .08)}
+.tabs button{border:0;background:none;cursor:pointer;font:inherit;flex:1 0 auto;text-align:center;padding:9px 10px;border-radius:9px;color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;white-space:nowrap}
+.tabs button[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .08)}
 
 .label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
 h2{font-family:var(--display);font-weight:500;font-size:16px;margin:0}
@@ -173,11 +173,11 @@ tbody tr:last-child td{border-bottom:0}
     </div>
   </header>
   <nav class="tabs" aria-label="Sections">
-    <a href="#svodka" data-v="svodka"></a>
-    <a href="#vvod" data-v="vvod"></a>
-    <a href="#analitika" data-v="analitika"></a>
-    <a href="#bailanys" data-v="bailanys"></a>
-    <a href="#tablica" data-v="tablica"></a>
+    <button type="button" data-v="svodka"></button>
+    <button type="button" data-v="vvod"></button>
+    <button type="button" data-v="analitika"></button>
+    <button type="button" data-v="bailanys"></button>
+    <button type="button" data-v="tablica"></button>
   </nav>
   <main id="view">
     <div class="skeleton"></div>
@@ -443,11 +443,11 @@ async function refresh(){
 }
 
 /* ---------- views ---------- */
-function route(){ const h=location.hash.slice(1); return RC.views.includes(h) ? h : RC.views[0]; }
+function route(){ return RC.views.includes(S.view) ? S.view : RC.views[0]; }
 function chrome(){
   document.documentElement.lang = LANG === "kk" ? "kk" : "ru";
   document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang===LANG));
-  document.querySelectorAll(".tabs a").forEach((a,i) => { a.textContent = t("tabs")[i]; a.hidden = !RC.views.includes(a.dataset.v); });
+  document.querySelectorAll(".tabs button").forEach((a,i) => { a.textContent = t("tabs")[i]; a.hidden = !RC.views.includes(a.dataset.v); });
   $("#reload").textContent = t("reload");
   $("#subtitle").textContent = (S.sheet ? sheetName(S.sheet) + " · " : "") + (ROLE === "boss" ? t("sub") : ROLE_NAME[LANG][ROLE]);
   $("#sync").textContent = S.loading ? t("loading") : S.loadedAt ? t("updated") + " " + hm(S.loadedAt) : "";
@@ -455,7 +455,7 @@ function chrome(){
 function render(){
   chrome();
   const v = route();
-  document.querySelectorAll(".tabs a").forEach(a => a.setAttribute("aria-current", a.dataset.v===v ? "page" : "false"));
+  document.querySelectorAll(".tabs button").forEach(a => a.setAttribute("aria-current", a.dataset.v===v ? "page" : "false"));
   const el = $("#view");
   if (S.err && !S.blocks.length){ el.innerHTML = errorState(S.err); bindErr(); return; }
   if (!S.blocks.length){ el.innerHTML = S.loadedAt ? `<div class="state"><h2>${esc(t("A").empty_h)}</h2></div>` : `<div class="skeleton"></div><div class="skeleton"></div>`; return; }
@@ -951,7 +951,7 @@ function viewTable(){
 }
 
 /* ---------- boot ---------- */
-window.addEventListener("hashchange", render);
+document.querySelector(".tabs").onclick = e => { const b=e.target.closest("button[data-v]"); if(!b) return; S.view=b.dataset.v; window.scrollTo(0,0); render(); };
 let rz; window.addEventListener("resize", ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(!S.blocks.length) return; if(route()==="svodka") drawCharts(); if(route()==="analitika") drawAnCharts(); },150); });
 $("#reload").onclick = () => refresh();
 $("#month").onchange = e => { S.sheet = e.target.value; S.entry.day = null; S.repDay = null; refresh(); };
