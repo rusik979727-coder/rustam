@@ -35,6 +35,7 @@ const DT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
 /* ---------- веб-қосымша ---------- */
 
 function doGet(e) {
+  rememberAppUrl_();
   const user = userForKey_(e && e.parameter ? e.parameter.k : '');
   if (!user) {
     return HtmlService.createHtmlOutput(
@@ -232,8 +233,18 @@ function resetHook() {
   notify_('Автоматтандыру сілтемесі ауыстырылды. WhatsApp сервисінде жаңасын қойыңыз.');
 }
 
+/** Жұмыс сілтемесін (/exec) есте сақтау: редактордан іске қосқанда Google тек тест сілтемесін (/dev) береді. */
+function rememberAppUrl_() {
+  try {
+    const u = ScriptApp.getService().getUrl();
+    if (u && /\/exec$/.test(u)) PropertiesService.getScriptProperties().setProperty('APP_URL', u);
+  } catch (e) { /* елемейміз */ }
+}
+
 function writeLinks_() {
-  const url = ScriptApp.getService().getUrl();
+  rememberAppUrl_();
+  const saved = PropertiesService.getScriptProperties().getProperty('APP_URL');
+  const url = saved || ScriptApp.getService().getUrl();
   if (!url) { notify_('Алдымен қосымшаны жариялаңыз: «Развернуть» → «Новое развертывание» → «Веб-приложение».'); return; }
   const ss = ss_();
   let sh = ss.getSheetByName(LINKS);
@@ -268,7 +279,11 @@ function now_() { return Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd HH:
 function keys_() { return JSON.parse(PropertiesService.getScriptProperties().getProperty('KEYS') || '{}'); }
 function saveKeys_(k) { PropertiesService.getScriptProperties().setProperty('KEYS', JSON.stringify(k)); }
 function newKey_() { return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 24); }
-function notify_(msg) { try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); } }
+/** Терезе ашып, жұмысты тоқтатпау үшін — кестенің бұрышында қысқа хабарлама. */
+function notify_(msg) {
+  Logger.log(msg);
+  try { ss_().toast(msg, 'Белес CRM', 15); } catch (e) { /* кесте ашық болмауы мүмкін */ }
+}
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 function cut_(v, n) { return v === undefined ? undefined : String(v === null ? '' : v).trim().slice(0, n); }
 
