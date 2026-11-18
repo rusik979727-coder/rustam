@@ -162,6 +162,9 @@ tbody tr:last-child td{border-bottom:0}
 .mv.m-booked,.mv.m-came,.mv.m-bought{color:var(--good)}
 .mv.m-noans,.mv.m-noshow{color:var(--warn)}
 .s-work{background:var(--sunk);color:var(--ink)}
+.dayhead{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:6px 4px 0}
+.lead .meta .arrived{color:var(--ink);font-weight:700}
+.datepick{height:33px;padding:0 10px;font-size:13px}
 .col-empty{padding:18px 12px;text-align:center;color:var(--muted);font-size:13.5px;border:1px dashed var(--line);border-radius:12px}
 #toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:40;max-width:calc(100% - 32px)}
 </style>
@@ -204,7 +207,7 @@ const BOOKED = ["booked","came","noshow","bought"];
 const T = {
   kk:{ tabs:{voronka:"Воронка",esep:"Бүгінгі есеп",taldau:"Талдау"}, reload:"Жаңарту", add:"Қосу", addPh:"Жаңа нөмір: +7 701 123 45 67", search:"Нөмір бойынша іздеу…",
     due:"Бүгін хабарласу керек", none:"Бос", nofound:"Бұл нөмір табылмады", added:"Қосылды: Жаңа", manager:"Менеджер", allm:"Барлық менеджер",
-    since:"Түсті", next:"Байланыс", appt:"Жазылу", phone:"Телефон", source:"Жарнама", service:"Қызмет", stage:"Кезең", nextCall:"Келесі байланыс", apptF:"Жазылу уақыты",
+    since:"Келді", next:"Байланыс", createdF:"Келген күні мен уақыты", dAll:"Барлық күн", dToday:"Бүгін", dYest:"Кеше", d7:"7 күн", dPick:"Күнді таңдау", appt:"Жазылу", phone:"Телефон", source:"Жарнама", service:"Қызмет", stage:"Кезең", nextCall:"Келесі байланыс", apptF:"Жазылу уақыты",
     note:"Ескерту", comment:"Пікір қосу", comment_ph:"Мысалы: кешке қоңырау шалуды сұрады", save:"Сақтау", saving:"Сақталуда…", saved:"Сақталды",
     wa:"WhatsApp", call:"Қоңырау", hist:"Тарих", open:"Ашу", q:{h2:"2 сағаттан",tom:"Ертең 10:00",d3:"3 күннен",clr:"Тазалау"},
     dup:"Бұл нөмір бұрын енгізілген — карточкасы ашылды.", dupOther:m=>`Бұл нөмір бар, ол ${m} менеджеріне бекітілген.`, phoneBad:"Нөмір дұрыс емес.",
@@ -216,7 +219,7 @@ const T = {
     k:["Лидтер","Жазылды","Жазылу %","Сатып алды","Жұмыста","Мерзімі өткен"], err:"Деректерді жүктеу мүмкін болмады", saveErr:"Сақталмады:", ago:"бұрын" },
   ru:{ tabs:{voronka:"Воронка",esep:"Отчёт за день",taldau:"Аналитика"}, reload:"Обновить", add:"Добавить", addPh:"Новый номер: +7 701 123 45 67", search:"Поиск по номеру…",
     due:"Связаться сегодня", none:"Пусто", nofound:"Номер не найден", added:"Добавлен: Новый", manager:"Менеджер", allm:"Все менеджеры",
-    since:"Создан", next:"Контакт", appt:"Запись", phone:"Телефон", source:"Реклама", service:"Услуга", stage:"Этап", nextCall:"Следующий контакт", apptF:"Время записи",
+    since:"Пришёл", next:"Контакт", createdF:"Дата и время поступления", dAll:"Все дни", dToday:"Сегодня", dYest:"Вчера", d7:"7 дней", dPick:"Выбрать день", appt:"Запись", phone:"Телефон", source:"Реклама", service:"Услуга", stage:"Этап", nextCall:"Следующий контакт", apptF:"Время записи",
     note:"Заметка", comment:"Добавить комментарий", comment_ph:"Например: просил перезвонить вечером", save:"Сохранить", saving:"Сохраняю…", saved:"Сохранено",
     wa:"WhatsApp", call:"Позвонить", hist:"История", open:"Открыть", q:{h2:"Через 2 часа",tom:"Завтра 10:00",d3:"Через 3 дня",clr:"Очистить"},
     dup:"Этот номер уже есть — открыта его карточка.", dupOther:m=>`Этот номер уже есть, он закреплён за менеджером ${m}.`, phoneBad:"Неверный номер.",
@@ -233,7 +236,7 @@ const t = k => T[LANG][k];
 const sn = c => SN[LANG][c] || c;
 
 const S = { me:"", boss:false, leads:[], sources:[], services:[], managers:[], loaded:false, err:null,
-  q:"", stage:"new", mgr:"", repDay:null, period:30, open:null, busy:new Set() };
+  q:"", stage:"new", mgr:"", dayF:"all", repDay:null, period:30, open:null, busy:new Set() };
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const nf0 = new Intl.NumberFormat("ru-RU",{maximumFractionDigits:0});
@@ -250,6 +253,12 @@ function human(s){ if(!s) return ""; const d=parseDT(s); if(isNaN(d)) return s; 
   return `${pad(d.getDate())}.${pad(d.getMonth()+1)} ${tm}`; }
 const normPhone = v => { let d=String(v||"").replace(/\D/g,""); if(d.length===11&&d[0]==="8") d="7"+d.slice(1); if(d.length===10) d="7"+d; return d.length>=10&&d.length<=15?d:""; };
 const phoneFmt = p => { const d=String(p||""); return d.length===11 && d[0]==="7" ? `+7 ${d.slice(1,4)} ${d.slice(4,7)} ${d.slice(7,9)} ${d.slice(9)}` : (d?"+"+d:""); };
+const offKey = n => { const x=new Date(); x.setDate(x.getDate()+n); return fmtDT(x).slice(0,10); };
+function dayTitle(k){ const [y,m,d]=k.split("-"); const base=`${d}.${m}.${y}`;
+  if (k===offKey(0)) return `${LANG==="ru"?"Сегодня":"Бүгін"} · ${base}`; if (k===offKey(-1)) return `${LANG==="ru"?"Вчера":"Кеше"} · ${base}`; return base; }
+const fullDT = s => { const k=dayKey(s); if(!k) return ""; const [y,m,d]=k.split("-"); return `${d}.${m}.${y} ${String(s).slice(11,16)}`; };
+function dayOk(l){ const k=dayKey(l.created), f=S.dayF;
+  if (f==="all") return true; if (f==="today") return k===offKey(0); if (f==="yest") return k===offKey(-1); if (f==="7") return k>=offKey(-6); return k===f; }
 const isDue = l => l.nextCall && OPEN.includes(l.status) && parseDT(l.nextCall) <= new Date();
 let toastT; function toast(x){ const el=$("#toast"); el.textContent=x; el.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>el.hidden=true,2600); }
 
@@ -281,7 +290,8 @@ function captureFocus(){ const a=document.activeElement; return a && a.id && /^(
 function restoreFocus(k){ if(!k) return; const n=document.getElementById(k.id); if(n){ n.focus(); try{ n.setSelectionRange(k.pos,k.pos); }catch{} } }
 
 /* ---------- воронка ---------- */
-const scoped = () => S.leads.filter(l => !S.mgr || l.manager===S.mgr);
+const scoped = () => S.leads.filter(l => (!S.mgr || l.manager===S.mgr));
+const scopedDay = () => scoped().filter(dayOk);
 function leadHtml(l){
   const due = isDue(l), digits = String(l.phone||"");
   const meta = [];
@@ -289,7 +299,7 @@ function leadHtml(l){
   if (S.boss && l.manager) meta.push(esc(l.manager));
   if (l.status==="booked" && l.appt) meta.push(`${esc(t("appt"))}: ${esc(human(l.appt))}`);
   else if (l.nextCall && OPEN.includes(l.status)) meta.push(`<span class="${due?"due":""}">${esc(t("next"))}: ${esc(human(l.nextCall))}</span>`);
-  meta.push(`${esc(t("since"))}: ${esc(human(l.created))}`);
+  meta.unshift(`<b class="arrived">${esc(t("since"))}: ${esc(fullDT(l.created))}</b>`);
   const busy = S.busy.has(l.id);
   const moves = MOVES[l.status].map(c=>`<button type="button" class="mv m-${c}" data-mv="${c}" ${busy?"disabled":""}>→ ${esc(sn(c))}</button>`).join("");
   return `<div class="lead ${due?"due":""}" data-id="${esc(l.id)}">
@@ -298,29 +308,39 @@ function leadHtml(l){
     <div class="meta">${meta.map(m=>`<span>${m}</span>`).join("")}</div>
     ${moves?`<div class="moves">${moves}</div>`:""}</div>`;
 }
+function grouped(list){
+  let out="", cur="";
+  list.forEach(l=>{ const k=dayKey(l.created); if(k!==cur){ cur=k; out+=`<div class="dayhead">${esc(dayTitle(k))}</div>`; } out+=leadHtml(l); });
+  return out;
+}
 function viewBoard(){
-  const base = scoped();
+  const base = scopedDay();
   const qd = S.q.replace(/\D/g,"");
   const mgrSel = S.boss && S.managers.length>1 ? `<select id="mgr" aria-label="${esc(t("manager"))}"><option value="">${esc(t("allm"))}</option>${S.managers.map(m=>`<option ${m===S.mgr?"selected":""}>${esc(m)}</option>`).join("")}</select>` : "";
   const top = `<form class="quickadd" id="addForm" autocomplete="off"><input id="newPhone" type="tel" inputmode="tel" placeholder="${esc(t("addPh"))}" aria-label="${esc(t("addPh"))}"><button class="btn primary" type="submit">${esc(t("add"))}</button></form>
     <div class="bar-tools"><input class="search" id="q" type="search" inputmode="tel" placeholder="${esc(t("search"))}" value="${esc(S.q)}" autocomplete="off">${mgrSel}</div>`;
   if (qd){
-    const found = base.filter(l => l.phone.includes(qd)).sort((a,b)=>(b.updated||b.created).localeCompare(a.updated||a.created));
+    const found = scoped().filter(l => l.phone.includes(qd)).sort((a,b)=>b.created.localeCompare(a.created));
     return top + (found.length ? `<div class="col active">${found.map(l=>leadHtml(l).replace('<div class="meta">',`<div class="meta"><span class="pill ${ST_CLASS[l.status]}">${esc(sn(l.status))}</span>`)).join("")}</div>`
       : `<div class="col-empty">${esc(t("nofound"))}</div>`);
   }
   const by = {}; STAGES.forEach(c=>by[c]=[]); base.forEach(l=>(by[l.status]||by.new).push(l));
-  STAGES.forEach(c=>by[c].sort((a,b)=>{ const da=isDue(a), db=isDue(b); if(da!==db) return da?-1:1; return (b.updated||b.created).localeCompare(a.updated||a.created); }));
+  STAGES.forEach(c=>by[c].sort((a,b)=>b.created.localeCompare(a.created)));
   const due = base.filter(isDue).length;
   const chips = STAGES.map(c=>`<button type="button" class="chip" data-st="${c}" aria-pressed="${S.stage===c}">${esc(sn(c))}<b>${by[c].length}</b></button>`).join("");
   const cols = STAGES.map(c=>`<section class="col ${S.stage===c?"active":""}" data-col="${c}"><div class="col-head"><h3>${esc(sn(c))}</h3><b>${by[c].length}</b></div>
-    ${by[c].length ? by[c].map(leadHtml).join("") : `<div class="col-empty">${esc(t("none"))}</div>`}</section>`).join("");
+    ${by[c].length ? grouped(by[c]) : `<div class="col-empty">${esc(t("none"))}</div>`}</section>`).join("");
   const dueNote = due ? `<div class="notice">${esc(t("due"))}: <b>${due}</b></div>` : "";
-  return top + dueNote + `<div class="stages" id="stages">${chips}</div><div class="board" id="board">${cols}</div>`;
+  const fixed = ["all","today","yest","7"], picked = !fixed.includes(S.dayF);
+  const dchips = [["all",t("dAll")],["today",t("dToday")],["yest",t("dYest")],["7",t("d7")]].map(([v,lab])=>`<button type="button" class="chip" data-d="${v}" aria-pressed="${S.dayF===v}">${esc(lab)}</button>`).join("")
+    + `<input type="date" class="chip datepick" id="dayPick" aria-label="${esc(t("dPick"))}" value="${picked?esc(S.dayF):""}" ${picked?'aria-pressed="true"':""}>`;
+  return top + `<div class="chips" id="days">${dchips}</div>` + dueNote + `<div class="stages" id="stages">${chips}</div><div class="board" id="board">${cols}</div>`;
 }
 function bindBoard(){
   const q=$("#q"); q.oninput = () => { S.q=q.value; render(); };
   const m=$("#mgr"); if(m) m.onchange = () => { S.mgr=m.value; render(); };
+  $("#days").onclick = e => { const b=e.target.closest("button.chip"); if(!b) return; S.dayF=b.dataset.d; render(); };
+  $("#dayPick").onchange = e => { S.dayF = e.target.value || "all"; render(); };
   const st=$("#stages"); if(st) st.onclick = e => { const b=e.target.closest(".chip"); if(!b) return; S.stage=b.dataset.st; render(); };
   $("#addForm").onsubmit = async e => {
     e.preventDefault();
@@ -367,12 +387,13 @@ function renderCard(){
   const opt = (arr, v) => { const a = arr.slice(); if (v && !a.includes(v)) a.unshift(v); return `<option value=""></option>` + a.map(x=>`<option ${x===v?"selected":""}>${esc(x)}</option>`).join(""); };
   const hist = (l.history||"").split("\n").filter(Boolean).reverse().map(line=>{ const p=line.split(" · "); return `<li><time>${esc(p[0])} · ${esc(p[1]||"")}</time>${esc(p.slice(2).join(" · "))}</li>`; }).join("");
   sh.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-labelledby="cardTitle">
-    <div class="card-head"><div><span class="pill ${ST_CLASS[l.status]}">${esc(sn(l.status))}</span><h2 id="cardTitle" class="num" style="margin-top:6px">${esc(phoneFmt(digits))}</h2>${l.name?`<span class="sub">${esc(l.name)}</span>`:""}</div>
+    <div class="card-head"><div><span class="pill ${ST_CLASS[l.status]}">${esc(sn(l.status))}</span><h2 id="cardTitle" class="num" style="margin-top:6px">${esc(phoneFmt(digits))}</h2><span class="sub">${esc(t("since"))}: ${esc(fullDT(l.created))}${l.name?" · "+esc(l.name):""}</span></div>
       <button class="x" type="button" id="close" aria-label="×">×</button></div>
     <div class="contact"><a class="btn wa" href="https://wa.me/${esc(digits)}" target="_blank" rel="noopener">${esc(t("wa"))}</a><a class="btn" href="tel:+${esc(digits)}">${esc(t("call"))}</a></div>
     <form id="leadForm" class="panel" autocomplete="off">
       <div class="fields">
         <div class="field wide"><label>${esc(t("stage"))}</label><div class="status-grid" id="stGrid">${STAGES.map(c=>`<button type="button" data-s="${c}" aria-pressed="${c===l.status}">${esc(sn(c))}</button>`).join("")}</div></div>
+        <div class="field"><label for="f_created">${esc(t("createdF"))}</label><input id="f_created" type="datetime-local" value="${esc(toLocal(l.created))}" max="${esc(todayKey())}T23:59"></div>
         <div class="field"><label for="f_phone">${esc(t("phone"))}</label><input id="f_phone" type="tel" inputmode="tel" value="${esc(phoneFmt(digits))}"></div>
         <div class="field"><label for="f_source">${esc(t("source"))}</label><select id="f_source">${opt(S.sources, l.source)}</select></div>
         <div class="field"><label for="f_service">${esc(t("service"))}</label><input id="f_service" list="svc" value="${esc(l.service)}" maxlength="100"><datalist id="svc">${S.services.map(x=>`<option>${esc(x)}</option>`).join("")}</datalist></div>
@@ -401,7 +422,7 @@ function renderCard(){
   $("#leadForm").onsubmit = async e => {
     e.preventDefault();
     const msg = $("#leadMsg"), btn = $("#saveLead");
-    const input = { id:l.id, phone:$("#f_phone").value, source:$("#f_source").value, service:$("#f_service").value, status:l.status,
+    const input = { id:l.id, created:fromLocal($("#f_created").value) || l.created, phone:$("#f_phone").value, source:$("#f_source").value, service:$("#f_service").value, status:l.status,
       nextCall:fromLocal($("#f_next").value), appt:fromLocal($("#f_appt").value), note:$("#f_note").value, comment:$("#f_comment").value };
     if ($("#f_manager")) input.manager = $("#f_manager").value;
     if (!normPhone(input.phone)){ msg.className="msg err"; msg.textContent=t("phoneBad"); return; }

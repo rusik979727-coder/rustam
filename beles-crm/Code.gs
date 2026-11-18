@@ -107,6 +107,11 @@ function crmSave(key, input) {
       }
     }
     if (input.nextCall !== undefined) { if (input.nextCall && !DT.test(input.nextCall)) throw new Error('Қоңырау уақыты дұрыс емес.'); set('nextCall', input.nextCall, 'Келесі байланыс'); }
+    if (input.created !== undefined && input.id) {
+      if (!DT.test(input.created)) throw new Error('Келген күні дұрыс емес.');
+      if (input.created.slice(0, 10) > now.slice(0, 10)) throw new Error('Келген күні болашақта бола алмайды.');
+      set('created', input.created, 'Келген күні');
+    }
     if (input.appt !== undefined) { if (input.appt && !DT.test(input.appt)) throw new Error('Жазылу уақыты дұрыс емес.'); set('appt', input.appt, 'Жазылу'); }
     set('note', cut_(input.note, 2000), 'Ескерту');
     if (input.manager !== undefined && u.boss) {
