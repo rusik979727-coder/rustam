@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
+<style>
+[hidden]{display:none!important}
+/* Layout: one narrow operator column — header, tabs, then a single working view (summary / daily entry / month table). */
+:root{
+  --bg:#F2F5F4; --surface:#FFFFFF; --sunk:#E8EEEC; --ink:#13201C; --muted:#5A6A65; --line:#D7E0DC;
+  --accent:#0F7A63; --accent-ink:#FFFFFF; --accent-soft:#DCEFE8; --money:#A9661A;
+  --bad:#B83A2E; --bad-soft:#F7E1DE; --warn:#946A00; --warn-soft:#F6EDCF; --good:#1D7A43;
+  --display:"Unbounded","Manrope",system-ui,sans-serif;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1412; --surface:#151E1B; --sunk:#1B2622; --ink:#E5EDEA; --muted:#93A39E; --line:#27332F;
+  --accent:#3EC29F; --accent-ink:#06231B; --accent-soft:#163A30; --money:#E2A24C;
+  --bad:#F07A6C; --bad-soft:#3A1F1C; --warn:#E3BC52; --warn-soft:#352C14; --good:#5BCB89; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1412; --surface:#151E1B; --sunk:#1B2622; --ink:#E5EDEA; --muted:#93A39E; --line:#27332F;
+  --accent:#3EC29F; --accent-ink:#06231B; --accent-soft:#163A30; --money:#E2A24C;
+  --bad:#F07A6C; --bad-soft:#3A1F1C; --warn:#E3BC52; --warn-soft:#352C14; --good:#5BCB89; color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px}
+.app{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+#view{display:flex;flex-direction:column;gap:16px}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;justify-content:space-between}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.brand h1{font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.brand small{color:var(--muted);font-size:13px}
+.ctrls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select,.btn{height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);padding:0 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.btn[disabled]{opacity:.55;cursor:wait}
+.sync{font-size:12px;color:var(--muted)}
+.lang{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;height:38px}
+.lang button{border:0;background:var(--surface);padding:0 10px;font-weight:700;font-size:12.5px;cursor:pointer;color:var(--muted)}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+
+.tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:12px;overflow-x:auto}
+.tabs a{flex:1 0 auto;text-align:center;padding:9px 10px;border-radius:9px;color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;white-space:nowrap}
+.tabs a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .08)}
+
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+h2{font-family:var(--display);font-weight:500;font-size:16px;margin:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.panel-head .sub,.sub{color:var(--muted);font-size:13px}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.kpi{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.kpi b{font-family:var(--display);font-weight:500;font-size:24px;letter-spacing:-.02em;white-space:nowrap}
+.kpi .money{color:var(--money)}
+.kpis.k3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpi b small{font-family:var(--body);font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:4px}
+@media (max-width:720px){.kpis,.kpis.k3{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi b{font-size:21px}}
+
+.grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+@media (max-width:820px){.grid2{grid-template-columns:minmax(0,1fr)}}
+
+.chart{position:relative;width:100%}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .ax{fill:var(--muted);font-size:11px;font-family:var(--body)}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12.5px;padding:6px 9px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-100%);z-index:2}
+
+.funnel{display:flex;flex-direction:column;gap:10px}
+.fstep{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:baseline}
+.fstep .bar{grid-column:1 / -1;height:10px;border-radius:5px;background:var(--sunk);overflow:hidden}
+.fstep .bar i{display:block;height:100%;background:var(--accent);border-radius:5px}
+.fstep .v{font-weight:700}
+.fstep .pct{color:var(--muted);font-weight:500;font-size:12.5px;margin-left:6px}
+.fstep.empty .v{color:var(--muted);font-weight:500}
+
+.wk{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px 14px;align-items:baseline;font-variant-numeric:tabular-nums}
+.wk .h{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:right}
+.wk .h:first-child{text-align:left}
+.wk .c{text-align:right}
+.wk b{font-weight:700}
+.delta{font-size:12.5px;font-weight:700;padding:1px 7px;border-radius:999px;white-space:nowrap}
+.delta.up{color:var(--good);background:color-mix(in srgb,var(--good) 14%,transparent)}
+.delta.down{color:var(--bad);background:var(--bad-soft)}
+.delta.flat{color:var(--muted);background:var(--sunk)}
+
+.alerts{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.alert{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;padding:10px 12px;border-radius:10px;background:var(--warn-soft)}
+.alert.bad{background:var(--bad-soft)}
+.alert .pill{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:999px;border:1px solid currentColor;color:var(--warn);white-space:nowrap}
+.alert.bad .pill{color:var(--bad)}
+.ok{color:var(--good);font-weight:600;margin:0}
+
+.report{width:100%;min-height:190px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:12px;font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
+
+/* entry */
+.days{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.day{flex:0 0 auto;width:46px;height:52px;border-radius:10px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;font-weight:700}
+.day small{font-size:10px;color:var(--muted);font-weight:600}
+.day .dot{width:6px;height:6px;border-radius:50%;background:transparent}
+.day.has .dot{background:var(--accent)}
+.day[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.day[aria-pressed="true"] small{color:var(--accent-ink)}
+.day[aria-pressed="true"] .dot{background:var(--accent-ink)}
+.day.today{border-color:var(--accent);border-width:2px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;cursor:pointer;font-weight:600;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:520px){.fields{grid-template-columns:minmax(0,1fr)}}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.field input{height:46px;border-radius:10px;border:1px solid var(--line);background:var(--bg);padding:0 12px;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;width:100%}
+.field input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.field.calc .out{height:46px;border-radius:10px;border:1px dashed var(--line);display:flex;align-items:center;padding:0 12px;font-size:18px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.field .hint{font-size:12px;color:var(--muted)}
+.check{padding:10px 12px;border-radius:10px;font-size:14px;background:var(--sunk)}
+.check.bad{background:var(--bad-soft);color:var(--bad);font-weight:600}
+.check.good{color:var(--good);font-weight:600}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.actions .msg{font-size:14px}
+.actions .msg.err{color:var(--bad);font-weight:600}
+
+/* table */
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;min-width:100%}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+thead th{background:var(--sunk);font-weight:700;color:var(--muted);font-size:12px}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;font-weight:600;border-right:1px solid var(--line)}
+thead th:first-child{background:var(--sunk)}
+td.today,th.today{background:var(--accent-soft)}
+td.tot{font-weight:700;border-left:1px solid var(--line)}
+td.flag{color:var(--bad);font-weight:700}
+td.calc{color:var(--accent)}
+tbody tr:last-child td{border-bottom:0}
+
+.state{display:flex;flex-direction:column;gap:10px;align-items:flex-start;padding:24px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.state h2{font-size:18px}
+.state p{margin:0;color:var(--muted);max-width:60ch}
+.skeleton{height:84px;border-radius:var(--r);background:linear-gradient(90deg,var(--sunk),var(--surface),var(--sunk));background-size:200% 100%;animation:sh 1.4s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skeleton{animation:none}}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:20;max-width:calc(100% - 32px)}
+</style>
+</head>
+<body>
+<div id="cfg" data-role="<?= role ?>" data-key="<?= key ?>" hidden></div>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Белес маркетинг</h1>
+      <small id="subtitle"></small>
+    </div>
+    <div class="ctrls">
+      <select id="month" aria-label="Month" hidden></select>
+      <div class="lang" role="group" aria-label="Тіл / Язык">
+        <button type="button" data-lang="kk">ҚАЗ</button>
+        <button type="button" data-lang="ru">РУС</button>
+      </div>
+      <button class="btn" id="reload" type="button"></button>
+      <span class="sync" id="sync"></span>
+    </div>
+  </header>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#svodka" data-v="svodka"></a>
+    <a href="#vvod" data-v="vvod"></a>
+    <a href="#analitika" data-v="analitika"></a>
+    <a href="#tablica" data-v="tablica"></a>
+  </nav>
+  <main id="view">
+    <div class="skeleton"></div>
+  </main>
+</div>
+<div id="toast" hidden></div>
+
+<script>
+const CFG = document.getElementById("cfg").dataset;
+const KEY = CFG.key;
+const MONTHS = ["ЯНВАРЬ","ФЕВРАЛЬ","МАРТ","АПРЕЛЬ","МАЙ","ИЮНЬ","ИЮЛЬ","АВГУСТ","СЕНТЯБРЬ","ОКТЯБРЬ","НОЯБРЬ","ДЕКАБРЬ"];
+const MONTHS_KK = {"ЯНВАРЬ":"Қаңтар","ФЕВРАЛЬ":"Ақпан","МАРТ":"Наурыз","АПРЕЛЬ":"Сәуір","МАЙ":"Мамыр","ИЮНЬ":"Маусым","ИЮЛЬ":"Шілде","АВГУСТ":"Тамыз","СЕНТЯБРЬ":"Қыркүйек","ОКТЯБРЬ":"Қазан","НОЯБРЬ":"Қараша","ДЕКАБРЬ":"Желтоқсан"};
+const KEYS = {
+  "кол-во лидов":"leads","кол-во новых лидов":"leads","цена за лид":"cpl","общая сумма":"spend",
+  "запись":"booked","недозвон":"noanswer","в работе":"inwork","отказ":"refused","конверсия":"conv",
+  "консультация на сегодня":"planned","пришли":"came","купили":"bought","думает":"thinking",
+  "касса общая":"cash","нал":"cashN","безнал":"card","перевод":"transfer"
+};
+const MONEY = new Set(["spend","cpl"]);
+const CC_STATUS = ["booked","noanswer","inwork","refused"];
+const REC_STATUS = ["bought","thinking","refused"];
+const ROLE = ["boss","target","cc","rec"].includes(CFG.role) ? CFG.role : "target";
+const ROLES = { boss:{types:null, views:["svodka","vvod","analitika","tablica"]}, target:{types:["target"], views:["vvod","analitika","tablica"]},
+  cc:{types:["cc"], skipFirstCc:true, views:["vvod","analitika","tablica"]}, rec:{types:["rec"], views:["vvod","analitika","tablica"]} };
+const RC = ROLES[ROLE];
+const visible = b => true; // сервер тек рұқсат етілген блоктарды жібереді
+const ROLE_NAME = { ru:{target:"Таргет", cc:"Колл-центр", rec:"Ресепшн"}, kk:{target:"Таргет", cc:"Колл-орталық", rec:"Ресепшн"} };
+
+/* ---------- language ---------- */
+const plRu = (n,a,b,c) => { n=Math.abs(Math.round(n))%100; const n1=n%10; if(n>10&&n<20) return c; if(n1>1&&n1<5) return b; if(n1===1) return a; return c; };
+const T = {
+  ru:{
+    sub:"таргет → колл-центр → ресепшн", reload:"Обновить", loading:"Загрузка…", updated:"Обновлено",
+    tabs:["Сводка","Ввод за день","Аналитика","Таблица"],
+    k_leads:"Лиды таргета", k_spend:"Расход", k_cpl:"Цена лида", k_conv:"Конверсия в запись", k_booked:"Записи", k_came:"Пришли", k_bought:"Купили", k_cash:"Касса",
+    ch_leads:"Лиды по дням", ch_leads_sub:p=>`таргет, ${p}`, upto:d=>`по ${d}`, nodata:"нет данных",
+    funnel:"Воронка месяца", f:["Лиды таргета","Обработаны колл-центром","Записались","Пришли","Купили"], ofprev:"от пред.",
+    ch_cpl:"Цена за лид", avg_month:v=>`среднее за месяц ${v}`, cc:"Колл-центр", cc_none:"Блок колл-центра не найден в таблице.",
+    check:"Что проверить", items:n=>`${n} ${plRu(n,"пункт","пункта","пунктов")}`, allgood:"Расхождений нет — данные сходятся.",
+    pill_bad:"Ошибка", pill_warn:"Внимание",
+    leadsN:n=>`${n} ${plRu(n,"лид","лида","лидов")}`, leadsGen:n=>`${n} ${plRu(n,"лида","лидов","лидов")}`,
+    a_status:(d,b,s,l)=>`<b>${d} · ${b}:</b> статусы дают ${s} из ${l}.`,
+    a_conv:(d,b,s,c)=>`<b>${d} · ${b}:</b> в таблице конверсия ${s}, по данным ${c}.`,
+    a_ccgap:(r,c)=>`<b>Колл-центр не заполнен ${r}</b>: за эти дни таргет дал ${c}.`,
+    a_diff:(n,list)=>`<b>Лиды таргета и колл-центра не совпадают</b> в ${n} ${plRu(n,"дне","днях","днях")}: ${list}.`,
+    a_cpl:(d,v,a)=>`<b>Цена лида растёт:</b> ${d} — ${v} при среднем ${a}. Проверьте креативы и аудиторию.`,
+    a_recempty:b=>`<b>${b}</b> не заполняется — без этих данных не видно, сколько людей пришло и купило.`,
+    a_rec:(d,b,s,c)=>`<b>${d} · ${b}:</b> купили + думает + отказ = ${s}, а пришли ${c}.`,
+    wk:"Неделя к неделе", wk_sub:(a,b)=>`${a} против ${b}`, wk_h:["","Пред. 7 дней","Последние 7","Изм."], wk_rows:["Лиды","Расход","Цена лида","Записи"],
+    wk_none:"Нужно хотя бы 8 дней данных таргета.",
+    rep:"Отчёт за день", rep_sub:"для WhatsApp или Telegram", copy:"Скопировать", copied:"Отчёт скопирован", copyfail:"Не удалось скопировать — текст выделен, нажмите Ctrl+C.",
+    r_target:"Таргет", r_cc:"Колл-центр", r_rec:"Ресепшн", r_per:"за лид", r_spent:"потрачено",
+    r_month:"С начала месяца", r_empty:"не заполнено",
+    day:"День", section:"Раздел", today:"сегодня", calc:"считается автоматически",
+    writes:(r0,r1,c)=>`запишется в строки ${r0}–${r1}, столбец ${c}`, save:"Сохранить в таблицу", saving:"Сохраняю…",
+    saved:(b,d)=>`Сохранено: ${b}, ${d}`, negative:"Отрицательные числа не записываются.",
+    ok_sum:(n,s)=>`Сходится: ${n} = ${s}.`, bad_sum:(n,s,e)=>`${n} = ${s}, а должно быть ${e}. Проверьте цифры.`,
+    unsure:"Не удалось подтвердить сохранение. Нажмите «Обновить» и проверьте день, прежде чем сохранять снова.",
+    savefail:"Не сохранилось. Попробуйте ещё раз.", total:"Итого",
+    legend:"Зелёным — значения, которые приложение пересчитало само (цена лида, конверсия, касса). Красным — ячейки, где цифры не сходятся.",
+    stale:t=>`Показаны данные на ${t}.`, refreshfail:"Не удалось обновить",
+    allow:"Разрешить доступ", sheet:"Google Таблица «Белес маркетинг»",
+    E:{
+      server_not_connected:["Google Таблицы не подключены","Подключите Google Sheets: claude.ai → Настройки → Коннекторы, затем нажмите «Обновить»."],
+      needs_reauth:["Нужно заново войти в Google","Переподключите Google Sheets в claude.ai → Настройки → Коннекторы."],
+      selection_required:["Выберите аккаунт Google","У вас несколько подключений Google Sheets. Выберите нужное в окне claude.ai и нажмите «Обновить»."],
+      not_in_manifest:["Доступ к таблице не разрешён","Приложению нужен доступ к Google Sheets, чтобы читать и записывать данные."],
+      approval_required:["Нужно ваше разрешение","Разрешите приложению читать и записывать таблицу «Белес маркетинг»."],
+      blocked_by_policy:["Доступ закрыт настройками организации","Администратор запретил этот коннектор. Обратитесь к нему."],
+      server_unavailable:["Google Таблицы не отвечают","Сервис временно недоступен. Попробуйте обновить через минуту."],
+      tool_error:["Таблица вернула ошибку","Проверьте, что у вашего Google-аккаунта есть доступ к файлу «Белес маркетинг»."],
+      no_mcp:["Откройте приложение в Claude","Данные берутся из вашей Google Таблицы через коннектор Google Sheets. Это работает, когда страница открыта на claude.ai."],
+      other:["Не удалось загрузить данные","Попробуйте обновить. Если ошибка повторится, проверьте подключение Google Sheets."]
+    },
+    A:{days:"Дней с рекламой", best:"Самый дешёвый лид", worst:"Самый дорогой лид", ch_leads:"Лиды по дням", cc_leads:"Новые лиды",
+      cc_ch_leads:"Новые лиды по дням", cc_ch_conv:"Конверсия в запись по дням", cc_where:"Куда уходят лиды", of_leads:n=>`из ${n} лидов`,
+      show_rate:"Доходимость", buy_conv:"Конверсия в покупку", avg_check:"Средний чек", rec_ch_came:"Пришли по дням", rec_ch_cash:"Касса по дням",
+      rec_res:"Чем закончились визиты", of_came:n=>`из ${n} пришедших`, pay:"Способы оплаты", wk_none:"Для сравнения нужно хотя бы 14 дней данных.",
+      empty_h:"Данных пока нет", empty_p:"Заполните раздел «Ввод за день» — аналитика появится автоматически.",
+      wk_cc:["Новые лиды","Записи","Конверсия"], wk_rec:["Пришли","Купили","Касса"], team:"Воронка команды", team_sub:"общая для всех, без денег"},
+    M:{}
+  },
+  kk:{
+    sub:"таргет → колл-орталық → ресепшн", reload:"Жаңарту", loading:"Жүктелуде…", updated:"Жаңартылды",
+    tabs:["Жиынтық","Күнді енгізу","Аналитика","Кесте"],
+    k_leads:"Таргет лидтері", k_spend:"Шығын", k_cpl:"Лид бағасы", k_conv:"Жазылу конверсиясы", k_booked:"Жазылғандар", k_came:"Келгендер", k_bought:"Сатып алғандар", k_cash:"Касса",
+    ch_leads:"Күн сайынғы лидтер", ch_leads_sub:p=>`таргет, ${p}`, upto:d=>`${d} дейін`, nodata:"дерек жоқ",
+    funnel:"Айлық воронка", f:["Таргет лидтері","Колл-орталық өңдеді","Жазылды","Келді","Сатып алды"], ofprev:"алдыңғыдан",
+    ch_cpl:"Лид бағасы", avg_month:v=>`ай бойынша орташа ${v}`, cc:"Колл-орталық", cc_none:"Кестеде колл-орталық блогы табылмады.",
+    check:"Нені тексеру керек", items:n=>`${n} тармақ`, allgood:"Сәйкессіздік жоқ — деректер дұрыс.",
+    pill_bad:"Қате", pill_warn:"Назар",
+    leadsN:n=>`${n} лид`, leadsGen:n=>`${n} лид`,
+    a_status:(d,b,s,l)=>`<b>${d} · ${b}:</b> статустар қосындысы ${s}, ал лидтер ${l}.`,
+    a_conv:(d,b,s,c)=>`<b>${d} · ${b}:</b> кестедегі конверсия ${s}, деректер бойынша ${c}.`,
+    a_ccgap:(r,c)=>`<b>Колл-орталық толтырылмаған: ${r}</b>. Бұл күндері таргет ${c} әкелді.`,
+    a_diff:(n,list)=>`<b>Таргет пен колл-орталық лидтері ${n} күнде сәйкес емес</b>: ${list}.`,
+    a_cpl:(d,v,a)=>`<b>Лид бағасы өсіп жатыр:</b> ${d} — ${v}, ал орташа ${a}. Креативтер мен аудиторияны тексеріңіз.`,
+    a_recempty:b=>`<b>${b}</b> толтырылмай жатыр — онсыз қанша адам келіп, сатып алғаны көрінбейді.`,
+    a_rec:(d,b,s,c)=>`<b>${d} · ${b}:</b> сатып алды + ойланып жүр + бас тартты = ${s}, ал келгендер ${c}.`,
+    wk:"Апта мен апта", wk_sub:(a,b)=>`${a} пен ${b}`, wk_h:["","Алдыңғы 7 күн","Соңғы 7 күн","Өзгеріс"], wk_rows:["Лидтер","Шығын","Лид бағасы","Жазылғандар"],
+    wk_none:"Таргет бойынша кемінде 8 күндік дерек керек.",
+    rep:"Күндік есеп", rep_sub:"WhatsApp немесе Telegram үшін", copy:"Көшіру", copied:"Есеп көшірілді", copyfail:"Көшіру мүмкін болмады — мәтін белгіленді, Ctrl+C басыңыз.",
+    r_target:"Таргет", r_cc:"Колл-орталық", r_rec:"Ресепшн", r_per:"бір лид", r_spent:"жұмсалды",
+    r_month:"Ай басынан", r_empty:"толтырылмаған",
+    day:"Күн", section:"Бөлім", today:"бүгін", calc:"автоматты есептеледі",
+    writes:(r0,r1,c)=>`${r0}–${r1} жолдарға, ${c} бағанына жазылады`, save:"Кестеге сақтау", saving:"Сақталуда…",
+    saved:(b,d)=>`Сақталды: ${b}, ${d}`, negative:"Теріс сандар жазылмайды.",
+    ok_sum:(n,s)=>`Сәйкес: ${n} = ${s}.`, bad_sum:(n,s,e)=>`${n} = ${s}, ал ${e} болуы керек. Сандарды тексеріңіз.`,
+    unsure:"Сақталғанын растау мүмкін болмады. Қайта сақтамас бұрын «Жаңарту» басып, күнді тексеріңіз.",
+    savefail:"Сақталмады. Қайталап көріңіз.", total:"Барлығы",
+    legend:"Жасылмен — қосымша өзі есептеген мәндер (лид бағасы, конверсия, касса). Қызылмен — сандар сәйкес келмейтін ұяшықтар.",
+    stale:t=>`${t} уақыттағы деректер көрсетілген.`, refreshfail:"Жаңарту мүмкін болмады",
+    allow:"Рұқсат беру", sheet:"«Белес маркетинг» Google Кестесі",
+    E:{
+      server_not_connected:["Google Sheets қосылмаған","Google Sheets-ті қосыңыз: claude.ai → Баптаулар → Коннекторлар, содан кейін «Жаңарту» басыңыз."],
+      needs_reauth:["Google-ға қайта кіру керек","claude.ai → Баптаулар → Коннекторлар ішінде Google Sheets-ті қайта қосыңыз."],
+      selection_required:["Google аккаунтын таңдаңыз","Сізде бірнеше Google Sheets қосылымы бар. claude.ai терезесінде керегін таңдап, «Жаңарту» басыңыз."],
+      not_in_manifest:["Кестеге рұқсат берілмеген","Деректерді оқу және жазу үшін қосымшаға Google Sheets рұқсаты керек."],
+      approval_required:["Сіздің рұқсатыңыз керек","Қосымшаға «Белес маркетинг» кестесін оқуға және жазуға рұқсат беріңіз."],
+      blocked_by_policy:["Ұйым баптаулары жауып тастаған","Әкімші бұл коннекторға тыйым салған. Соған хабарласыңыз."],
+      server_unavailable:["Google Sheets жауап бермей тұр","Қызмет уақытша қолжетімсіз. Бір минуттан кейін жаңартып көріңіз."],
+      tool_error:["Кесте қате қайтарды","Google аккаунтыңызда «Белес маркетинг» файлына рұқсат бар екенін тексеріңіз."],
+      no_mcp:["Қосымшаны Claude ішінде ашыңыз","Деректер Google Sheets коннекторы арқылы сіздің кестеңізден алынады. Бет claude.ai-да ашылғанда жұмыс істейді."],
+      other:["Деректерді жүктеу мүмкін болмады","Жаңартып көріңіз. Қате қайталанса, Google Sheets қосылымын тексеріңіз."]
+    },
+    A:{days:"Жарнама күндері", best:"Ең арзан лид", worst:"Ең қымбат лид", ch_leads:"Күн сайынғы лидтер", cc_leads:"Жаңа лидтер",
+      cc_ch_leads:"Күн сайынғы жаңа лидтер", cc_ch_conv:"Күн сайынғы жазылу конверсиясы", cc_where:"Лидтер қайда кетеді", of_leads:n=>`${n} лидтен`,
+      show_rate:"Келу үлесі", buy_conv:"Сатып алу конверсиясы", avg_check:"Орташа чек", rec_ch_came:"Күн сайын келгендер", rec_ch_cash:"Күн сайынғы касса",
+      rec_res:"Келгендер нәтижесі", of_came:n=>`${n} келгеннен`, pay:"Төлем түрлері", wk_none:"Салыстыру үшін кемінде 14 күндік дерек керек.",
+      empty_h:"Әзірге дерек жоқ", empty_p:"«Күнді енгізу» бөлімін толтырыңыз — аналитика өзі пайда болады.",
+      wk_cc:["Жаңа лидтер","Жазылғандар","Конверсия"], wk_rec:["Келгендер","Сатып алғандар","Касса"], team:"Команда воронкасы", team_sub:"барлығына ортақ, ақшасыз"},
+    M:{ leads:"Лидтер саны", cpl:"Лид бағасы", spend:"Жалпы сома", booked:"Жазылды", noanswer:"Жауап бермеді", inwork:"Жұмыста",
+        refused:"Бас тартты", conv:"Конверсия", planned:"Бүгінгі консультация", came:"Келді", bought:"Сатып алды", thinking:"Ойланып жүр",
+        cash:"Жалпы касса", cashN:"Қолма-қол", card:"Карта", transfer:"Аударым" }
+  }
+};
+let LANG = "kk";
+try { const s = localStorage.getItem("beles_lang"); if (s === "ru" || s === "kk") LANG = s; } catch {}
+const t = k => T[LANG][k];
+const mLabel = m => (LANG === "kk" && T.kk.M[m.key]) ? T.kk.M[m.key] : m.label;
+const bName = b => LANG === "kk" ? b.name.replace(/Колл-центр/g,"Колл-орталық") : b.name;
+const sheetName = s => s ? (LANG === "kk" && MONTHS_KK[s.trim().toUpperCase()]) || (s.charAt(0) + s.slice(1).toLowerCase()) : "";
+
+const S = { mcp:null, sheets:[], sheet:null, blocks:[], dates:[], nDays:31, loadedAt:null, err:null, loading:false,
+            entry:{day:null, block:0}, repDay:null, saving:false };
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nf0 = new Intl.NumberFormat("ru-RU",{maximumFractionDigits:0});
+const nf1 = new Intl.NumberFormat("ru-RU",{maximumFractionDigits:1});
+const nf2 = new Intl.NumberFormat("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2});
+const hm = d => d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+
+function num(x){
+  if (x == null) return null;
+  let s = String(x).trim(); if (!s) return null;
+  s = s.replace(/[^\d,.\-]/g,"");
+  if (s.includes(",") && s.includes(".")) s = s.replace(/\./g,"").replace(",",".");
+  else s = s.replace(",",".");
+  const v = parseFloat(s); return Number.isFinite(v) ? v : null;
+}
+function colLetter(i){ let n=i+1, s=""; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26);} return s; }
+function fmt(key, v){
+  if (v == null || !Number.isFinite(v)) return "—";
+  if (MONEY.has(key)) return "$" + nf2.format(v);
+  if (key === "conv") return nf1.format(v) + "%";
+  return nf0.format(v);
+}
+
+/* ---------- parsing ---------- */
+function parse(values){
+  const blocks=[]; let cur=null;
+  values.forEach((row,i)=>{
+    const empty = !row || !row.some(c => String(c ?? "").trim() !== "");
+    if (empty){ cur=null; return; }
+    const label = String(row[0] ?? "").trim();
+    if (!cur){ cur={ title:label, row:i+1, header:row, metrics:[], m:{} }; blocks.push(cur); return; }
+    const key = KEYS[label.toLowerCase()] || ("x_" + label.toLowerCase());
+    const met = { label, key, row:i+1, cells:row.slice(1) };
+    cur.metrics.push(met); if (!cur.m[key]) cur.m[key]=met;
+  });
+  const seen = {}; let lastCc = "";
+  blocks.forEach(b=>{
+    const tt = b.title.toLowerCase();
+    b.type = tt.startsWith("таргет") ? "target" : tt.startsWith("колл") ? "cc" : tt.startsWith("ресепш") ? "rec" : "other";
+    b.name = b.title;
+    if (b.type === "cc") lastCc = b.title.replace(/колл-центр/i,"").trim();
+    if (seen[b.title]) b.name = b.title + (lastCc ? " · " + lastCc : " " + (seen[b.title]+1));
+    seen[b.title] = (seen[b.title]||0)+1;
+  });
+  const hdr = blocks.find(b => b.header.slice(1).some(c => /\d/.test(String(c))));
+  const dates = hdr ? hdr.header.slice(1).map(c => String(c ?? "").trim().replace("/",".")) : [];
+  S.nDays = Math.max(31, dates.length);
+  while (dates.length < S.nDays) dates.push(String(dates.length+1));
+  S.blocks = blocks; S.dates = dates;
+}
+const get = (b,key,d) => b && b.m[key] ? num(b.m[key].cells[d]) : null;
+function hasPart(b,d){ return ["cashN","card","transfer"].some(k => b.m[k] && get(b,k,d) != null); }
+function cv(b,key,d){
+  if (key === "cpl"){ const s=get(b,"spend",d), l=get(b,"leads",d); return (s!=null && l) ? s/l : (b.m.spend ? null : get(b,"cpl",d)); }
+  if (key === "conv"){ const l=get(b,"leads",d), r=get(b,"booked",d); return (l && r!=null) ? r/l*100 : null; }
+  if (key === "cash" && hasPart(b,d)) return ["cashN","card","transfer"].reduce((a,k)=>a+(get(b,k,d)||0),0);
+  return get(b,key,d);
+}
+function isCalc(b,key,d){ return key==="cpl" && !!b.m.spend || key==="conv" && !!b.m.booked || key==="cash" && hasPart(b,d); }
+function sumRange(b,key,a,z){ let s=0, any=false; for(let d=Math.max(0,a); d<=Math.min(z,S.nDays-1); d++){ const v=cv(b,key,d); if(v!=null){ s+=v; any=true; } } return any ? s : null; }
+const sumKey = (b,key) => sumRange(b,key,0,S.nDays-1);
+function totalFor(b,key){
+  if (key==="cpl"){ const s=sumKey(b,"spend"), l=sumKey(b,"leads"); return s!=null && l ? s/l : null; }
+  if (key==="conv"){ const l=sumKey(b,"leads"), r=sumKey(b,"booked"); return l && r!=null ? r/l*100 : null; }
+  return sumKey(b,key);
+}
+const byType = ty => S.blocks.filter(b => b.type === ty);
+const sumBlocks = (bs,key,a=0,z=S.nDays-1) => { let s=0, any=false; bs.forEach(b=>{ const v=sumRange(b,key,a,z); if(v!=null){s+=v;any=true;} }); return any?s:null; };
+function todayIdx(){
+  const now = new Date(); const lab = String(now.getDate()).padStart(2,"0")+"."+String(now.getMonth()+1).padStart(2,"0");
+  return S.dates.indexOf(lab);
+}
+function lastDataDay(){ const TB=byType("target")[0]; let last=-1; if(TB) for(let d=0; d<S.nDays; d++) if(get(TB,"leads",d)!=null) last=d; return last; }
+function firstDataDay(){ const TB=byType("target")[0]; if(TB) for(let d=0; d<S.nDays; d++) if(get(TB,"leads",d)!=null) return d; return -1; }
+
+/* ---------- server ---------- */
+const gs = (fn, ...args) => new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...args));
+function ingest(d){
+  S.blocks = d.blocks.map(b => { const m = {}; b.metrics.forEach(x => { if (!m[x.key]) m[x.key] = x; }); return Object.assign({}, b, {m}); });
+  S.dates = d.dates; S.nDays = d.nDays; S.funnel = d.funnel;
+}
+function fillMonths(){
+  const sel = $("#month");
+  sel.innerHTML = S.sheets.map(x => `<option value="${esc(x)}" ${x===S.sheet?"selected":""}>${esc(sheetName(x))}</option>`).join("");
+  sel.hidden = S.sheets.length < 2;
+}
+async function refresh(){
+  if (S.loading) return;
+  S.loading = true; $("#reload").disabled = true; $("#sync").textContent = t("loading");
+  try {
+    const d = await gs("getData", KEY, S.sheet || "");
+    S.sheets = d.sheets; S.sheet = d.sheet; fillMonths(); ingest(d);
+    S.loadedAt = new Date(); S.err = null;
+  } catch(e){ S.err = { code:"server", message: String((e && e.message) || e) }; }
+  S.loading = false; $("#reload").disabled = false;
+  if (S.entry.day == null || S.entry.day >= S.nDays){ const ti=todayIdx(); S.entry.day = ti >= 0 ? ti : Math.max(0, lastDataDay()); }
+  if (S.blocks.length && !S.blocks[S.entry.block]) S.entry.block = 0;
+  if (S.repDay == null || S.repDay >= S.nDays) S.repDay = Math.max(0, lastDataDay());
+  render();
+}
+
+/* ---------- views ---------- */
+function route(){ const h=location.hash.slice(1); return RC.views.includes(h) ? h : RC.views[0]; }
+function chrome(){
+  document.documentElement.lang = LANG === "kk" ? "kk" : "ru";
+  document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang===LANG));
+  document.querySelectorAll(".tabs a").forEach((a,i) => { a.textContent = t("tabs")[i]; a.hidden = !RC.views.includes(a.dataset.v); });
+  $("#reload").textContent = t("reload");
+  $("#subtitle").textContent = (S.sheet ? sheetName(S.sheet) + " · " : "") + (ROLE === "boss" ? t("sub") : ROLE_NAME[LANG][ROLE]);
+  $("#sync").textContent = S.loading ? t("loading") : S.loadedAt ? t("updated") + " " + hm(S.loadedAt) : "";
+}
+function render(){
+  chrome();
+  const v = route();
+  document.querySelectorAll(".tabs a").forEach(a => a.setAttribute("aria-current", a.dataset.v===v ? "page" : "false"));
+  const el = $("#view");
+  if (S.err && !S.blocks.length){ el.innerHTML = errorState(S.err); bindErr(); return; }
+  if (!S.blocks.length){ el.innerHTML = S.loadedAt ? `<div class="state"><h2>${esc(t("A").empty_h)}</h2></div>` : `<div class="skeleton"></div><div class="skeleton"></div>`; return; }
+  const banner = S.err ? `<div class="check bad">${esc((t("E")[S.err.code]||[t("refreshfail")])[0])}. ${esc(t("stale")(hm(S.loadedAt)))}</div>` : "";
+  if (v === "svodka") { el.innerHTML = banner + viewSummary(); drawCharts(); bindSummary(); }
+  if (v === "vvod") { el.innerHTML = banner + viewEntry(); bindEntry(); }
+  if (v === "analitika") { el.innerHTML = banner + viewAnalytics(); drawAnCharts(); bindAn(); }
+  if (v === "tablica") el.innerHTML = banner + viewTable();
+}
+function errorState(e){
+  const [h,p] = t("E")[e.code] || t("E").other;
+  const detail = e.message ? `<p class="num" style="font-size:13px">${esc(String(e.message).slice(0,240))}</p>` : "";
+  const btn = `<button class="btn primary" id="retry" type="button">${t("reload")}</button>`;
+  return `<div class="state"><span class="label">${esc(t("sheet"))}</span><h2>${esc(h)}</h2><p>${esc(p)}</p>${detail}${btn}</div>`;
+}
+function bindErr(){ const b=$("#retry"); if(b) b.onclick = () => refresh(); }
+
+function delta(a, b, lowerIsBetter){
+  if (a == null || b == null || !a) return `<span class="delta flat">—</span>`;
+  const p = (b - a) / a * 100;
+  if (Math.abs(p) < 1) return `<span class="delta flat">0%</span>`;
+  const good = lowerIsBetter ? p < 0 : p > 0;
+  return `<span class="delta ${good?"up":"down"}">${p>0?"+":"−"}${nf0.format(Math.abs(p))}%</span>`;
+}
+function weekPanel(){
+  const TB = byType("target")[0], ccs = byType("cc");
+  const last = lastDataDay(), first = firstDataDay();
+  if (!TB || last < 0 || last - first < 7) return `<p class="sub">${esc(t("wk_none"))}</p>`;
+  const z2 = last, a2 = last-6, z1 = last-7, a1 = Math.max(first, last-13);
+  const rng = (a,z) => `${S.dates[a]}–${S.dates[z]}`;
+  const L1 = sumRange(TB,"leads",a1,z1), L2 = sumRange(TB,"leads",a2,z2);
+  const S1 = sumRange(TB,"spend",a1,z1), S2 = sumRange(TB,"spend",a2,z2);
+  const C1 = L1 && S1!=null ? S1/L1 : null, C2 = L2 && S2!=null ? S2/L2 : null;
+  const B1 = sumBlocks(ccs,"booked",a1,z1), B2 = sumBlocks(ccs,"booked",a2,z2);
+  const h = t("wk_h"), r = t("wk_rows");
+  const row = (lab,k,v1,v2,low) => `<span>${esc(lab)}</span><span class="c">${fmt(k,v1)}</span><b class="c">${fmt(k,v2)}</b><span class="c">${delta(v1,v2,low)}</span>`;
+  return `<div class="panel-head"><span class="sub">${esc(t("wk_sub")(rng(a2,z2), rng(a1,z1)))}</span></div>
+    <div class="wk"><span class="h">${h[0]}</span><span class="h">${h[1]}</span><span class="h">${h[2]}</span><span class="h">${h[3]}</span>
+    ${row(r[0],"leads",L1,L2,false)}${row(r[1],"spend",S1,S2,true)}${row(r[2],"cpl",C1,C2,true)}${row(r[3],"booked",B1,B2,false)}</div>`;
+}
+
+function viewSummary(){
+  const TB = byType("target")[0], ccs = byType("cc"), recs = byType("rec");
+  const leads = TB ? sumKey(TB,"leads") : null, spend = TB ? sumKey(TB,"spend") : null;
+  const cpl = leads && spend != null ? spend/leads : null;
+  const ccLeads = sumBlocks(ccs,"leads"), booked = sumBlocks(ccs,"booked");
+  const conv = ccLeads && booked != null ? booked/ccLeads*100 : null;
+  const came = sumBlocks(recs,"came"), bought = sumBlocks(recs,"bought");
+  let cash = null; recs.forEach(b => { const v = totalFor(b,"cash"); if (v!=null) cash = (cash||0)+v; });
+  const last = lastDataDay();
+  const period = last >= 0 ? t("upto")(S.dates[last]) : t("nodata");
+  const k = (v,lab,cls="") => `<div class="kpi"><span class="label">${esc(lab)}</span><b class="num ${cls}">${v}</b></div>`;
+  const kpis = `<section class="kpis">
+    ${k(fmt("leads",leads),t("k_leads"))}${k(fmt("spend",spend),t("k_spend"),"money")}${k(fmt("cpl",cpl),t("k_cpl"),"money")}${k(conv==null?"—":nf1.format(conv)+"%",t("k_conv"))}
+    ${k(fmt("booked",booked),t("k_booked"))}${k(fmt("came",came),t("k_came"))}${k(fmt("bought",bought),t("k_bought"))}${k(fmt("cash",cash),t("k_cash"))}
+  </section>`;
+
+  const fl = t("f");
+  const steps = [[fl[0],leads],[fl[1],ccLeads],[fl[2],booked],[fl[3],came],[fl[4],bought]];
+  const base = steps[0][1] || 0;
+  const funnel = steps.map(([lab,v],i)=>{
+    const prev = i ? steps[i-1][1] : null;
+    const pct = i && prev && v!=null ? `<span class="pct">${nf1.format(v/prev*100)}% ${esc(t("ofprev"))}</span>` : "";
+    const w = base && v ? Math.max(2, Math.min(100, v/base*100)) : 0;
+    return `<div class="fstep ${v==null?"empty":""}"><span>${esc(lab)}</span><span class="v num">${v==null?esc(t("nodata")):nf0.format(v)}${pct}</span><div class="bar"><i style="width:${w}%"></i></div></div>`;
+  }).join("");
+
+  const al = alerts();
+  const alertsHtml = al.length ? `<ul class="alerts">${al.map(a=>`<li class="alert ${a.level}"><span class="pill">${esc(a.level==="bad"?t("pill_bad"):t("pill_warn"))}</span><span>${a.text}</span></li>`).join("")}</ul>`
+    : `<p class="ok">${esc(t("allgood"))}</p>`;
+
+  const ccRows = ccs.map(b=>{
+    const l = sumKey(b,"leads");
+    const parts = CC_STATUS.filter(s=>b.m[s]).map(s=>`${esc(mLabel(b.m[s]))}: <b class="num">${fmt(s,sumKey(b,s))}</b>`).join(" · ");
+    return `<div class="fstep"><span><b>${esc(bName(b))}</b></span><span class="v num">${l==null?esc(t("nodata")):esc(t("leadsN")(nf0.format(l)).replace(/^\S+/, nf0.format(l)))}</span><span style="grid-column:1/-1;color:var(--muted);font-size:13px">${parts}</span></div>`;
+  }).join("");
+
+  const dayOpts = S.dates.slice(0,S.nDays).map((lab,i)=>`<option value="${i}" ${i===S.repDay?"selected":""}>${esc(lab)}</option>`).join("");
+
+  return `${kpis}
+  <div class="grid2">
+    <section class="panel"><div class="panel-head"><h2>${esc(t("ch_leads"))}</h2><span class="sub">${esc(t("ch_leads_sub")(period))}</span></div><div class="chart" id="chLeads"></div></section>
+    <section class="panel"><div class="panel-head"><h2>${esc(t("funnel"))}</h2></div><div class="funnel">${funnel}</div></section>
+  </div>
+  <div class="grid2">
+    <section class="panel"><div class="panel-head"><h2>${esc(t("ch_cpl"))}</h2><span class="sub">${esc(t("avg_month")(fmt("cpl",cpl)))}</span></div><div class="chart" id="chCpl"></div></section>
+    <section class="panel"><div class="panel-head"><h2>${esc(t("wk"))}</h2></div>${weekPanel()}</section>
+  </div>
+  <div class="grid2">
+    <section class="panel"><div class="panel-head"><h2>${esc(t("rep"))}</h2><span class="sub">${esc(t("rep_sub"))}</span></div>
+      <div class="actions"><select id="repDay" aria-label="${esc(t("day"))}">${dayOpts}</select><button class="btn primary" type="button" id="copy">${esc(t("copy"))}</button></div>
+      <textarea class="report" id="report" readonly aria-label="${esc(t("rep"))}">${esc(report(S.repDay))}</textarea>
+    </section>
+    <section class="panel"><div class="panel-head"><h2>${esc(t("cc"))}</h2></div><div class="funnel">${ccRows || `<p class="sub">${esc(t("cc_none"))}</p>`}</div></section>
+  </div>
+  <section class="panel"><div class="panel-head"><h2>${esc(t("check"))}</h2><span class="sub">${esc(t("items")(al.length))}</span></div>${alertsHtml}</section>`;
+}
+
+function report(d){
+  if (d == null || d < 0) return "";
+  const TB = byType("target")[0], ccs = byType("cc"), recs = byType("rec");
+  const lines = [`Белес маркетинг — ${S.dates[d]}`, ""];
+  if (TB){
+    const l = get(TB,"leads",d), s = get(TB,"spend",d), c = cv(TB,"cpl",d);
+    lines.push(l==null ? `${t("r_target")}: ${t("r_empty")}` : `${t("r_target")}: ${t("leadsN")(nf0.format(l)).replace(/^\S+/, nf0.format(l))} · ${t("r_spent")} ${fmt("spend",s)} · ${fmt("cpl",c)} ${t("r_per")}`);
+  }
+  ccs.forEach(b=>{
+    const l = get(b,"leads",d);
+    if (l==null){ lines.push(`${bName(b)}: ${t("r_empty")}`); return; }
+    const parts = CC_STATUS.filter(s=>b.m[s] && get(b,s,d)!=null).map(s=>`${mLabel(b.m[s]).toLowerCase()} ${nf0.format(get(b,s,d))}`).join(", ");
+    const c = cv(b,"conv",d);
+    lines.push(`${bName(b)}: ${nf0.format(l)} · ${parts}${c!=null?` · ${t("k_conv").toLowerCase()} ${nf1.format(c)}%`:""}`);
+  });
+  recs.forEach(b=>{
+    const keys = ["planned","came","bought","thinking","refused"].filter(k=>b.m[k] && get(b,k,d)!=null);
+    const cash = cv(b,"cash",d);
+    if (!keys.length && cash==null){ lines.push(`${bName(b)}: ${t("r_empty")}`); return; }
+    lines.push(`${bName(b)}: ${keys.map(k=>`${mLabel(b.m[k]).toLowerCase()} ${nf0.format(get(b,k,d))}`).join(", ")}${cash!=null?` · ${t("k_cash").toLowerCase()} ${nf0.format(cash)}`:""}`);
+  });
+  if (TB){
+    const first = firstDataDay();
+    if (first >= 0 && d >= first){
+      const L = sumRange(TB,"leads",0,d), Sp = sumRange(TB,"spend",0,d);
+      lines.push("", `${t("r_month")} (${S.dates[first]}–${S.dates[d]}): ${L==null?"—":nf0.format(L)} · ${fmt("spend",Sp)} · ${fmt("cpl",L&&Sp!=null?Sp/L:null)} ${t("r_per")}`);
+    }
+  }
+  return lines.join("\n");
+}
+function bindSummary(){
+  const sel = $("#repDay"), ta = $("#report");
+  if (!sel) return;
+  sel.onchange = () => { S.repDay = +sel.value; ta.value = report(S.repDay); };
+  $("#copy").onclick = () => {
+    const txt = ta.value;
+    const fallback = () => { ta.focus(); ta.select(); toast(t("copyfail")); };
+    try { navigator.clipboard.writeText(txt).then(()=>toast(t("copied")), fallback); } catch { fallback(); }
+  };
+}
+
+function alerts(){
+  const out = []; const TB = byType("target")[0], ccs = byType("cc"), recs = byType("rec");
+  const lim = Math.max(lastDataDay(), todayIdx());
+  ccs.forEach(b=>{
+    for (let d=0; d<S.nDays; d++){
+      const l = get(b,"leads",d); if (l==null) continue;
+      const st = CC_STATUS.filter(s=>b.m[s]).map(s=>get(b,s,d));
+      if (st.some(v=>v!=null)){ const sum = st.reduce((a,v)=>a+(v||0),0);
+        if (sum !== l) out.push({type:"cc", blk:b, level:"bad", text:t("a_status")(S.dates[d], esc(bName(b)), sum, l)}); }
+      const stored = get(b,"conv",d), calc = cv(b,"conv",d);
+      if (stored!=null && calc!=null && Math.abs(stored-calc) > 0.6) out.push({type:"cc", blk:b, level:"bad", text:t("a_conv")(S.dates[d], esc(bName(b)), nf1.format(stored)+"%", nf1.format(calc)+"%")});
+    }
+  });
+  if (TB && ccs.length){
+    let runs=[], start=null, cnt=0;
+    for (let d=0; d<=Math.min(lim, S.nDays-1); d++){
+      const tl = get(TB,"leads",d);
+      const covered = ccs.some(b=>get(b,"leads",d)!=null);
+      if (tl && !covered){ if(start==null) start=d; cnt+=tl; }
+      else if (start!=null){ runs.push([start,d-1,cnt]); start=null; cnt=0; }
+    }
+    if (start!=null) runs.push([start,Math.min(lim,S.nDays-1),cnt]);
+    runs.forEach(([a,z,c])=>out.push({type:"cc", blk:ccs[0], level:"warn", text:t("a_ccgap")(a===z?S.dates[a]:S.dates[a]+"–"+S.dates[z], t("leadsGen")(c))}));
+    const diff=[];
+    for (let d=0; d<S.nDays; d++){
+      const tl=get(TB,"leads",d); const cl = ccs.reduce((a,b)=>{const v=get(b,"leads",d); return v==null?a:(a||0)+v;}, null);
+      if (tl!=null && cl!=null && tl!==cl) diff.push(`${S.dates[d]} (${tl} → ${cl})`);
+    }
+    if (diff.length) out.push({type:"cc", blk:ccs[0], level:"warn", text:t("a_diff")(diff.length, diff.join(", "))});
+  }
+  if (TB){
+    const avg = totalFor(TB,"cpl"); const ld = lastDataDay();
+    if (avg && ld>=0){ const v = cv(TB,"cpl",ld); if (v && v > avg*1.4) out.push({type:"target", level:"warn", text:t("a_cpl")(S.dates[ld], fmt("cpl",v), fmt("cpl",avg))}); }
+  }
+  recs.forEach(b=>{
+    if (!b.metrics.some(m=>m.cells.some(c=>String(c??"").trim()!==""))) out.push({type:"rec", blk:b, level:"warn", text:t("a_recempty")(esc(bName(b)))});
+    for (let d=0; d<S.nDays; d++){
+      const c=get(b,"came",d); if(c==null) continue;
+      const st=REC_STATUS.filter(s=>b.m[s]).map(s=>get(b,s,d));
+      if (st.some(v=>v!=null)){ const sum=st.reduce((a,v)=>a+(v||0),0); if(sum!==c) out.push({type:"rec", blk:b, level:"bad", text:t("a_rec")(S.dates[d], esc(bName(b)), sum, c)}); }
+    }
+  });
+  return out;
+}
+
+/* ---------- charts ---------- */
+function niceMax(v){ if(!v) return 1; const p=Math.pow(10,Math.floor(Math.log10(v))); const n=v/p; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p; }
+function chart(id, series, kind, color, fmtv, aria, axf){
+  const el = document.getElementById(id); if(!el) return;
+  const W = Math.max(280, el.clientWidth || 600), H = 190, L = 40, R = 8, Tp = 10, B = 24;
+  const n = series.length, pw = W-L-R, ph = H-Tp-B, step = pw/n;
+  const vals = series.map(s=>s.v).filter(v=>v!=null);
+  const max = niceMax(Math.max(0,...vals));
+  const y = v => Tp + ph - v/max*ph, x = i => L + step*i + step/2;
+  let g = "";
+  for (let k=0; k<=4; k++){ const v=max*k/4, yy=y(v);
+    g += `<line class="grid" x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}"/><text class="ax" x="${L-6}" y="${yy+4}" text-anchor="end">${(axf || (q=>nf0.format(q)))(v)}</text>`; }
+  series.forEach((s,i)=>{ const d=i+1; if (d===1 || d%5===0) g += `<text class="ax" x="${x(i)}" y="${H-6}" text-anchor="middle">${esc(s.label.split(".")[0])}</text>`; });
+  let marks = "";
+  if (kind==="bar"){
+    const bw = Math.max(3, Math.min(18, step-2)), r = Math.min(4, bw/2);
+    series.forEach((s,i)=>{ if(s.v==null||s.v<=0) return; const x0=x(i)-bw/2, y0=y(s.v), y1=Tp+ph, h=y1-y0, rr=Math.min(r,h);
+      marks += `<path fill="${color}" d="M${x0},${y1}V${y0+rr}Q${x0},${y0} ${x0+rr},${y0}H${x0+bw-rr}Q${x0+bw},${y0} ${x0+bw},${y0+rr}V${y1}Z"/>`; });
+  } else {
+    let seg = [], paths = [];
+    series.forEach((s,i)=>{ if(s.v==null){ if(seg.length) paths.push(seg); seg=[]; } else seg.push([x(i),y(s.v)]); });
+    if (seg.length) paths.push(seg);
+    paths.forEach(p=>{ marks += `<polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" points="${p.map(q=>q.join(",")).join(" ")}"/>`; });
+    let lastI=-1; series.forEach((s,i)=>{ if(s.v!=null) lastI=i; });
+    series.forEach((s,i)=>{ if(s.v==null) return; marks += `<circle cx="${x(i)}" cy="${y(s.v)}" r="${i===lastI?5:3}" fill="${i===lastI?color:"var(--surface)"}" stroke="${color}" stroke-width="2"/>`; });
+    if (lastI>=0) marks += `<text class="ax" x="${Math.min(x(lastI), W-R-30)}" y="${y(series[lastI].v)-10}" text-anchor="middle" style="fill:var(--ink);font-weight:700">${fmtv(series[lastI].v)}</text>`;
+  }
+  const hits = series.map((s,i)=>`<rect x="${L+step*i}" y="${Tp}" width="${step}" height="${ph}" fill="transparent" data-i="${i}"/>`).join("");
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(aria)}">${g}${marks}${hits}</svg><div class="tip" hidden></div>`;
+  const tip = el.querySelector(".tip");
+  el.querySelectorAll("rect[data-i]").forEach(r=>{
+    const show = ()=>{ const i=+r.dataset.i, s=series[i]; tip.hidden=false; tip.textContent = `${s.label} · ${s.v==null?t("nodata"):fmtv(s.v)}`;
+      tip.style.left = (x(i)/W*el.clientWidth)+"px"; tip.style.top = ((s.v==null?Tp+ph:y(s.v))/H*el.clientWidth*H/W - 8)+"px"; };
+    r.addEventListener("pointerenter", show); r.addEventListener("pointerdown", show);
+    r.addEventListener("pointerleave", ()=>tip.hidden=true);
+  });
+}
+function drawCharts(){
+  const TB = byType("target")[0]; if(!TB) return;
+  const sLeads = S.dates.slice(0,S.nDays).map((lab,d)=>({label:lab, v:get(TB,"leads",d)}));
+  const sCpl = S.dates.slice(0,S.nDays).map((lab,d)=>({label:lab, v:cv(TB,"cpl",d)}));
+  const css = getComputedStyle(document.documentElement);
+  chart("chLeads", sLeads, "bar", css.getPropertyValue("--accent").trim(), v=>t("leadsN")(nf0.format(v)).replace(/^\S+/, nf0.format(v)), t("ch_leads"));
+  chart("chCpl", sCpl, "line", css.getPropertyValue("--money").trim(), v=>fmt("cpl",v), t("ch_cpl"), v=>"$"+nf0.format(v));
+}
+
+/* ---------- role analytics ---------- */
+S.anRole = "target"; S.anCharts = [];
+const dayS = (bs,k,d) => { let s=null; bs.forEach(b=>{ const v=cv(b,k,d); if(v!=null) s=(s||0)+v; }); return s; };
+const sumB = (bs,k,a=0,z=S.nDays-1) => { let s=null; for(let d=Math.max(0,a); d<=Math.min(z,S.nDays-1); d++){ const v=dayS(bs,k,d); if(v!=null) s=(s||0)+v; } return s; };
+function spanD(bs,k){ let f=-1,l=-1; for(let d=0; d<S.nDays; d++) if(dayS(bs,k,d)!=null){ if(f<0) f=d; l=d; } return [f,l]; }
+const ratio = (a,b,m=1) => a!=null && b ? a/b*m : null;
+const pct = v => v==null ? "—" : nf1.format(v)+"%";
+const compact = v => Math.abs(v)>=1000 ? nf1.format(v/1000)+"k" : nf0.format(v);
+const dayLabels = () => S.dates.slice(0,S.nDays);
+function kpiGrid(items){ return `<section class="kpis k3">${items.map(([lab,val,cls])=>`<div class="kpi"><span class="label">${esc(lab)}</span><b class="num ${cls||""}">${val}</b></div>`).join("")}</section>`; }
+function bars(rows, total){
+  return `<div class="funnel">${rows.map(([lab,v])=>{ const w = total && v ? Math.max(2, Math.min(100, v/total*100)) : 0;
+    const p = total && v!=null ? `<span class="pct">${nf1.format(v/total*100)}%</span>` : "";
+    return `<div class="fstep ${v==null?"empty":""}"><span>${esc(lab)}</span><span class="v num">${v==null?esc(t("nodata")):nf0.format(v)}${p}</span><div class="bar"><i style="width:${w}%"></i></div></div>`; }).join("")}</div>`; }
+function wkGeneric(bs, key, rows){
+  const [f,l] = spanD(bs,key); const A=t("A");
+  if (l<0 || l-f<13) return `<p class="sub">${esc(A.wk_none)}</p>`;
+  const a2=l-6, z2=l, z1=l-7, a1=Math.max(f,l-13); const h=t("wk_h");
+  const body = rows.map(([lab,fk,fn,low])=>{ const v1=fn(a1,z1), v2=fn(a2,z2);
+    return `<span>${esc(lab)}</span><span class="c">${fk(v1)}</span><b class="c">${fk(v2)}</b><span class="c">${delta(v1,v2,low)}</span>`; }).join("");
+  return `<div class="panel-head"><span class="sub">${esc(t("wk_sub")(`${S.dates[a2]}–${S.dates[z2]}`, `${S.dates[a1]}–${S.dates[z1]}`))}</span></div>
+    <div class="wk"><span class="h"></span><span class="h">${h[1]}</span><span class="h">${h[2]}</span><span class="h">${h[3]}</span>${body}</div>`;
+}
+const chartPanel = (id,title,sub) => `<section class="panel"><div class="panel-head"><h2>${esc(title)}</h2>${sub?`<span class="sub">${esc(sub)}</span>`:""}</div><div class="chart" id="${id}"></div></section>`;
+const wkPanel = body => `<section class="panel"><div class="panel-head"><h2>${esc(t("wk"))}</h2></div>${body}</section>`;
+const emptyAn = () => `<div class="state"><h2>${esc(t("A").empty_h)}</h2><p>${esc(t("A").empty_p)}</p></div>`;
+const ML = (bs,k) => LANG==="kk" && T.kk.M[k] ? T.kk.M[k] : (bs.find(b=>b.m[k])?.m[k].label || k);
+
+function anTarget(bs){
+  const A=t("A");
+  const leads=sumB(bs,"leads"), spend=sumB(bs,"spend"), cpl=ratio(spend,leads);
+  if (leads==null) return emptyAn();
+  const cplD = d => ratio(dayS(bs,"spend",d), dayS(bs,"leads",d));
+  let best=-1, worst=-1, days=0;
+  for (let d=0; d<S.nDays; d++){ if (dayS(bs,"leads",d)==null) continue; days++; const c=cplD(d); if (c==null) continue;
+    if (best<0 || c<cplD(best)) best=d; if (worst<0 || c>cplD(worst)) worst=d; }
+  const k = kpiGrid([[t("k_leads"),fmt("leads",leads)],[t("k_spend"),fmt("spend",spend),"money"],[t("k_cpl"),fmt("cpl",cpl),"money"],
+    [A.days,nf0.format(days)],[A.best,best<0?"—":`${fmt("cpl",cplD(best))} <small>${S.dates[best]}</small>`],[A.worst,worst<0?"—":`${fmt("cpl",cplD(worst))} <small>${S.dates[worst]}</small>`]]);
+  S.anCharts = [
+    ["anA", dayLabels().map((lab,d)=>({label:lab,v:dayS(bs,"leads",d)})), "bar", "--accent", v=>t("leadsN")(nf0.format(v)), A.ch_leads, v=>nf0.format(v)],
+    ["anB", dayLabels().map((lab,d)=>({label:lab,v:cplD(d)})), "line", "--money", v=>fmt("cpl",v), t("ch_cpl"), v=>"$"+nf0.format(v)]];
+  const wr=t("wk_rows");
+  const wk = wkGeneric(bs,"leads",[[wr[0],v=>fmt("leads",v),(a,z)=>sumB(bs,"leads",a,z),false],[wr[1],v=>fmt("spend",v),(a,z)=>sumB(bs,"spend",a,z),true],
+    [wr[2],v=>fmt("cpl",v),(a,z)=>ratio(sumB(bs,"spend",a,z),sumB(bs,"leads",a,z)),true]]);
+  return `${k}<div class="grid2">${chartPanel("anA",A.ch_leads)}${chartPanel("anB",t("ch_cpl"),t("avg_month")(fmt("cpl",cpl)))}</div>${wkPanel(wk)}`;
+}
+function anCc(bs){
+  const A=t("A");
+  const leads=sumB(bs,"leads"), booked=sumB(bs,"booked"), no=sumB(bs,"noanswer"), iw=sumB(bs,"inwork"), ref=sumB(bs,"refused");
+  if (leads==null) return emptyAn();
+  const k = kpiGrid([[A.cc_leads,fmt("leads",leads)],[t("k_booked"),fmt("booked",booked)],[t("k_conv"),pct(ratio(booked,leads,100))],
+    [ML(bs,"noanswer"),pct(ratio(no,leads,100))],[ML(bs,"inwork"),fmt("inwork",iw)],[ML(bs,"refused"),fmt("refused",ref)]]);
+  const br = bars([[ML(bs,"booked"),booked],[ML(bs,"noanswer"),no],[ML(bs,"inwork"),iw],[ML(bs,"refused"),ref]], leads);
+  const convD = d => ratio(dayS(bs,"booked",d), dayS(bs,"leads",d), 100);
+  S.anCharts = [
+    ["anA", dayLabels().map((lab,d)=>({label:lab,v:dayS(bs,"leads",d)})), "bar", "--accent", v=>t("leadsN")(nf0.format(v)), A.cc_ch_leads, v=>nf0.format(v)],
+    ["anB", dayLabels().map((lab,d)=>({label:lab,v:convD(d)})), "line", "--accent", v=>pct(v), A.cc_ch_conv, v=>nf0.format(v)+"%"]];
+  const wr=A.wk_cc;
+  const wk = wkGeneric(bs,"leads",[[wr[0],v=>fmt("leads",v),(a,z)=>sumB(bs,"leads",a,z),false],[wr[1],v=>fmt("booked",v),(a,z)=>sumB(bs,"booked",a,z),false],
+    [wr[2],v=>pct(v),(a,z)=>ratio(sumB(bs,"booked",a,z),sumB(bs,"leads",a,z),100),false]]);
+  return `${k}<div class="grid2">${chartPanel("anA",A.cc_ch_leads)}<section class="panel"><div class="panel-head"><h2>${esc(A.cc_where)}</h2><span class="sub">${esc(A.of_leads(fmt("leads",leads)))}</span></div>${br}</section></div>
+  <div class="grid2">${chartPanel("anB",A.cc_ch_conv)}${wkPanel(wk)}</div>`;
+}
+function anRec(bs){
+  const A=t("A");
+  const planned=sumB(bs,"planned"), came=sumB(bs,"came"), bought=sumB(bs,"bought"), th=sumB(bs,"thinking"), ref=sumB(bs,"refused"), cash=sumB(bs,"cash");
+  if (came==null && cash==null && planned==null) return emptyAn();
+  const k = kpiGrid([[t("k_came"),fmt("came",came)],[A.show_rate,pct(ratio(came,planned,100))],[t("k_bought"),fmt("bought",bought)],
+    [A.buy_conv,pct(ratio(bought,came,100))],[t("k_cash"),fmt("cash",cash),"money"],[A.avg_check,fmt("cash",ratio(cash,bought)),"money"]]);
+  const res = bars([[ML(bs,"bought"),bought],[ML(bs,"thinking"),th],[ML(bs,"refused"),ref]], came);
+  const pay = bars([[ML(bs,"cashN"),sumB(bs,"cashN")],[ML(bs,"card"),sumB(bs,"card")],[ML(bs,"transfer"),sumB(bs,"transfer")]], cash);
+  S.anCharts = [
+    ["anA", dayLabels().map((lab,d)=>({label:lab,v:dayS(bs,"came",d)})), "bar", "--accent", v=>nf0.format(v), A.rec_ch_came, v=>nf0.format(v)],
+    ["anB", dayLabels().map((lab,d)=>({label:lab,v:dayS(bs,"cash",d)})), "bar", "--money", v=>nf0.format(v), A.rec_ch_cash, compact]];
+  const wr=A.wk_rec;
+  const wk = wkGeneric(bs,"came",[[wr[0],v=>fmt("came",v),(a,z)=>sumB(bs,"came",a,z),false],[wr[1],v=>fmt("bought",v),(a,z)=>sumB(bs,"bought",a,z),false],
+    [wr[2],v=>fmt("cash",v),(a,z)=>sumB(bs,"cash",a,z),false]]);
+  return `${k}<div class="grid2">${chartPanel("anA",A.rec_ch_came)}<section class="panel"><div class="panel-head"><h2>${esc(A.rec_res)}</h2><span class="sub">${esc(A.of_came(fmt("came",came)))}</span></div>${res}</section></div>
+  <div class="grid2">${chartPanel("anB",A.rec_ch_cash)}<section class="panel"><div class="panel-head"><h2>${esc(A.pay)}</h2><span class="sub">${esc(t("k_cash"))}: ${fmt("cash",cash)}</span></div>${pay}</section></div>${wkPanel(wk)}`;
+}
+function viewAnalytics(){
+  S.anCharts = [];
+  const r = ROLE === "boss" ? S.anRole : ROLE;
+  const seg = ROLE === "boss" ? `<div class="seg" id="anSeg">${["target","cc","rec"].map(x=>`<button type="button" aria-pressed="${x===r}" data-r="${x}">${esc(ROLE_NAME[LANG][x])}</button>`).join("")}</div>` : "";
+  const bs = S.blocks.filter(b => b.type === r && visible(b));
+  const team = ROLE === "boss" ? "" : teamFunnel();
+  if (!bs.length) return seg + emptyAn() + team;
+  return seg + (r === "target" ? anTarget(bs) : r === "cc" ? anCc(bs) : anRec(bs)) + team;
+}
+function teamFunnel(){
+  const F = S.funnel; if (!F) return "";
+  const sum = a => { let s=null; a.forEach(v=>{ if(v!=null) s=(s||0)+v; }); return s; };
+  const fl = t("f");
+  const steps = [[fl[0],sum(F.tLeads)],[fl[1],sum(F.ccLeads)],[fl[2],sum(F.booked)],[fl[3],sum(F.came)],[fl[4],sum(F.bought)]];
+  const base = steps[0][1] || 0;
+  const rows = steps.map(([lab,v],i)=>{
+    const prev = i ? steps[i-1][1] : null;
+    const pc = i && prev && v!=null ? `<span class="pct">${nf1.format(v/prev*100)}% ${esc(t("ofprev"))}</span>` : "";
+    const w = base && v ? Math.max(2, Math.min(100, v/base*100)) : 0;
+    return `<div class="fstep ${v==null?"empty":""}"><span>${esc(lab)}</span><span class="v num">${v==null?esc(t("nodata")):nf0.format(v)}${pc}</span><div class="bar"><i style="width:${w}%"></i></div></div>`;
+  }).join("");
+  return `<section class="panel"><div class="panel-head"><h2>${esc(t("A").team)}</h2><span class="sub">${esc(t("A").team_sub)}</span></div><div class="funnel">${rows}</div></section>`;
+}
+function drawAnCharts(){
+  const css = getComputedStyle(document.documentElement);
+  S.anCharts.forEach(([id,ser,kind,col,fv,aria,axf]) => chart(id, ser, kind, css.getPropertyValue(col).trim(), fv, aria, axf));
+}
+function bindAn(){ const s=$("#anSeg"); if (s) s.onclick = e => { const x=e.target.closest("button"); if(!x) return; S.anRole = x.dataset.r; render(); }; }
+
+/* ---------- entry ---------- */
+function viewEntry(){
+  const b = S.blocks[S.entry.block] || S.blocks[0]; const d = S.entry.day ?? 0; const ti = todayIdx();
+  const days = S.dates.slice(0,S.nDays).map((lab,i)=>{
+    const has = b.metrics.some(m=>String(m.cells[i]??"").trim()!=="");
+    return `<button type="button" class="day ${has?"has":""} ${i===ti?"today":""}" aria-pressed="${i===d}" data-d="${i}"><span class="num">${esc(lab.split(".")[0])}</span><small>${i===ti?esc(t("today")):esc(lab.split(".")[1]||"")}</small><span class="dot"></span></button>`;
+  }).join("");
+  const seg = S.blocks.map((x,i)=>visible(x) ? `<button type="button" aria-pressed="${i===S.entry.block}" data-b="${i}">${esc(bName(x))}</button>` : "").join("");
+  const fields = b.metrics.map((m,i)=>{
+    const id = "f_"+S.entry.block+"_"+i;
+    if (isCalc(b,m.key,d) || m.key==="cpl" && b.m.spend || m.key==="conv" && b.m.booked){
+      return `<div class="field calc" data-k="${m.key}"><label>${esc(mLabel(m))}</label><div class="out num" id="${id}">${fmt(m.key,cv(b,m.key,d))}</div><span class="hint">${esc(t("calc"))}</span></div>`;
+    }
+    const raw = num(m.cells[d]);
+    return `<div class="field" data-k="${m.key}"><label for="${id}">${esc(mLabel(m))}</label><input id="${id}" data-row="${i}" type="text" inputmode="decimal" autocomplete="off" value="${raw==null?"":String(raw).replace(".",",")}" placeholder="—"></div>`;
+  }).join("");
+  return `<section class="panel">
+    <div class="panel-head"><h2>${esc(t("day"))}</h2><span class="sub">${esc(S.dates[d])} · ${esc(sheetName(S.sheet))}</span></div>
+    <div class="days" id="days">${days}</div>
+    <span class="label">${esc(t("section"))}</span>
+    <div class="seg" id="seg">${seg}</div>
+  </section>
+  <form class="panel" id="form" autocomplete="off">
+    <div class="panel-head"><h2>${esc(bName(b))} · ${esc(S.dates[d])}</h2><span class="sub">${esc(t("writes")(b.metrics[0]?.row, b.metrics[b.metrics.length-1]?.row, colLetter(d+1)))}</span></div>
+    <div class="fields">${fields}</div>
+    <div class="check" id="check" hidden></div>
+    <div class="actions"><button class="btn primary" type="submit" id="save">${esc(t("save"))}</button><span class="msg" id="msg"></span></div>
+  </form>${ROLE === "boss" ? "" : roleAlerts()}`;
+}
+function roleAlerts(){
+  const al = alerts().filter(a => a.blk ? visible(a.blk) : RC.types.includes(a.type));
+  const body = al.length ? `<ul class="alerts">${al.map(a=>`<li class="alert ${a.level}"><span class="pill">${esc(a.level==="bad"?t("pill_bad"):t("pill_warn"))}</span><span>${a.text}</span></li>`).join("")}</ul>` : `<p class="ok">${esc(t("allgood"))}</p>`;
+  return `<section class="panel"><div class="panel-head"><h2>${esc(t("check"))}</h2><span class="sub">${esc(t("items")(al.length))}</span></div>${body}</section>`;
+}
+function draft(){
+  const b = S.blocks[S.entry.block]; const v = {};
+  b.metrics.forEach((m,i)=>{ const inp = document.getElementById("f_"+S.entry.block+"_"+i); if (inp && inp.tagName==="INPUT") v[m.key] = num(inp.value); });
+  return {b, v};
+}
+function calcDraft(b, v){
+  const out = {};
+  if (b.m.cpl && b.m.spend) out.cpl = v.spend!=null && v.leads ? v.spend/v.leads : null;
+  if (b.m.conv && b.m.booked) out.conv = v.leads && v.booked!=null ? v.booked/v.leads*100 : null;
+  if (b.m.cash && ["cashN","card","transfer"].some(k=>v[k]!=null)) out.cash = ["cashN","card","transfer"].reduce((a,k)=>a+(v[k]||0),0);
+  return out;
+}
+function updateLive(){
+  const {b, v} = draft(); const c = calcDraft(b, v);
+  b.metrics.forEach((m,i)=>{ const el=document.getElementById("f_"+S.entry.block+"_"+i); if (el && el.tagName!=="INPUT" && m.key in c) el.textContent = fmt(m.key, c[m.key]); });
+  const chk = $("#check"); const parts = b.type==="cc" ? CC_STATUS : b.type==="rec" ? REC_STATUS : null;
+  const baseKey = b.type==="cc" ? "leads" : "came";
+  if (!parts || v[baseKey]==null || !parts.some(k=>v[k]!=null)){ chk.hidden = true; return; }
+  const sum = parts.reduce((a,k)=>a+(v[k]||0),0); chk.hidden = false;
+  const names = parts.filter(k=>b.m[k]).map(k=>mLabel(b.m[k]).toLowerCase()).join(" + ");
+  if (sum === v[baseKey]){ chk.className="check good"; chk.textContent = t("ok_sum")(names, sum); }
+  else { chk.className="check bad"; chk.textContent = t("bad_sum")(names, sum, v[baseKey]); }
+}
+function bindEntry(){
+  $("#days").onclick = e => { const x=e.target.closest(".day"); if(!x) return; S.entry.day=+x.dataset.d; render(); };
+  $("#seg").onclick = e => { const x=e.target.closest("button"); if(!x) return; S.entry.block=+x.dataset.b; render(); };
+  const sel = document.querySelector('.day[aria-pressed="true"]'); if (sel) sel.scrollIntoView({block:"nearest",inline:"center"});
+  $("#form").addEventListener("input", updateLive);
+  updateLive();
+  $("#form").addEventListener("submit", async e => {
+    e.preventDefault(); if (S.saving) return;
+    const {b, v} = draft(); const d = S.entry.day;
+    if (Object.values(v).some(x=>x!=null && x<0)){ $("#msg").className="msg err"; $("#msg").textContent=t("negative"); return; }
+    const inputs = {};
+    b.metrics.forEach(m => { if (m.key in v) inputs[m.row] = v[m.key] == null ? "" : v[m.key]; });
+    S.saving = true; $("#save").disabled = true; $("#msg").className="msg"; $("#msg").textContent=t("saving");
+    try{
+      await gs("saveDay", KEY, S.sheet, b.row, d, inputs);
+      toast(t("saved")(bName(b), S.dates[d]));
+      S.saving = false; await refresh();
+    } catch(err){
+      S.saving = false; $("#save").disabled = false; $("#msg").className="msg err";
+      $("#msg").textContent = t("savefail") + " " + String((err && err.message) || "");
+    }
+  });
+}
+let toastT; function toast(x){ const el=$("#toast"); el.textContent=x; el.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>el.hidden=true, 2600); }
+
+/* ---------- table ---------- */
+function viewTable(){
+  const ti = todayIdx();
+  return S.blocks.filter(visible).map(b=>{
+    const head = `<tr><th>${esc(bName(b))}</th>${S.dates.slice(0,S.nDays).map((l,i)=>`<th class="${i===ti?"today":""}">${esc(l)}</th>`).join("")}<th>${esc(t("total"))}</th></tr>`;
+    const body = b.metrics.map(m=>{
+      const cells = S.dates.slice(0,S.nDays).map((_,d)=>{
+        let c = d===ti ? "today" : "";
+        if (isCalc(b,m.key,d) && cv(b,m.key,d)!=null) c += " calc";
+        if (m.key==="leads" && b.type==="cc"){ const l=get(b,"leads",d); const st=CC_STATUS.map(s=>get(b,s,d)); if(l!=null && st.some(x=>x!=null) && st.reduce((a,x)=>a+(x||0),0)!==l) c += " flag"; }
+        if (m.key==="conv"){ const s=get(b,"conv",d), k=cv(b,"conv",d); if(s!=null && k!=null && Math.abs(s-k)>0.6) c += " flag"; }
+        const val = cv(b,m.key,d);
+        return `<td class="${c}">${val==null?"":fmt(m.key,val)}</td>`;
+      }).join("");
+      return `<tr><td>${esc(mLabel(m))}</td>${cells}<td class="tot">${fmt(m.key,totalFor(b,m.key))}</td></tr>`;
+    }).join("");
+    return `<section class="panel"><h2>${esc(bName(b))}</h2><div class="scroll"><table><thead>${head}</thead><tbody>${body}</tbody></table></div></section>`;
+  }).join("") + `<p class="sub" style="margin:0">${esc(t("legend"))}</p>`;
+}
+
+/* ---------- boot ---------- */
+window.addEventListener("hashchange", render);
+let rz; window.addEventListener("resize", ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(!S.blocks.length) return; if(route()==="svodka") drawCharts(); if(route()==="analitika") drawAnCharts(); },150); });
+$("#reload").onclick = () => refresh();
+$("#month").onchange = e => { S.sheet = e.target.value; S.entry.day = null; S.repDay = null; refresh(); };
+document.querySelectorAll(".lang button").forEach(b => b.onclick = () => {
+  LANG = b.dataset.lang; try { localStorage.setItem("beles_lang", LANG); } catch {}
+  if (S.sheets.length) fillMonths(); render();
+});
+render();
+refresh();
+</script>
+
+</body>
+</html>
