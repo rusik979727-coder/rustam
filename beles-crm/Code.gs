@@ -153,10 +153,20 @@ function doPost(e) {
     const all = readLeads_();
     const now = now_();
     const text = cut_(body.text || body.message || p.text, 1000);
+    const ad = body.ad && typeof body.ad === 'object' ? body.ad : null;
+    const adLine = ad ? cut_('Жарнама: ' + [ad.headline, ad.source_id && ('ID ' + ad.source_id), ad.source_url].filter(String).join(' · '), 500) : '';
     const dup = all.filter(function (l) { return l.phone === phone; })[0];
     if (dup) {
+      let line = now + ' · WhatsApp · Қайта жазды' + (text ? ': ' + text : '');
+      if (adLine) line += ' · ' + adLine;
+      const code = stageCode_(dup.status);
+      if (code === 'refused' || code === 'noshow') {
+        dup.status = STAGE_LABEL['new'];
+        line += ' · Кезең: ' + STAGE_LABEL[code] + ' → ' + STAGE_LABEL['new'];
+      }
+      if (!dup.name && body.name) dup.name = cut_(body.name, 100);
       dup.updated = now;
-      dup.history = addHistory_(dup.history, now + ' · WhatsApp · Қайта жазды' + (text ? ': ' + text : ''));
+      dup.history = addHistory_(dup.history, line);
       writeLead_(sh, dup);
       return json_({ ok: true, id: dup.id, existing: true });
     }
@@ -166,7 +176,7 @@ function doPost(e) {
       created: now, name: cut_(body.name || p.name, 100), phone: phone,
       source: cut_(body.source || p.source || 'WhatsApp', 100), service: '', status: 'Новый',
       manager: nextManager_(s.managers), nextCall: '', appt: '', note: text, updated: now,
-      history: now + ' · WhatsApp · Лид автоматты түрде түсті' + (text ? ': ' + text : '')
+      history: now + ' · WhatsApp · Лид автоматты түрде түсті' + (text ? ': ' + text : '') + (adLine ? ' · ' + adLine : '')
     };
     writeLead_(sh, lead);
     return json_({ ok: true, id: lead.id });
