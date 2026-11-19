@@ -60,6 +60,28 @@ assert 'Beles' not in s and 'BEL<' not in s
 open('dist/primemed/App.html', 'w', encoding='utf8').write(s)
 EOF
 
+# Нұсқа белгісі: түпнұсқа файлдардың хэші + күн. Code.gs пен App.html-ге бірдей қойылады.
+BUILD="$(date +%d.%m)-$(cat apps-script/*.gs apps-script/App.html | sha256sum | cut -c1-6)"
+for f in dist/Code.gs dist/primemed/Code.gs; do
+  python3 - "$f" "$BUILD" <<'PY'
+import sys
+p, b = sys.argv[1], sys.argv[2]
+s = open(p, encoding='utf8').read()
+assert "var APP_BUILD = 'dev';" in s
+open(p, 'w', encoding='utf8').write(s.replace("var APP_BUILD = 'dev';", "var APP_BUILD = '%s';" % b))
+PY
+done
+for f in dist/App.html dist/primemed/App.html; do
+  python3 - "$f" "$BUILD" <<'PY'
+import sys
+p, b = sys.argv[1], sys.argv[2]
+s = open(p, encoding='utf8').read()
+assert "var CLIENT_BUILD = 'dev';" in s
+open(p, 'w', encoding='utf8').write(s.replace("var CLIENT_BUILD = 'dev';", "var CLIENT_BUILD = '%s';" % b))
+PY
+done
+echo "build: $BUILD"
+
 for f in dist/Code.gs dist/primemed/Code.gs; do
   node -e "new Function(require('fs').readFileSync('$f','utf8'))"
 done

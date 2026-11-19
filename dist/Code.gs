@@ -30,6 +30,10 @@
  * ол таблицадағы барлық dropdown-та және қолданбада бірден шығады.
  */
 
+// Код нұсқасы: scripts/build.sh жинағанда Code.gs пен App.html-ге бірдей белгі қойылады.
+// Екеуі сәйкес келмесе (біреуі ескі не толық қойылмаған), қолданба жоғарыда ескерту көрсетеді.
+var APP_BUILD = '19.11-85cb47';
+
 var CONFIG = {
   appTitle: 'Белес График',
   // Жаңа күн осы атаулы парақтан көшіріледі. Ондай парақ болмаса — соңғы күннен.
@@ -389,9 +393,13 @@ function cleanText_(v, max) {
   return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max || 200);
 }
 
+/**
+ * Мән тізімде бар ма? Тізімде жоқ болса да жазуды тоқтатпаймыз (менеджер не қызмет
+ * «Баптаулар»-ға кейін қосылуы мүмкін) — тек журналға жазамыз.
+ */
 function checkOption_(options, field, value, label) {
   if (value && options[field].indexOf(value) === -1) {
-    throw new Error('«' + label + '» өрісіне таблицада жоқ мән берілді: ' + value);
+    try { Logger.log('«' + label + '» тізімінде жоқ мән жазылды: ' + value); } catch (e) { /* елемейміз */ }
   }
 }
 
@@ -599,6 +607,7 @@ function getBootstrap() {
     try { todayDay = getDay(todaySheet.sheet); } catch (e) { todayDay = null; }
   }
   return {
+    build: APP_BUILD,
     title: ss_().getName(),
     url: ss_().getUrl(),
     today: today,
@@ -1107,6 +1116,11 @@ function computeEnd_(card) {
   return '';
 }
 
+/** Аттың дәл түрі (қайталануды тексеру үшін): кіші әріп, артық бос орынсыз, «апа/ага» сақталады. */
+function strictName_(name) {
+  return String(name || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+}
+
 /** Картадағы күн: "18.11.2026", "18.11.26" немесе "2026-11-18" → "2026-11-18"; бос болса ''. */
 function parseCardDate_(s) {
   var v = String(s == null ? '' : s).trim();
@@ -1222,7 +1236,7 @@ function patientVisits_(cards, beforeIso) {
         if (!p.name || p.absent) return; // «келмейді» деп белгіленген күн курсқа саналмайды
         (byName[normalizeName(p.name)] || []).forEach(function (c) {
           if (c.start && d.date < c.start) return;
-          out[c.id].push({ date: d.date, sheet: d.sheet, time: b.time, proc: p.proc, row: p.row });
+          out[c.id].push({ date: d.date, sheet: d.sheet, time: b.time, proc: p.proc, row: p.row, day: p.day });
         });
       });
     });
@@ -1230,18 +1244,51 @@ function patientVisits_(cards, beforeIso) {
   return out;
 }
 
+/**
+ * Курстың неше күні өтті. Кестеде «нешінші күн» (N) жазылған болса — соңғы жазылған нөмір
+ * негізге алынады (медбикелердің өз нөмірлері), одан кейінгі нөмірсіз келулер қосылады.
+ * Нөмір мүлде жоқ болса — келулер саны.
+ */
+function doneCount_(visits) {
+  var lastIdx = -1, lastNum = 0;
+  visits.forEach(function (v, i) {
+    var s = String(v.day == null ? '' : v.day).trim();
+    if (/^\d{1,2}$/.test(s) && Number(s) > 0) { lastIdx = i; lastNum = Number(s); }
+  });
+  return lastIdx === -1 ? visits.length : lastNum + (visits.length - 1 - lastIdx);
+}
+
 /** Келесі келудің нөмірі мен жоспар бойынша емі. */
 function nextForCard_(card, visits) {
-  var n = visits.length;
+  var n = doneCount_(visits);
   var proc = card.plan[n] || card.plan[card.plan.length - 1] || '';
-  var last = visits[n - 1] || null;
+  var last = visits[visits.length - 1] || null;
   return {
     day: n + 1,
+    done: n,
     proc: proc,
     finished: Boolean(card.total && n >= card.total),
     lastDate: last ? last.date : '',
     lastTime: last ? last.time : ''
   };
+}
+
+/**
+ * Курс қай күні бітеді (болжам): соңғы келген күннен (не бүгіннен) кейін қалған күндер
+ * санаймыз, пациенттің демалыс және келмейтін күндері өткізіледі.
+ */
+function projectEnd_(card, next, todayIso) {
+  if (!card.total) return '';
+  if (next.finished) return next.lastDate || card.end || '';
+  var left = card.total - next.done;
+  var iso = next.lastDate ? addDays(next.lastDate, 1) : card.start;
+  if (!iso) return '';
+  if (iso < todayIso) iso = todayIso;
+  for (var guard = 0; guard < 400; guard++) {
+    if (!cardOffReason_(card, iso)) { left--; if (left <= 0) return iso; }
+    iso = addDays(iso, 1);
+  }
+  return '';
 }
 
 function uniq_(list) {
@@ -1267,7 +1314,9 @@ function getPatients() {
     var next = nextForCard_(c, v);
     var out = {};
     Object.keys(c).forEach(function (k) { out[k] = c[k]; });
-    out.visits = v.length;
+    out.visits = next.done;
+    out.visitList = v.map(function (x) { return { date: x.date, time: x.time, proc: x.proc, day: x.day }; });
+    out.projectedEnd = projectEnd_(c, next, todayIso_());
     out.lastDate = next.lastDate;
     out.nextDay = next.day;
     out.nextProc = next.proc;
@@ -1321,8 +1370,8 @@ function savePatient(p) {
   total = Number(total);
   var start = parseCardDate_(p.start);
   var end = parseCardDate_(p.end);
-  if (!start) throw new Error('Емнің басталған күнін көрсетіңіз.');
-  if (end && end < start) throw new Error('Аяқталатын күн басталған күннен бұрын болмауы керек.');
+  if (!start) start = todayIso_();          // басталған күні жазылмаса — бүгін
+  if (end && end < start) end = '';          // қате болса — қайта есептейміз
 
   var st = settings_() || {};
   var procs = st.procedures && st.procedures.length ? st.procedures : TREATMENTS;
@@ -1338,8 +1387,14 @@ function savePatient(p) {
     var sh = ensurePatientsSheet_();
     var cards = readPatients_(true);
     var key = normalizeName(name);
+    // Қайталану тек аты ДӘЛ бірдей (әріп өлшемі мен бос орынға қарамай), курсы әлі жүріп
+    // жатқан карта болғанда ғана тоқтатылады. «Роза» мен «Роза апа» — екі бөлек карта бола алады.
+    var exact = strictName_(name);
     var dup = cards.filter(function (c) {
-      return c.id !== p.id && normalizeName(c.name) === key && (!c.end || c.end >= start);
+      if (c.id === p.id || strictName_(c.name) !== exact) return false;
+      if (c.end && c.end < start) return false;
+      var v = patientVisits_([c], null)[c.id] || [];
+      return !nextForCard_(c, v).finished;
     })[0];
     if (dup) {
       throw new Error('«' + dup.name + '» атты пациенттің картасы бар. Бар картаны ашып өзгертіңіз, ' +
@@ -1512,6 +1567,24 @@ function placeCardPatient(sheetName, row, prev, cardId) {
     return [row];
   });
   return { day: day, name: card.name, dayNo: next.day, proc: next.proc };
+}
+
+/** Картаны өшіру: «Пациенттер» парағынан сол жол өшіріледі. Кестедегі ем жазбалары өзгермейді. */
+function deletePatient(id) {
+  withLock_(function () {
+    var sh = ss_().getSheetByName(CONFIG.patientsSheetName);
+    var card = readPatients_(true).filter(function (c) { return c.id === id; })[0];
+    if (!sh || !card) throw new Error('Карта табылмады — оны біреу өшірген болуы мүмкін. Тізімді жаңартыңыз.');
+    sh.deleteRow(card.row);
+    try { cache_().remove(CONFIG.patientsCacheKey); } catch (e) { /* елемейміз */ }
+  });
+  return getPatients();
+}
+
+/** «Жаңарту» батырмасы: кэшті толық тазалап, таблицадан жаңадан оқиды. */
+function refreshAll() {
+  clearCache();
+  return getPatients();
 }
 
 // ════════ Sheet.gs ════════

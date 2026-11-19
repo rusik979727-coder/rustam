@@ -22,6 +22,7 @@ function makeSheet(name, grid, merges, validations) {
       return 0;
     },
     getRange(r, c, nr = 1, nc = 1) { return makeRange(this, r, c, nr, nc); },
+    deleteRow(r) { apiCalls++; this.grid.splice(r - 1, 1); },
     getDataRange() { return makeRange(this, 1, 1, Math.max(this.getLastRow(), 1), 26); },
     setFrozenRows() { apiCalls++; },
     getRangeList(a1s) {
@@ -168,7 +169,9 @@ let day = run('getDay("17.11.2026")');
 ctx.slot = day.doctor[0];
 day = run('setAttendance("17.11.2026", slot.row, "✅", slot.prev)');
 assert.strictEqual(day.doctor[0].attended, '✅');
-assert.throws(() => run('setAttendance("17.11.2026", slot.row, "??", null)'), /таблицада жоқ/);
+// Тізімде жоқ мән енді жазуды тоқтатпайды (тек журналға жазылады)
+ctx.slot = run('getDay("17.11.2026")').doctor[0];
+assert.doesNotThrow(() => run('setAttendance("17.11.2026", slot.row, "✅", slot.prev)'));
 
 // 6. Басқа күнге көшіру
 ctx.slot = run('getDay("17.11.2026")').doctor[0];
@@ -452,3 +455,35 @@ ctx.kp = run('getDay("17.11.2026")').physio.flatMap(b => b.places).find(p => !p.
 run('savePhysio("17.11.2026", kp.row, {name:"Кунимай апа", proc:"Физио", total:"12", day:"1"}, kp.prev)');
 assert.strictEqual(run('getPatients()').patients.find(p => p.id === kun.id).visits, 1, '«Кунимай апа» жазбасы «Күнімай апа» картасына саналуы керек');
 console.log('Аттарды салыстыру тексерісі өтті ✔');
+
+// 23. Курс күні кестедегі «нешінші күн» нөмірінен есептеледі; болжамды бітуі; картаны өшіру
+assert.strictEqual(run('doneCount_([{day:"3"},{day:"4"},{day:""}])'), 5);
+assert.strictEqual(run('doneCount_([{day:""},{day:""}])'), 2);
+assert.strictEqual(run('doneCount_([{day:"8"},{day:"келмейді"}])'), 9 - 0 + 0 - 1 + 1);
+ctx.c7 = { name: 'Нөмірлі Тест', start: '2026-11-16', total: '12', plan: ['Физио', 'Плазма'], restDays: [0] };
+const nt = run('savePatient(c7)').patients.find(p => p.name === 'Нөмірлі Тест');
+ctx.np = run('getDay("16.11.2026")').physio.flatMap(b => b.places).find(p => !p.name && !p.extra);
+run('savePhysio("16.11.2026", np.row, {name:"Нөмірлі Тест", proc:"Физио", total:"12", day:"5"}, np.prev)');
+let ntp = run('getPatients()').patients.find(p => p.id === nt.id);
+assert.strictEqual(ntp.visits, 5, 'кестедегі «5-күн» негізге алынуы керек');
+assert.strictEqual(ntp.nextDay, 6);
+assert.strictEqual(ntp.visitList.length, 1);
+assert.ok(ntp.projectedEnd >= '2026-11-17', 'болжам бүгіннен кейін болуы керек: ' + ntp.projectedEnd);
+const before = run('getPatients()').patients.length;
+const afterDel = run('deletePatient("' + nt.id + '")');
+assert.strictEqual(afterDel.patients.length, before - 1);
+assert.ok(!afterDel.patients.some(p => p.id === nt.id));
+assert.ok(Array.isArray(run('refreshAll()').patients));
+console.log('Нөмір бойынша санау, болжам, өшіру тексерісі өтті ✔');
+
+// 24. Тіркеу жеңілдетілді: «Роза» мен «Роза апа» бөлек карта бола алады, басталған күн жазылмаса — бүгін
+ctx.r1 = { name: 'Роза', start: '2026-11-17', total: '3', plan: ['Физио'] };
+ctx.r2 = { name: 'Роза апа', start: '2026-11-17', total: '3', plan: ['Физио'] };
+run('savePatient(r1)');
+assert.doesNotThrow(() => run('savePatient(r2)'));
+ctx.r3 = { name: 'Жаңа Пациент', total: '5', plan: [] };
+const r3 = run('savePatient(r3)').patients.find(p => p.name === 'Жаңа Пациент');
+assert.strictEqual(r3.start, '2026-11-17'); assert.strictEqual(r3.plan.length, 5);
+assert.throws(() => run('savePatient(r1)'), /картасы бар/, 'дәл сол атпен, курсы бітпеген карта — қайталану');
+assert.strictEqual(run('getBootstrap()').build, 'dev');
+console.log('Тіркеу тексерісі өтті ✔');

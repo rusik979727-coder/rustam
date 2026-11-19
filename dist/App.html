@@ -474,6 +474,7 @@
           <button type="button" data-f="alert">⚠ Назардағылар</button>
           <button type="button" data-f="all">Барлығы</button>
         </div>
+        <button type="button" class="ghost" id="ptRefresh" title="Таблицадан жаңадан оқу">🔄 Жаңарту</button>
         <button type="button" class="primary" id="ptNew">＋ Жаңа карта</button>
       </div>
       <p class="hint" id="ptHint">Жүктелуде…</p>
@@ -690,6 +691,7 @@
       </div>
       <div class="sheet-actions">
         <button type="submit" class="primary" id="pfSave">Картаны сақтау</button>
+        <button type="button" class="danger" id="pfDelete" hidden>Картаны өшіру</button>
       </div>
     </form>
   </dialog>
@@ -783,10 +785,25 @@
   // Ашылған күндерді браузер жадында сақтаймыз: күн ауыстырғанда кесте бірден шығады,
   // ал жаңа деректі сервер артынан жеткізеді.
   var dayCache = {};
+  var CLIENT_BUILD = '19.11-85cb47';
+
+  // Code.gs пен App.html бір нұсқадан болмаса — жоғарыда ескерту.
+  function checkBuild(boot) {
+    if (!boot || boot.build === CLIENT_BUILD || document.getElementById('buildWarn')) return;
+    var el = document.createElement('div');
+    el.id = 'buildWarn';
+    el.className = 'empty';
+    el.style.borderColor = 'var(--missed)';
+    el.innerHTML = '<h3>⚠ Код толық жаңартылмаған</h3><p>Код.gs пен App.html әр түрлі нұсқа (' +
+      esc(boot.build || 'ескі') + ' / ' + esc(CLIENT_BUILD) + '). Екі файлды да соңғы нұсқамен түгел ауыстырып, ' +
+      '«Новая версия» арқылы қайта жариялаңыз.</p>';
+    $('main').insertBefore(el, $('main').firstChild);
+  }
 
   function loadBoot() {
     return call('getBootstrap').then(function (boot) {
       state.boot = boot;
+      checkBuild(boot);
       if (boot.todayDay) {
         boot.todayDay.fresh = Date.now();
         dayCache[boot.todayDay.sheet] = boot.todayDay;
@@ -1261,7 +1278,7 @@
         (p.complaint ? '<span class="pt-alert">⚠ ' + esc(p.complaint) + '</span>' : '') +
         '<span class="pt-bar-line"><span style="width:' + pct + '%"></span></span>' +
         '<span class="pt-next">' + next + '</span>' +
-        '<span class="pt-meta">' + esc([p.phone, shortIso(p.start) + ' – ' + shortIso(p.end)].filter(Boolean).join(' · ')) + '</span>' +
+        '<span class="pt-meta">' + esc([p.phone, shortIso(p.start) + ' – ' + shortIso(p.finished ? p.lastDate || p.end : p.projectedEnd || p.end)].filter(Boolean).join(' · ')) + '</span>' +
         (staff ? '<span class="pt-meta">' + esc(staff) + '</span>' : '') +
         '</button></li>';
     }).join('');
@@ -1276,8 +1293,14 @@
   }
 
   // Курс күндерінің күнтізбедегі күндері: өткендері — нақты келген күндері, қалғаны — болжам.
+  // Курс күндерінің күнтізбедегі күндері: өткен күндер — нақты келген күндері (кестедегі
+  // нөмір бойынша), қалғаны — соңғы келген күннен не бүгіннен бастап болжам.
   function planDates(total) {
-    var dates = pt.visitDates.slice(0, total);
+    var done = Math.min(pt.done || 0, total), vd = pt.visitDates, dates = [];
+    for (var i = 0; i < done; i++) {
+      var k = vd.length - done + i;
+      dates.push(k >= 0 ? vd[k] : '');
+    }
     var iso;
     if (pt.visitDates.length) {
       iso = addDays(pt.visitDates[pt.visitDates.length - 1], 1);
@@ -1323,7 +1346,7 @@
   }
 
   function renderPlan(doneCount) {
-    var done = doneCount == null ? pt.visitDates.length : doneCount;
+    var done = doneCount == null ? (pt.done || 0) : doneCount;
     var dates = planDates(pt.plan.length);
     $('#planGrid').innerHTML = pt.plan.length ? pt.plan.map(function (proc, i) {
       return '<button type="button" class="plan-day' + (isPlasma(proc) ? ' plasma' : '') + (i < done ? ' done' : '') +
@@ -1356,8 +1379,10 @@
     pt.plan = p ? p.plan.slice() : [];
     pt.rest = p ? (p.restDays || [0]).slice() : [0];
     pt.abs = p ? (p.absences || []).map(function (a) { return { from: a.from, to: a.to, reason: a.reason }; }) : [];
-    pt.visitDates = [];
+    pt.visitDates = p ? (p.visitList || []).map(function (v) { return v.date; }) : [];
+    pt.done = p ? p.visits : 0;
     pt.endAuto = !p || !p.end || p.end === p.autoEnd;
+    $('#pfDelete').hidden = !p;
     $('#absFrom').value = state.boot.today;
     $('#absTo').value = '';
     renderRest();
@@ -1367,17 +1392,43 @@
     $('#pfVisits').innerHTML = '';
     $('#patientDialog').showModal();
     if (!p) { $('#pfName').focus(); return; }
-    $('#pfVisitsTitle').textContent = 'Келген күндері: жүктелуде…';
-    call('getPatientCard', p.id).then(function (res) {
-      if (pt.edit !== p) return;
-      $('#pfVisitsTitle').textContent = 'Келген күндері (' + res.visits.length + '/' + res.card.total + ')';
-      $('#pfVisits').innerHTML = res.visits.length ? res.visits.map(function (v, i) {
-        return '<li><span class="vn">' + (i + 1) + '</span><span>' + esc(humanDate(v.date) + ', ' + weekday(v.date)) +
-          '</span><span>' + esc(v.time + ' · ' + (v.proc || '—')) + '</span></li>';
-      }).join('') : '<li><span></span><span class="hint">Әзірге келмеді</span><span></span></li>';
-      pt.visitDates = res.visits.map(function (v) { return v.date; });
-      renderPlan(res.visits.length);
-    }).catch(function (err) { $('#pfVisitsTitle').textContent = errText(err); });
+    // Келулер тізімі getPatients-пен бірге келеді — серверді қайта шақырмаймыз, карта бірден ашылады.
+    var list = p.visitList || [];
+    $('#pfVisitsTitle').textContent = 'Келген күндері (' + p.visits + '/' + p.total + ')' +
+      (p.projectedEnd && !p.finished ? ' · болжаммен ' + humanDate(p.projectedEnd) + ' бітеді' : '');
+    $('#pfVisits').innerHTML = list.length ? list.map(function (v, i) {
+      var n = /^\d{1,2}$/.test(String(v.day || '').trim()) ? v.day : (i + 1);
+      return '<li><span class="vn">' + esc(n) + '</span><span>' + esc(humanDate(v.date) + ', ' + weekday(v.date)) +
+        '</span><span>' + esc(v.time + ' · ' + (v.proc || '—')) + '</span></li>';
+    }).join('') : '<li><span></span><span class="hint">Әзірге келмеді</span><span></span></li>';
+  }
+
+  function deletePatientCard() {
+    var p = pt.edit;
+    if (!p) return;
+    if (!confirm('«' + p.name + '» картасын өшіреміз бе?\nКестедегі ем жазбалары өшпейді, тек карта жойылады.')) return;
+    var btn = $('#pfDelete');
+    busy(btn, true);
+    call('deletePatient', p.id).then(function (res) {
+      applyPatients(res);
+      $('#patientDialog').close();
+      toast('Карта өшірілді: ' + p.name);
+    }).catch(function (err) { toast(errText(err), true); })
+      .then(function () { busy(btn, false); });
+  }
+
+  // Кэшті толық тазалап, таблицадан жаңадан оқиды (біреу таблицаны қолмен өзгерткенде).
+  function refreshAllData() {
+    var btn = $('#ptRefresh');
+    busy(btn, true);
+    $('#ptHint').textContent = 'Таблицадан жаңадан оқылып жатыр…';
+    call('refreshAll').then(function (res) {
+      dayCache = {};
+      applyPatients(res);
+      if (state.date) loadDay(state.date, { silent: true });
+      toast('Мәліметтер таблицадан жаңартылды');
+    }).catch(function (err) { toast(errText(err), true); })
+      .then(function () { busy(btn, false); });
   }
 
   function savePatientForm(e) {
@@ -1746,6 +1797,8 @@
     $('#physioSick').onclick = markPhysioSick;
 
     $('#ptNew').onclick = function () { openPatient(null); };
+    $('#ptRefresh').onclick = refreshAllData;
+    $('#pfDelete').onclick = deletePatientCard;
     $('#ptSearch').addEventListener('input', renderPatients);
     $('#ptFilter').addEventListener('click', function (e) {
       var b = e.target.closest('[data-f]');

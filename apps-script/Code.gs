@@ -25,6 +25,10 @@
  * ол таблицадағы барлық dropdown-та және қолданбада бірден шығады.
  */
 
+// Код нұсқасы: scripts/build.sh жинағанда Code.gs пен App.html-ге бірдей белгі қойылады.
+// Екеуі сәйкес келмесе (біреуі ескі не толық қойылмаған), қолданба жоғарыда ескерту көрсетеді.
+var APP_BUILD = 'dev';
+
 var CONFIG = {
   appTitle: 'Белес График',
   // Жаңа күн осы атаулы парақтан көшіріледі. Ондай парақ болмаса — соңғы күннен.
@@ -384,9 +388,13 @@ function cleanText_(v, max) {
   return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max || 200);
 }
 
+/**
+ * Мән тізімде бар ма? Тізімде жоқ болса да жазуды тоқтатпаймыз (менеджер не қызмет
+ * «Баптаулар»-ға кейін қосылуы мүмкін) — тек журналға жазамыз.
+ */
 function checkOption_(options, field, value, label) {
   if (value && options[field].indexOf(value) === -1) {
-    throw new Error('«' + label + '» өрісіне таблицада жоқ мән берілді: ' + value);
+    try { Logger.log('«' + label + '» тізімінде жоқ мән жазылды: ' + value); } catch (e) { /* елемейміз */ }
   }
 }
 
@@ -594,6 +602,7 @@ function getBootstrap() {
     try { todayDay = getDay(todaySheet.sheet); } catch (e) { todayDay = null; }
   }
   return {
+    build: APP_BUILD,
     title: ss_().getName(),
     url: ss_().getUrl(),
     today: today,
