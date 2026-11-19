@@ -1670,8 +1670,23 @@ function parseDay(values, merges) {
 }
 
 /** Аттарды салыстыру үшін: кіші әріп, артық бос орынсыз ("Жумахан  Ага " → "жумахан ага"). */
+// Қазақ әріптері орыс әріптеріне теңестіріледі: «Күнімай» = «Кунимай», «Көкеш» = «Кокеш».
+var NAME_FOLD = { 'ё': 'е', 'ә': 'а', 'ғ': 'г', 'қ': 'к', 'ң': 'н', 'ө': 'о', 'ұ': 'у', 'ү': 'у', 'һ': 'х', 'і': 'и' };
+// Аттың басында не соңында тұратын құрмет сөздері салыстыруда ескерілмейді (әріптері теңестірілген түрде).
+var NAME_HONORIFICS = ['апа', 'апай', 'ага', 'агай', 'ата', 'аже', 'тате', 'ханым', 'мырза'];
+
+/**
+ * Аттарды салыстыру үшін: кіші әріп, артық бос орынсыз, қазақ әріптері теңестірілген,
+ * «апа/ага/агай…» сөздерінсіз. «Көкеш апа» → «кокеш», «Күнімай  Апа» → «кунимай».
+ */
 function normalizeName(name) {
-  return String(name || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+  var s = String(name || '').toLowerCase()
+    .replace(/[ёәғқңөұүһі]/g, function (c) { return NAME_FOLD[c]; })
+    .replace(/[^a-zа-я0-9]+/g, ' ').trim();
+  var words = s ? s.split(' ') : [];
+  while (words.length > 1 && NAME_HONORIFICS.indexOf(words[words.length - 1]) !== -1) words.pop();
+  while (words.length > 1 && NAME_HONORIFICS.indexOf(words[0]) !== -1) words.shift();
+  return words.join(' ');
 }
 
 /**

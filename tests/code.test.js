@@ -437,3 +437,18 @@ ctx.dp = run('getDay("17.11.2026")').physio.flatMap(b => b.places).find(p => p.n
 run('savePhysio("17.11.2026", dp.row, {name:"", proc:""}, dp.prev)');
 assert.strictEqual(sheets.find(s => s.name === '17.11.2026').grid[ctx.dp.row - 1][14], '');
 console.log('Келді/келмеді, картадан қою, шағым тексерісі өтті ✔');
+
+// 22. Аттарды икемді салыстыру: қазақ әріптері мен «апа/ага»
+const nn = n => run('normalizeName(' + JSON.stringify(n) + ')');
+assert.strictEqual(nn('Күнімай апа'), nn('Кунимай апа'));
+assert.strictEqual(nn('Көкеш апа'), nn('Кокеш'));
+assert.strictEqual(nn('Жумахан  Ага'), 'жумахан');
+assert.strictEqual(nn('Жетес ағай'), nn('Жетес'));
+assert.strictEqual(nn('Апа'), 'апа');
+assert.notStrictEqual(nn('Роза Ахметова'), nn('Роза Серікова'));
+ctx.c6 = { name: 'Күнімай апа', start: '2026-11-16', total: '12', plan: ['Физио'] };
+const kun = run('savePatient(c6)').patients.find(p => p.name === 'Күнімай апа');
+ctx.kp = run('getDay("17.11.2026")').physio.flatMap(b => b.places).find(p => !p.name && !p.extra);
+run('savePhysio("17.11.2026", kp.row, {name:"Кунимай апа", proc:"Физио", total:"12", day:"1"}, kp.prev)');
+assert.strictEqual(run('getPatients()').patients.find(p => p.id === kun.id).visits, 1, '«Кунимай апа» жазбасы «Күнімай апа» картасына саналуы керек');
+console.log('Аттарды салыстыру тексерісі өтті ✔');
