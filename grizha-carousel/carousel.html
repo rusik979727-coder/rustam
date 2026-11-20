@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<title>Омыртқа грыжасы — карусель</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ECE2D9; --ink:#2A1F23; --muted:#6F5F60; --wine:#5B1A28; --wine-2:#7A2A3A;
+    --blue:#C3D6E8; --rose:#DCBDBB; --card:#F7F1EB; --line:#B9A7A0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg)}
+  #stage{position:relative;width:6480px;height:1350px;background:var(--bg);overflow:hidden;
+         font-family:Inter,sans-serif;color:var(--ink)}
+  .abs{position:absolute}
+  .serif{font-family:"Cormorant Garamond",serif;font-weight:600;line-height:.98;letter-spacing:-.5px}
+  .serif i{font-style:italic;color:var(--wine);font-weight:600}
+  .kicker{font-size:22px;font-weight:700;letter-spacing:4px;color:var(--wine);text-transform:uppercase}
+  .body{font-size:30px;line-height:1.38;color:var(--muted)}
+  .num{font-family:"Cormorant Garamond",serif;font-size:330px;font-weight:500;color:#DCCFC5;line-height:1}
+  .ring{border:2px solid var(--line);border-radius:50%;opacity:.55}
+  .disc{border-radius:50%}
+  .card{background:var(--card);border-radius:22px;box-shadow:0 14px 34px rgba(90,40,40,.10)}
+  .chip{display:inline-flex;align-items:center;gap:12px;background:var(--card);border-radius:14px;
+        padding:14px 22px;font-size:25px;font-weight:600;color:var(--ink);box-shadow:0 8px 20px rgba(90,40,40,.08)}
+  .chip b{color:var(--wine)}
+  .dot{width:16px;height:16px;border-radius:50%;background:var(--wine)}
+  .dot.o{background:var(--bg);border:2px solid var(--line)}
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- ===== shared background: circles that cross the seams ===== -->
+  <div class="abs disc" style="left:500px;top:340px;width:620px;height:620px;background:var(--blue)"></div>
+  <div class="abs ring" style="left:380px;top:210px;width:880px;height:880px"></div>
+  <div class="abs disc" style="left:1880px;top:610px;width:560px;height:560px;background:var(--rose);opacity:.7"></div>
+  <div class="abs ring" style="left:2700px;top:520px;width:760px;height:760px"></div>
+  <div class="abs disc" style="left:3060px;top:820px;width:330px;height:330px;background:var(--blue)"></div>
+  <div class="abs ring" style="left:4160px;top:-160px;width:820px;height:820px"></div>
+  <div class="abs disc" style="left:4980px;top:260px;width:480px;height:480px;background:var(--rose);opacity:.6"></div>
+
+  <!-- thread line + dots across all slides -->
+  <svg class="abs" style="left:0;top:0" width="6480" height="1350">
+    <path d="M60 1250 C 900 1250, 1300 1180, 2160 1215 S 3600 1270, 4320 1225 S 5800 1190, 6420 1240"
+          fill="none" stroke="#B9A7A0" stroke-width="2"/>
+  </svg>
+  <div class="abs dot" style="left:72px;top:1242px"></div>
+  <div class="abs dot o" style="left:1620px;top:1212px"></div>
+  <div class="abs dot o" style="left:2700px;top:1228px"></div>
+  <div class="abs dot o" style="left:3780px;top:1238px"></div>
+  <div class="abs dot o" style="left:4860px;top:1210px"></div>
+  <div class="abs dot" style="left:6000px;top:1222px"></div>
+
+  <!-- ================= SLIDE 1 — cover ================= -->
+  <div class="abs kicker" style="left:80px;top:150px">Омыртқа грыжасы</div>
+  <div class="abs serif" style="left:76px;top:200px;font-size:128px">Белің неге<br><i>ауырады?</i></div>
+  <div class="abs" style="left:80px;top:530px;font-size:40px;font-family:'Cormorant Garamond',serif;font-weight:600;color:var(--wine)">
+    <s style="color:#7E6C69">«өзі басылады»</s> → маманға көрін
+  </div>
+  <div class="abs body" style="left:80px;top:630px;width:430px">Грыжа туралы ең маңыздысын 6 слайдта ашамыз.</div>
+  <div class="abs" style="left:80px;top:790px;font-size:30px;font-weight:700;color:var(--wine)">Сақтап ал →</div>
+
+  <!-- spine illustration (cover) -->
+  <svg class="abs" style="left:560px;top:190px" width="520" height="980" viewBox="0 0 520 980">
+    <defs>
+      <linearGradient id="bone" x1="0" x2="1"><stop offset="0" stop-color="#FBF6F1"/><stop offset="1" stop-color="#E9DCD2"/></linearGradient>
+    </defs>
+    <g id="spine">
+      <!-- vertebrae -->
+      <g fill="url(#bone)" stroke="#BFA9A0" stroke-width="3">
+        <rect x="150" y="20"  width="200" height="105" rx="34"/>
+        <rect x="145" y="170" width="210" height="110" rx="36"/>
+        <rect x="140" y="325" width="220" height="115" rx="38"/>
+        <rect x="135" y="485" width="230" height="120" rx="40"/>
+        <rect x="130" y="650" width="240" height="125" rx="42"/>
+        <rect x="128" y="820" width="244" height="120" rx="42"/>
+      </g>
+      <!-- spinous processes -->
+      <g fill="#E4D5CA" stroke="#BFA9A0" stroke-width="3">
+        <path d="M350 50 q70 10 95 40 q-30 18 -95 12z"/>
+        <path d="M355 200 q72 10 98 42 q-30 18 -98 12z"/>
+        <path d="M360 355 q74 10 100 44 q-32 18 -100 12z"/>
+        <path d="M365 515 q76 10 102 46 q-32 18 -102 12z"/>
+        <path d="M370 680 q78 10 104 48 q-34 18 -104 12z"/>
+      </g>
+      <!-- healthy discs -->
+      <g fill="#C3D6E8" stroke="#94AFC8" stroke-width="3">
+        <rect x="158" y="128" width="190" height="38" rx="19"/>
+        <rect x="152" y="283" width="200" height="38" rx="19"/>
+        <rect x="146" y="443" width="210" height="38" rx="19"/>
+        <rect x="140" y="778" width="230" height="38" rx="19"/>
+      </g>
+      <!-- herniated disc -->
+      <rect x="140" y="608" width="222" height="38" rx="19" fill="#C3D6E8" stroke="#94AFC8" stroke-width="3"/>
+      <path d="M330 612 q70 -6 82 15 q-8 22 -82 15z" fill="#7A2A3A"/>
+      <!-- nerve -->
+      <path d="M432 470 C 420 560, 440 600, 425 650 S 470 800, 500 960" fill="none" stroke="#5B1A28" stroke-width="5" stroke-linecap="round"/>
+      <!-- pain pulse -->
+      <circle cx="415" cy="627" r="36" fill="none" stroke="#7A2A3A" stroke-width="3" opacity=".55"/>
+      <circle cx="415" cy="627" r="58" fill="none" stroke="#7A2A3A" stroke-width="2" opacity=".3"/>
+    </g>
+  </svg>
+  <div class="abs chip" style="left:520px;top:1090px"><span class="dot" style="width:12px;height:12px"></span>L4–L5 · <b>жиі кездеседі</b></div>
+
+  <!-- ================= SLIDE 2 — symptoms ================= -->
+  <div class="abs kicker" style="left:1160px;top:150px">Таныс па?</div>
+  <div class="abs serif" style="left:1156px;top:200px;font-size:98px">Таңертең тұру <i>қиын.</i><br>Аяқ <i>ұйып</i> қалады.</div>
+  <div class="abs body" style="left:1160px;top:450px;width:820px">Бұл жай шаршау емес болуы мүмкін. Грыжаның жиі белгілері:</div>
+
+  <div class="abs card" style="left:1160px;top:570px;width:820px;padding:34px 40px">
+    <div style="display:grid;gap:26px;font-size:31px;font-weight:500">
+      <div>✓&nbsp; Бел ауырсынуы <b style="color:var(--wine)">аяққа тарайды</b></div>
+      <div>✓&nbsp; Аяқ, саусақ ұйиды, шымырлайды</div>
+      <div>✓&nbsp; Ұзақ отыру не тұру қиын</div>
+      <div>✓&nbsp; Еңкейгенде, түшкіргенде күшейеді</div>
+    </div>
+  </div>
+  <div class="abs body" style="left:1160px;top:1020px;width:800px;font-size:27px">Екі-үш белгі сәйкес келсе — тексерілуді кейінге қалдырма.</div>
+
+  <!-- ================= SLIDE 3 — what is it ================= -->
+  <div class="abs num" style="left:2230px;top:90px">01</div>
+  <div class="abs kicker" style="left:2240px;top:390px">Есте сақта</div>
+  <div class="abs serif" style="left:2236px;top:440px;font-size:96px">Грыжа —<br>дискінің<br><i>шығып кетуі</i></div>
+  <div class="abs body" style="left:2240px;top:790px;width:530px">Омыртқалар арасындағы диск жарылып, ішіндегі өзегі сыртқа шығады да, <b style="color:var(--ink)">нервті қысады.</b> Ауырсыну осыдан.</div>
+
+  <!-- disc diagrams (top view) -->
+  <div class="abs card" style="left:2810px;top:300px;width:300px;padding:28px;text-align:center">
+    <svg width="240" height="200" viewBox="0 0 240 200">
+      <ellipse cx="120" cy="100" rx="105" ry="80" fill="#C3D6E8" stroke="#94AFC8" stroke-width="4"/>
+      <ellipse cx="120" cy="100" rx="70" ry="52" fill="none" stroke="#94AFC8" stroke-width="2" opacity=".7"/>
+      <ellipse cx="120" cy="96" rx="38" ry="28" fill="#F7F1EB" stroke="#94AFC8" stroke-width="3"/>
+    </svg>
+    <div style="font-size:25px;font-weight:600;margin-top:10px">Қалыпты диск</div>
+  </div>
+  <div class="abs card" style="left:2810px;top:680px;width:300px;padding:28px;text-align:center">
+    <svg width="240" height="200" viewBox="0 0 240 200">
+      <ellipse cx="120" cy="100" rx="105" ry="80" fill="#C3D6E8" stroke="#94AFC8" stroke-width="4"/>
+      <path d="M150 128 q30 40 18 64 q-30 6 -42 -30z" fill="#7A2A3A"/>
+      <ellipse cx="125" cy="104" rx="36" ry="26" fill="#7A2A3A" opacity=".85"/>
+      <path d="M200 200 C 190 170, 175 175, 170 150" stroke="#5B1A28" stroke-width="5" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div style="font-size:25px;font-weight:600;margin-top:10px;color:var(--wine)">Грыжа → нерв қысылады</div>
+  </div>
+
+  <!-- ================= SLIDE 4 — red flags ================= -->
+  <div class="abs num" style="left:3310px;top:90px">02</div>
+  <div class="abs kicker" style="left:3320px;top:390px">Маңызды</div>
+  <div class="abs serif" style="left:3316px;top:440px;font-size:96px">Мына белгілерде<br><i>күтпе</i></div>
+
+  <div class="abs" style="left:3320px;top:720px;width:860px;background:#2E1A20;border-radius:24px;padding:40px 46px;color:#F3E7E2;box-shadow:0 20px 40px rgba(46,26,32,.25)">
+    <div style="font-size:21px;letter-spacing:3px;font-weight:700;color:#D9A9AE;margin-bottom:26px">⚠ ШҰҒЫЛ БЕЛГІЛЕР</div>
+    <div style="display:grid;gap:20px;font-size:31px;line-height:1.3">
+      <div>— Аяқтың күрт әлсіреуі</div>
+      <div>— Несеп не нәжісті ұстай алмау</div>
+      <div>— Шат аймағының сезімталдығы жоғалуы</div>
+    </div>
+    <div style="margin-top:30px;padding-top:24px;border-top:1px solid #5A3A42;font-size:29px;font-weight:600;color:#fff">
+      Бұлар болса — <span style="color:#E8B4BA">дереу дәрігерге жүгін.</span>
+    </div>
+  </div>
+
+  <!-- ================= SLIDE 5 — treatment path ================= -->
+  <div class="abs num" style="left:4390px;top:90px">03</div>
+  <div class="abs kicker" style="left:4400px;top:390px">Ем жолы</div>
+  <div class="abs serif" style="left:4396px;top:440px;font-size:92px">Ем — <i>нақты</i><br><i>диагноздан</i><br>басталады</div>
+
+  <div class="abs" style="left:4400px;top:810px;width:860px">
+    <div style="position:absolute;left:31px;top:40px;width:2px;height:300px;background:var(--line)"></div>
+    <div style="display:grid;gap:34px">
+      <div style="display:flex;gap:28px;align-items:flex-start">
+        <div style="flex:none;width:64px;height:64px;border-radius:50%;background:var(--wine);color:#fff;font:600 30px 'Cormorant Garamond',serif;display:grid;place-items:center;position:relative">1</div>
+        <div><div style="font-size:32px;font-weight:600">Невролог қарауы + МРТ</div><div class="body" style="font-size:26px">Грыжаның орны мен көлемін анықтау</div></div>
+      </div>
+      <div style="display:flex;gap:28px;align-items:flex-start">
+        <div style="flex:none;width:64px;height:64px;border-radius:50%;background:var(--card);border:2px solid var(--wine);color:var(--wine);font:600 30px 'Cormorant Garamond',serif;display:grid;place-items:center;position:relative">2</div>
+        <div><div style="font-size:32px;font-weight:600">Жеке ем жоспары</div><div class="body" style="font-size:26px">Сіздің жағдайыңызға сай таңдалады</div></div>
+      </div>
+      <div style="display:flex;gap:28px;align-items:flex-start">
+        <div style="flex:none;width:64px;height:64px;border-radius:50%;background:var(--card);border:2px solid var(--wine);color:var(--wine);font:600 30px 'Cormorant Garamond',serif;display:grid;place-items:center;position:relative">3</div>
+        <div><div style="font-size:32px;font-weight:600">Қалпына келтіру</div><div class="body" style="font-size:26px">ЕДШ, кинезиотерапия, дұрыс қозғалыс</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SLIDE 6 — CTA ================= -->
+  <!-- arch with spine -->
+  <div class="abs" style="left:5460px;top:200px;width:430px;height:720px;border-radius:210px 210px 28px 28px;background:linear-gradient(180deg,#C3D6E8,#DDE7F0);overflow:hidden;box-shadow:0 20px 40px rgba(90,40,40,.12)">
+    <svg style="position:absolute;left:40px;top:40px" width="340" height="640" viewBox="0 0 520 980"><use href="#spine"/></svg>
+  </div>
+  <div class="abs serif" style="left:5950px;top:210px;font-size:94px;width:480px">Белің<br><i>ауырмай</i><br>өмір сүр</div>
+  <div class="abs body" style="left:5955px;top:560px;width:440px;font-size:28px">Кеңеске жазылу үшін комментке жаз:</div>
+  <div class="abs" style="left:5955px;top:670px;background:var(--wine);color:#fff;border-radius:999px;padding:20px 46px;font:600 52px 'Cormorant Garamond',serif;letter-spacing:3px;box-shadow:0 14px 28px rgba(91,26,40,.3)">ГРЫЖА</div>
+  <div class="abs body" style="left:5955px;top:810px;width:440px;font-size:25px">Директке толық ақпарат жібереміз</div>
+
+  <div class="abs" style="left:5470px;top:1010px;display:flex;align-items:center;gap:18px">
+    <div style="width:74px;height:74px;border-radius:50%;background:#14373D;color:#fff;display:grid;place-items:center;font:700 16px Inter;letter-spacing:2px">BELES</div>
+    <div style="font-size:30px;font-weight:700;letter-spacing:4px">BELES</div>
+  </div>
+  <div class="abs" style="left:5480px;top:1290px;width:960px;font-size:19px;color:#8E7E7B">Қарсы көрсетілімдері бар. Маманның кеңесі қажет.</div>
+
+</div>
+</body>
+</html>
