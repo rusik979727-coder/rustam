@@ -16,7 +16,7 @@ python3 audio.py
 
 mkdir -p out
 ffmpeg -y -loglevel error -framerate 24 -i frames/%05d.jpg -i out/audio.wav \
-  -map 0:v -map 1:a -c:v libx264 -preset slow -crf 20 -pix_fmt yuv420p -profile:v high \
+  -map 0:v -map 1:a -c:v libx264 -preset slow -crf 23 -maxrate 8M -bufsize 16M -pix_fmt yuv420p -profile:v high \
   -c:a aac -b:a 256k -af "loudnorm=I=-14:TP=-1:LRA=11" -ar 48000 \
   -movflags +faststart -shortest out/episode-01-animatic.mp4
 
