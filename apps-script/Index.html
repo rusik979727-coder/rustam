@@ -55,9 +55,11 @@
   .fn .bar{height:26px;background:var(--pri);border-radius:6px;color:#fff;font-size:13px;display:flex;align-items:center;padding:0 8px;min-width:34px;white-space:nowrap}
   .tbl{overflow-x:auto;-webkit-overflow-scrolling:touch}
   table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
-  th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+  th,td{padding:6px 6px;border-bottom:1px solid var(--line);text-align:right}
   th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--card)}
-  th{color:var(--muted);font-weight:600;background:#fafbfd}
+  th{color:var(--muted);font-weight:600;background:#fafbfd;white-space:normal;vertical-align:bottom;line-height:1.2}
+  .tbl{touch-action:pan-x pan-y;overscroll-behavior-x:contain}
+  td small{color:var(--muted);font-weight:400}
   tr.tot td{font-weight:700;background:#fafbfd}
   td.today{background:var(--pri2)}
   .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
@@ -482,8 +484,8 @@ function drawAnalytics(r, pr, ym){
   // Апта күндері
   var p_=ym.split('-'), wd=[0,1,2,3,4,5,6].map(function(){return {n:0,leads:0,booked:0,came:0,kassa:0};});
   idx.forEach(function(i){ var has=m.leads[i]||m.cc[i]||m.came[i]||m.kassa[i]; if(!has) return; var w=(new Date(+p_[0],+p_[1]-1,i+1).getDay()+6)%7; var o=wd[w]; o.n++; o.leads+=m.leads[i]; o.booked+=m.booked[i]; o.came+=m.came[i]; o.kassa+=m.kassa[i]; });
-  h+='<div class="sec">'+t('weekdays')+'</div><div class="tbl"><table><tr><th>'+t('thWd')+'</th><th>'+t('thDays')+'</th><th>'+t('thLead')+'</th><th>'+t('thBooked')+'</th><th>'+t('thCame')+'</th><th>'+t('thKassa')+'</th></tr>'+
-    wd.map(function(o,i){ return '<tr><td>'+t('wd')[i]+'</td><td>'+o.n+'</td><td>'+(o.n?fmt(o.leads/o.n,1):'—')+'</td><td>'+(o.n?fmt(o.booked/o.n,1):'—')+'</td><td>'+(o.n?fmt(o.came/o.n,1):'—')+'</td><td>'+(o.n?fmt(o.kassa/o.n,0):'—')+'</td></tr>'; }).join('')+'</table></div>';
+  h+='<div class="sec">'+t('weekdays')+'</div><div class="tbl"><table><tr><th>'+t('thWd')+'</th><th>'+t('thLead')+'</th><th>'+t('thBooked')+'</th><th>'+t('thCame')+'</th><th>'+t('thKassa')+'</th></tr>'+
+    wd.map(function(o,i){ return '<tr><td>'+t('wd')[i]+' <small>×'+o.n+'</small></td><td>'+(o.n?fmt(o.leads/o.n,1):'—')+'</td><td>'+(o.n?fmt(o.booked/o.n,1):'—')+'</td><td>'+(o.n?fmt(o.came/o.n,1):'—')+'</td><td>'+(o.n?fmt(o.kassa/o.n,0):'—')+'</td></tr>'; }).join('')+'</table></div>';
 
   // Үздік күндер
   var best=function(arr){ var bi=-1,bv=0; idx.forEach(function(i){ if(arr[i]>bv){bv=arr[i];bi=i;} }); return bi<0?'—':dd(bi,ym)+' · '+fmt(bv,1); };
@@ -588,8 +590,8 @@ function drawPersonal(r, ym){
   var p_=ym.split('-'), val=function(k,i){ return k==='__kassa' ? ((num(R.cash&&R.cash[i])+num(R.card&&R.card[i])+num(R.transfer&&R.transfer[i]))||num(R.total&&R.total[i])) : num(R[k]&&R[k][i]); };
   var wd=[0,1,2,3,4,5,6].map(function(){ return {n:0,v:wdCols.map(function(){return 0;})}; });
   idx.forEach(function(i){ if(!keys.some(function(k){return num(R[k][i]);})) return; var w=(new Date(+p_[0],+p_[1]-1,i+1).getDay()+6)%7; wd[w].n++; wdCols.forEach(function(c,ci){ wd[w].v[ci]+=val(c[1],i); }); });
-  h+='<div class="sec">'+t('weekdays')+'</div><div class="tbl"><table><tr><th>'+t('thWd')+'</th><th>'+t('thDays')+'</th>'+wdCols.map(function(c){return '<th>'+c[0]+'</th>';}).join('')+'</tr>'+
-    wd.map(function(o,i){ return '<tr><td>'+t('wd')[i]+'</td><td>'+o.n+'</td>'+wdCols.map(function(c,ci){ return '<td>'+(o.n?fmt(o.v[ci]/o.n,c[2]):'—')+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>';
+  h+='<div class="sec">'+t('weekdays')+'</div><div class="tbl"><table><tr><th>'+t('thWd')+'</th>'+wdCols.map(function(c){return '<th>'+c[0]+'</th>';}).join('')+'</tr>'+
+    wd.map(function(o,i){ return '<tr><td>'+t('wd')[i]+' <small>×'+o.n+'</small></td>'+wdCols.map(function(c,ci){ return '<td>'+(o.n?fmt(o.v[ci]/o.n,c[2]):'—')+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>';
 
   // Үздік күндер
   var best=function(fn,d){ var bi=-1,bv=0; idx.forEach(function(i){ var v=fn(i); if(v>bv){bv=v;bi=i;} }); return bi<0?'—':dd(bi,ym)+' · '+fmt(bv,d); };
