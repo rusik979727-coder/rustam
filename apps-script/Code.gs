@@ -189,6 +189,73 @@ function apiGetMonthBlock(key, blockId, ym) {
   return out;
 }
 
+/**
+ * Бір қызметкердің (блоктың) аналитикасы: өз айы, өткен айы және
+ * салыстыру үшін команда көрсеткіштері (тек жиынтық сандар).
+ */
+function apiGetBlockAnalytics(key, blockId, ym) {
+  var user = auth_(key);
+  blockId = allowedBlock_(user, blockId);
+  var p = ym.split('-');
+  var y = +p[0], m = +p[1];
+  var py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
+  var cur = monthBlocks_(y, m), prev = monthBlocks_(py, pm);
+  var want = norm_(blockId);
+  var pick = function (mb) {
+    for (var i = 0; i < mb.blocks.length; i++) if (norm_(mb.blocks[i].id) === want) return mb.blocks[i];
+    return null;
+  };
+  var me = pick(cur), pme = pick(prev);
+  var role = me ? me.role : (pme ? pme.role : roleOfBlockName_(blockId));
+  var teamSum = function (mb, r, keys) {
+    var out = {};
+    keys.forEach(function (k) {
+      var arr = [];
+      for (var i = 0; i < mb.days; i++) arr.push(0);
+      mb.blocks.filter(function (b) { return b.role === r && b.rows[k]; }).forEach(function (b) {
+        b.rows[k].forEach(function (v, i) { arr[i] += (typeof v === 'number' ? v : 0); });
+      });
+      out[k] = arr;
+    });
+    return out;
+  };
+  var team = {};
+  if (role === 'callcenter') {
+    team.cc = teamSum(cur, 'callcenter', ['leads', 'booked', 'noanswer', 'refused']);
+    team.ccBlocks = cur.blocks.filter(function (b) { return b.role === 'callcenter'; }).length;
+  }
+  if (role === 'target') {
+    team.down = teamSum(cur, 'callcenter', ['leads', 'booked']);
+    var rec = teamSum(cur, 'reception', ['came', 'bought', 'cash', 'card', 'transfer', 'total']);
+    for (var k in rec) team.down[k] = rec[k];
+  }
+  if (role === 'reception') {
+    team.rec = teamSum(cur, 'reception', ['came', 'bought', 'cash', 'card', 'transfer', 'total']);
+    team.recBlocks = cur.blocks.filter(function (b) { return b.role === 'reception'; }).length;
+  }
+  return {
+    blockId: blockId, role: role, days: cur.days, prevDays: prev.days,
+    rows: me ? me.rows : {}, prevRows: pme ? pme.rows : {}, team: team
+  };
+}
+
+function monthBlocks_(y, m) {
+  var days = daysIn_(y, m);
+  var sheet = getMonthSheet_(y, m, false);
+  var out = { days: days, blocks: [] };
+  if (!sheet) return out;
+  var blocks = detectBlocks_(sheet);
+  if (!blocks.length) return out;
+  var lastRow = Math.max.apply(null, blocks.map(function (b) { return b.lastRow; }));
+  var data = sheet.getRange(1, 1, lastRow, DAY_COLUMNS + 1).getValues();
+  blocks.forEach(function (b) {
+    var rows = {};
+    Object.keys(b.rows).forEach(function (k) { rows[k] = data[b.rows[k] - 1].slice(1, days + 1).map(cleanVal_); });
+    out.blocks.push({ id: b.id, role: b.role, rows: rows });
+  });
+  return out;
+}
+
 /** Бастыққа: айдың жалпы есебі (барлық блоктар). */
 function apiGetSummary(key, ym) {
   var user = auth_(key);

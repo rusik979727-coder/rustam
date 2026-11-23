@@ -125,7 +125,16 @@ var T = {
   insGap:function(a,b){return 'Таргетте '+a+' лид, колл-центр '+b+' лид өңдеді. Айырмашылығын тексеріңіз.';},
   insCpl:function(a,b){return 'Лид бағасы соңғы 7 күнде $'+a+', ай бойынша орташа $'+b+'.';},
   insEmpty:'Қорытынды шығару үшін мәлімет әлі аз.',
-  perDay:'күніне орташа',share:'үлесі'
+  perDay:'күніне орташа',share:'үлесі',
+  tMyEntry:'✏️ Енгізу',tMyAn:'📈 Менің аналитикам',myAn:'Менің аналитикам',anAll:'Жалпы (барлығы)',
+  pNote:'▲▼ — өткен айдың сол күндерімен салыстырғанда',pDown:'Менің лидтерімнің нәтижесі',pOfLeads:'лидтен',
+  pLeadToBook:function(p){return 'Сіздің лидтеріңіздің '+p+' жазылуға айналды.';},
+  pConv:'Конверсия',pTeam:'команда:',pTeamName:'Команда орташасы',pConvDay:'Конверсия күндер бойынша, %',pDist:'Лидтер не болды',
+  pAbove:function(a,b){return 'Сіздің конверсияңыз '+a+' — команда орташасынан ('+b+') жоғары.';},
+  pBelow:function(a,b){return 'Сіздің конверсияңыз '+a+' — команда орташасынан ('+b+') төмен.';},
+  pSplit:function(s,l){return 'Нәтижелер қосындысы '+s+', ал лидтер '+l+'. Барлық лидке нәтиже жазылғанын тексеріңіз.';},
+  pMix:'Төлем түрлері',pTeamShare:'Жалпы кассадағы үлесім',pThink:function(n){return n+' клиент ойланып жүр — оларға қайта хабарласыңыз.';},
+  pVisits:'Консультация, келу, сатып алу',pCheapest:'Ең арзан лид',pMostBooked:'Ең көп жазылу',pMostSold:'Ең көп сатылым'
  },
  ru:{loading:'Загрузка…',boss:'Руководитель',target:'Таргетолог',callcenter:'Колл-центр',reception:'Ресепшн',
   openSheet:'Таблица ↗',entryTitle:'Ввод данных за день',today:'Сегодня',save:'Сохранить',saving:'Сохранение…',saved:'✓ Сохранено в таблицу',err:'Ошибка: ',
@@ -160,7 +169,16 @@ var T = {
   insGap:function(a,b){return 'В таргете '+a+' лидов, колл-центр обработал '+b+'. Проверьте разницу.';},
   insCpl:function(a,b){return 'Цена лида за последние 7 дней $'+a+', в среднем за месяц $'+b+'.';},
   insEmpty:'Пока мало данных для выводов.',
-  perDay:'в среднем за день',share:'доля'
+  perDay:'в среднем за день',share:'доля',
+  tMyEntry:'✏️ Ввод',tMyAn:'📈 Моя аналитика',myAn:'Моя аналитика',anAll:'Общая (все)',
+  pNote:'▲▼ — к тем же дням прошлого месяца',pDown:'Результат моих лидов',pOfLeads:'от лидов',
+  pLeadToBook:function(p){return p+' ваших лидов дошли до записи.';},
+  pConv:'Конверсия',pTeam:'команда:',pTeamName:'Среднее по команде',pConvDay:'Конверсия по дням, %',pDist:'Что стало с лидами',
+  pAbove:function(a,b){return 'Ваша конверсия '+a+' — выше среднего по команде ('+b+').';},
+  pBelow:function(a,b){return 'Ваша конверсия '+a+' — ниже среднего по команде ('+b+').';},
+  pSplit:function(s,l){return 'Сумма результатов '+s+', а лидов '+l+'. Проверьте, что у всех лидов указан результат.';},
+  pMix:'Способы оплаты',pTeamShare:'Моя доля в общей кассе',pThink:function(n){return n+' клиент(ов) думают — свяжитесь с ними повторно.';},
+  pVisits:'Консультации, приходы, покупки',pCheapest:'Самый дешёвый лид',pMostBooked:'Больше всего записей',pMostSold:'Больше всего продаж'
  }
 };
 var LANG = 'kz';
@@ -193,7 +211,7 @@ function firstDay(ym){ var st=(S.init&&S.init.startDate)||''; return st.slice(0,
 function clampDate(ds){ return (!isBoss() && S.init.startDate && ds<S.init.startDate) ? S.init.startDate : ds; }
 function dd(i,ym){ return ('0'+(i+1)).slice(-2)+'.'+ym.slice(5); }
 function kpi(label,val,sub,delta){ return '<div class="kpi"><small>'+label+'</small><b>'+val+'</b>'+(delta||'')+(sub?'<br><i>'+sub+'</i>':'')+'</div>'; }
-function delta(cur,prev,invert){ if(!prev||!cur) return ''; var p=(cur-prev)/prev*100; var good=invert? p<0 : p>0; return '<span class="d '+(good?'up':'down')+'">'+(p>0?'▲':'▼')+fmt(Math.abs(p),0)+'%</span>'; }
+function delta(cur,prev,invert){ if(!prev||!cur) return ''; var p=(cur-prev)/prev*100; if(Math.abs(p)<0.5) return ''; var good=invert? p<0 : p>0; return '<span class="d '+(good?'up':'down')+'">'+(p>0?'▲':'▼')+fmt(Math.abs(p),0)+'%</span>'; }
 function killCharts(){ S.charts.forEach(function(c){ try{c.destroy();}catch(e){} }); S.charts=[]; }
 
 /* ===================== Іске қосу ===================== */
@@ -225,12 +243,18 @@ function boot(){
 
 /* ===================== Маман беті ===================== */
 function renderEmployee(){
-  $('app').innerHTML = '<div id="entry"></div><div class="card"><div class="row between"><h2 style="margin:0">'+t('monthTable')+'</h2><input type="month" id="mon"></div><div id="mystats" style="margin-top:12px"></div><div id="month" class="tbl" style="margin-top:12px"></div></div>';
+  killCharts();
+  var tab=S.etab||'entry';
+  var tabs='<div class="tabs" role="tablist"><button role="tab" data-t="entry"'+(tab==='entry'?' class="on"':'')+'>'+t('tMyEntry')+'</button><button role="tab" data-t="an"'+(tab==='an'?' class="on"':'')+'>'+t('tMyAn')+'</button></div>';
+  if (tab==='an'){ $('app').innerHTML=tabs+'<div id="tab"></div>'; bindEmpTabs(); renderPersonal($('tab'), S.block); return; }
+  $('app').innerHTML = tabs+'<div id="entry"></div><div class="card"><div class="row between"><h2 style="margin:0">'+t('monthTable')+'</h2><input type="month" id="mon"></div><div id="mystats" style="margin-top:12px"></div><div id="month" class="tbl" style="margin-top:12px"></div></div>';
   $('mon').value = S.mon || S.date.slice(0,7);
   $('mon').onchange = function(){ S.mon=this.value; loadMonthBlock(); };
+  bindEmpTabs();
   renderEntry($('entry'));
   loadMonthBlock();
 }
+function bindEmpTabs(){ Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function(b){ b.onclick=function(){ S.etab=b.dataset.t; renderEmployee(); }; }); }
 
 function renderEntry(box, withBlockSelect){
   var sel = '';
@@ -387,7 +411,11 @@ function getRate(){ var r=520; try{ r=+localStorage.getItem('usdRate')||520; }ca
 
 function renderAnalytics(box){
   killCharts();
-  box.innerHTML='<div class="card"><div class="row between"><h2 style="margin:0">'+t('anTitle')+'</h2>'+monthPicker('amon')+'</div><div id="an"><div class="center">'+t('loading')+'</div></div></div>';
+  var who=S.anWho||'';
+  var sel='<div class="row" style="margin-bottom:12px"><select id="anwho" aria-label="'+t('anTitle')+'"><option value="">'+t('anAll')+'</option>'+S.init.blocks.map(function(b){ return '<option value="'+esc(b.id)+'"'+(b.id===who?' selected':'')+'>'+esc(b.id)+'</option>'; }).join('')+'</select></div>';
+  if (who){ box.innerHTML=sel+'<div id="pbox"></div>'; $('anwho').onchange=function(){ S.anWho=this.value; renderAnalytics(box); }; S.pmon=S.pmon||S.smon; renderPersonal($('pbox'), who); return; }
+  box.innerHTML=sel+'<div class="card"><div class="row between"><h2 style="margin:0">'+t('anTitle')+'</h2>'+monthPicker('amon')+'</div><div id="an"><div class="center">'+t('loading')+'</div></div></div>';
+  $('anwho').onchange=function(){ S.anWho=this.value; renderAnalytics(box); };
   $('amon').onchange=function(){ S.smon=this.value; renderAnalytics(box); };
   var ym=$('amon').value;
   Promise.all([call('apiGetSummary',S.key,ym), call('apiGetSummary',S.key,prevYm(ym)).catch(function(){return null;})])
@@ -484,6 +512,109 @@ function drawCharts(m, idx, labels){
   S.charts.push(new Chart($('c2'),{type:'bar',data:{labels:labels,datasets:[bar(t('cash'),pick(m.cash),c('--s1')),bar(t('card'),pick(m.card),c('--s2')),bar(t('transfer'),pick(m.tr),c('--s3'))]},options:stacked}));
   S.charts.push(new Chart($('c3'),{type:'line',data:{labels:labels,datasets:[line(t('avgCpl'),idx.map(function(i){return m.leads[i]?Math.round(m.spend[i]/m.leads[i]*100)/100:null;}),c('--s1'))]},options:one}));
   S.charts.push(new Chart($('c4'),{type:'line',data:{labels:labels,datasets:[line(t('chConv'),idx.map(function(i){return m.cc[i]?Math.round(m.booked[i]/m.cc[i]*1000)/10:null;}),c('--s2'))]},options:one}));
+}
+
+/* ===================== Жеке аналитика ===================== */
+function renderPersonal(box, blockId){
+  killCharts();
+  var ym=S.pmon||S.init.today.slice(0,7);
+  box.innerHTML='<div class="card"><div class="row between"><h2 style="margin:0">'+(isBoss()?esc(blockId):t('myAn'))+'</h2><input type="month" id="pmon" value="'+ym+'"></div><div id="pan"><div class="center">'+t('loading')+'</div></div></div>';
+  $('pmon').onchange=function(){ S.pmon=this.value; renderPersonal(box, blockId); };
+  call('apiGetBlockAnalytics', S.key, blockId, ym).then(function(r){ drawPersonal(r, ym); })
+    .catch(function(e){ $('pan').innerHTML='<div class="center err">'+esc(e)+'</div>'; });
+}
+
+function drawPersonal(r, ym){
+  var R=r.rows, PR=r.prevRows||{}, keys=Object.keys(R);
+  var f0=firstDay(ym)-1, last=-1;
+  for (var j=0;j<r.days;j++) if (keys.some(function(k){ return num(R[k][j]); })) last=j;
+  if (last<f0){ $('pan').innerHTML='<div class="center">'+t('noData')+'</div>'; return; }
+  var idx=[]; for (var i=f0;i<=last;i++) idx.push(i);
+  var labels=idx.map(function(i){return dd(i,ym);});
+  var A=function(k){ return idx.map(function(i){ return R[k]? num(R[k][i]) : 0; }); };
+  var T=function(k){ return sum(A(k)); };
+  var P=function(k){ return PR[k]? sum(PR[k].slice(f0,last+1)) : 0; };
+  var active=idx.filter(function(i){ return keys.some(function(k){ return num(R[k][i]); }); }).length||1;
+  var h='<p class="muted">'+t('pNote')+'</p>', ins=[], charts=[], wdCols=[];
+
+  if (r.role==='target'){
+    var L=T('leads'), Sp=T('spend'), cpl=L?Sp/L:0, pcpl=P('leads')?P('spend')/P('leads'):0, D=r.team.down||{};
+    var ds=function(k){ return D[k]? sum(D[k].slice(f0,last+1)) : 0; };
+    var bk=ds('booked'), cm=ds('came'), bt=ds('bought'), kas=(ds('cash')+ds('card')+ds('transfer'))||ds('total'), rate=getRate();
+    h+='<div class="kpis">'+kpi(t('leads'),fmt(L,0),fmt(L/active,1)+' '+t('perDay'),delta(L,P('leads')))+kpi(t('spent'),'$'+money(Sp),'',delta(Sp,P('spend'),true))+kpi(t('avgCpl'),cpl?'$'+money(cpl):'—','',delta(cpl,pcpl,true))+'</div>';
+    h+='<div class="sec">'+t('pDown')+'</div><div class="kpis">'+kpi(t('booked'),fmt(bk,0),L?pct(bk,L)+' '+t('pOfLeads'):'')+kpi(t('came'),fmt(cm,0))+kpi(t('bought'),fmt(bt,0))+
+      kpi(t('perBooked'),bk?'$'+money(Sp/bk):'—')+kpi(t('perSale'),bt?'$'+money(Sp/bt):'—')+kpi(t('romi'),Sp&&kas?fmt(kas/rate/Sp,1)+'×':'—',t('rate')+': '+rate)+'</div>';
+    var l7=idx.slice(-7), s7=sum(l7.map(function(i){return num(R.spend[i]);})), n7=sum(l7.map(function(i){return num(R.leads[i]);}));
+    if (n7&&cpl&&idx.length>7) ins.push([s7/n7<=cpl?'good':'warn',t('insCpl')(money(s7/n7),money(cpl))]);
+    if (L>=10&&bk) ins.push(['info',t('pLeadToBook')(pct(bk,L))]);
+    charts=[['bar',t('leads'),[[t('leads'),A('leads'),'--s1']]],['line',t('chCpl'),[[t('avgCpl'),idx.map(function(i){ return num(R.leads[i])? Math.round(num(R.spend[i])/num(R.leads[i])*100)/100 : null; }),'--s1']]]];
+    wdCols=[[t('thLead'),'leads',1],[t('thSum'),'spend',2]];
+  }
+  else if (r.role==='callcenter'){
+    var L2=T('leads'), Bk=T('booked'), conv=L2?Bk/L2:0, pconv=P('leads')?P('booked')/P('leads'):0, C=r.team.cc||{};
+    var tl=C.leads?sum(C.leads.slice(f0,last+1)):0, tb=C.booked?sum(C.booked.slice(f0,last+1)):0, tconv=tl?tb/tl:0;
+    h+='<div class="kpis">'+kpi(t('newLeads'),fmt(L2,0),fmt(L2/active,1)+' '+t('perDay'),delta(L2,P('leads')))+kpi(t('booked'),fmt(Bk,0),'',delta(Bk,P('booked')))+
+      kpi(t('pConv'),conv?fmt(conv*100,1)+'%':'—',(r.team.ccBlocks>1&&tconv)?t('pTeam')+' '+fmt(tconv*100,1)+'%':'',delta(conv,pconv))+
+      kpi(t('noanswer'),pct(T('noanswer'),L2),fmt(T('noanswer'),0))+kpi(t('refused'),pct(T('refused'),L2),fmt(T('refused'),0))+kpi(t('inwork'),fmt(T('inwork'),0))+'</div>';
+    if (L2>=5){
+      if (r.team.ccBlocks>1&&tconv) ins.push([conv>=tconv?'good':'warn', conv>=tconv? t('pAbove')(fmt(conv*100,1)+'%',fmt(tconv*100,1)+'%') : t('pBelow')(fmt(conv*100,1)+'%',fmt(tconv*100,1)+'%')]);
+      if (T('noanswer')/L2>0.3) ins.push(['warn',t('insNoans')(pct(T('noanswer'),L2))]);
+      var split=T('booked')+T('noanswer')+T('inwork')+T('refused'); if (split!==L2) ins.push(['info',t('pSplit')(split,L2)]);
+    }
+    charts=[['stack',t('pDist'),[[t('booked'),A('booked'),'--s1'],[t('noanswer'),A('noanswer'),'--s2'],[t('inwork'),A('inwork'),'--s3'],[t('refused'),A('refused'),'--s4']]],
+      ['line',t('pConvDay'),[[t('pConv'),idx.map(function(i){ return num(R.leads[i])? Math.round(num(R.booked[i])/num(R.leads[i])*1000)/10 : null; }),'--s2']].concat(r.team.ccBlocks>1&&C.leads?[[t('pTeamName'),idx.map(function(i){ return C.leads[i]? Math.round(C.booked[i]/C.leads[i]*1000)/10 : null; }),'--s1']]:[])]];
+    wdCols=[[t('thLead'),'leads',1],[t('thBooked'),'booked',1]];
+  }
+  else {
+    var cs=T('consult'), cm2=T('came'), bt2=T('bought'), kas2=(T('cash')+T('card')+T('transfer'))||T('total');
+    var pk=(P('cash')+P('card')+P('transfer'))||P('total'), avg=bt2?kas2/bt2:0, pavg=P('bought')?pk/P('bought'):0, RT=r.team.rec||{};
+    var tk=RT.cash? (sum(RT.cash.slice(f0,last+1))+sum(RT.card.slice(f0,last+1))+sum(RT.transfer.slice(f0,last+1))) : 0;
+    h+='<div class="kpis">'+kpi(t('consult'),fmt(cs,0),'',delta(cs,P('consult')))+kpi(t('came'),fmt(cm2,0),pct(cm2,cs)+t('fromConsult'),delta(cm2,P('came')))+
+      kpi(t('bought'),fmt(bt2,0),pct(bt2,cm2)+t('fromCame'),delta(bt2,P('bought')))+kpi(t('kassa'),fmt(kas2,0),fmt(kas2/active,0)+' '+t('perDay'),delta(kas2,pk))+
+      kpi(t('avgCheck'),avg?fmt(avg,0):'—','',delta(avg,pavg))+kpi(t('thinking'),fmt(T('thinking'),0))+'</div>';
+    h+='<div class="sec">'+t('pMix')+'</div><div class="kpis">'+kpi(t('cash'),pct(T('cash'),kas2),fmt(T('cash'),0))+kpi(t('card'),pct(T('card'),kas2),fmt(T('card'),0))+kpi(t('transfer'),pct(T('transfer'),kas2),fmt(T('transfer'),0))+
+      (r.team.recBlocks>1&&tk?kpi(t('pTeamShare'),pct(kas2,tk)):'')+'</div>';
+    if (cm2>=3) ins.push([bt2/cm2>=0.5?'good':'info',t('insSale')(pct(bt2,cm2))]);
+    if (T('thinking')>=3) ins.push(['info',t('pThink')(fmt(T('thinking'),0))]);
+    charts=[['stack',t('chKassa'),[[t('cash'),A('cash'),'--s1'],[t('card'),A('card'),'--s2'],[t('transfer'),A('transfer'),'--s3']]],
+      ['line',t('pVisits'),[[t('consult'),A('consult'),'--s1'],[t('came'),A('came'),'--s2'],[t('bought'),A('bought'),'--s3']]]];
+    wdCols=[[t('thCame'),'came',1],[t('thSold'),'bought',1],[t('thKassa'),'__kassa',0]];
+  }
+
+  h+='<div class="sec">'+t('insights')+'</div><div class="insights">'+(ins.length?ins.map(function(x){return '<div class="ins '+x[0]+'">'+esc(x[1])+'</div>';}).join(''):'<div class="ins info">'+t('insEmpty')+'</div>')+'</div>';
+  h+='<div class="grid2" style="margin-top:16px">'+charts.map(function(c,i){ return '<div><h3>'+c[1]+'</h3><div class="chart"><canvas id="pc'+i+'"></canvas></div></div>'; }).join('')+'</div>';
+
+  // Апта күндері
+  var p_=ym.split('-'), val=function(k,i){ return k==='__kassa' ? ((num(R.cash&&R.cash[i])+num(R.card&&R.card[i])+num(R.transfer&&R.transfer[i]))||num(R.total&&R.total[i])) : num(R[k]&&R[k][i]); };
+  var wd=[0,1,2,3,4,5,6].map(function(){ return {n:0,v:wdCols.map(function(){return 0;})}; });
+  idx.forEach(function(i){ if(!keys.some(function(k){return num(R[k][i]);})) return; var w=(new Date(+p_[0],+p_[1]-1,i+1).getDay()+6)%7; wd[w].n++; wdCols.forEach(function(c,ci){ wd[w].v[ci]+=val(c[1],i); }); });
+  h+='<div class="sec">'+t('weekdays')+'</div><div class="tbl"><table><tr><th>'+t('thWd')+'</th><th>'+t('thDays')+'</th>'+wdCols.map(function(c){return '<th>'+c[0]+'</th>';}).join('')+'</tr>'+
+    wd.map(function(o,i){ return '<tr><td>'+t('wd')[i]+'</td><td>'+o.n+'</td>'+wdCols.map(function(c,ci){ return '<td>'+(o.n?fmt(o.v[ci]/o.n,c[2]):'—')+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>';
+
+  // Үздік күндер
+  var best=function(fn,d){ var bi=-1,bv=0; idx.forEach(function(i){ var v=fn(i); if(v>bv){bv=v;bi=i;} }); return bi<0?'—':dd(bi,ym)+' · '+fmt(bv,d); };
+  var bests = r.role==='target' ? [[t('bestLeads'),best(function(i){return num(R.leads[i]);},0)],[t('pCheapest'),(function(){ var bi=-1,bv=1e9; idx.forEach(function(i){ var l=num(R.leads[i]); if(l>=3){ var c=num(R.spend[i])/l; if(c<bv){bv=c;bi=i;} } }); return bi<0?'—':dd(bi,ym)+' · $'+money(bv); })()]]
+    : r.role==='callcenter' ? [[t('pMostBooked'),best(function(i){return num(R.booked[i]);},0)],[t('bestConv'),best(function(i){ var l=num(R.leads[i]); return l>=3? num(R.booked[i])/l*100 : 0; },1)]]
+    : [[t('bestKassa'),best(function(i){return val('__kassa',i);},0)],[t('pMostSold'),best(function(i){return num(R.bought[i]);},0)]];
+  h+='<div class="sec">'+t('best')+'</div><div class="kpis">'+bests.map(function(b){ return kpi(b[0],'<span style="font-size:16px">'+b[1]+'</span>'); }).join('')+'</div>';
+
+  $('pan').innerHTML=h;
+  charts.forEach(function(c,i){ makeChart('pc'+i, c[0], labels, c[2]); });
+}
+
+function makeChart(id, type, labels, series){
+  if (typeof Chart==='undefined' || !$(id)) return;
+  var css=getComputedStyle(document.documentElement), c=function(n){return css.getPropertyValue(n).trim();};
+  var ticks={color:c('--muted'),font:{size:11}}, yticks={color:c('--muted'),font:{size:11},callback:function(v){return Number(v).toLocaleString('ru-RU');}};
+  var stacked=type==='stack';
+  var ds=series.map(function(s){
+    var col=c(s[2]);
+    return (type==='line') ? {label:s[0],data:s[1],borderColor:col,backgroundColor:col,borderWidth:2,pointRadius:4,pointHoverRadius:6,tension:.25,spanGaps:true}
+      : {label:s[0],data:s[1],backgroundColor:col,borderColor:'#fff',borderWidth:stacked?{top:2}:0,borderRadius:4,borderSkipped:'bottom',maxBarThickness:28};
+  });
+  S.charts.push(new Chart($(id),{type:type==='line'?'line':'bar',data:{labels:labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:series.length>1,position:'bottom',labels:{boxWidth:10,boxHeight:10,usePointStyle:true,color:c('--ink')}},tooltip:{backgroundColor:'#1c2333'}},
+    scales:{x:{stacked:stacked,grid:{display:false},ticks:ticks},y:{stacked:stacked,beginAtZero:true,grid:{color:'#eef0f4'},ticks:yticks,border:{display:false}}}}}));
 }
 
 /* ===================== Журнал, сілтемелер ===================== */
