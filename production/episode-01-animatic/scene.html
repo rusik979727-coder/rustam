@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<title>Омыртқа әлемі · 1-серия · аниматик</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; font-family: 'Inter', 'Inter Display', 'DejaVu Sans', sans-serif; }
+  #c { position: absolute; inset: 0; width: 1080px; height: 1920px; display: block; }
+  #split { position: absolute; left: 0; right: 0; height: 6px; display: none;
+    background: linear-gradient(90deg, rgba(255,210,122,0), #ffe1a0 20%, #fff6dc 50%, #ffe1a0 80%, rgba(255,210,122,0));
+    box-shadow: 0 0 18px 6px rgba(255,190,90,0.7); }
+  /* субтитр: Instagram қауіпсіз аймағы — төменнен ≥380px, оңнан ≥140px */
+  #sub { position: absolute; left: 90px; right: 150px; bottom: 470px; text-align: center;
+    font-weight: 800; font-size: 58px; line-height: 1.22; color: #fff; letter-spacing: -0.5px;
+    text-shadow: 0 3px 0 rgba(0,0,0,0.55), 0 0 22px rgba(0,0,0,0.65); -webkit-text-stroke: 1.5px rgba(0,0,0,0.35); }
+  #sub .w { display: inline-block; transition: none; }
+  #sub.who-tirek .kw { color: #ffcf6e; }
+  #sub.who-disk .kw, #sub.who-disk-whisper .kw { color: #b9adff; }
+  #sub.who-narrator { font-style: italic; font-weight: 600; font-size: 52px; color: #f3eee6; }
+  #sub.who-narrator .kw { color: #ffd98c; }
+  #sub.who-disk { color: #f1eeff; }
+  #sub.who-disk-whisper { font-style: italic; font-weight: 500; font-size: 44px; color: rgba(205,196,255,0.85); }
+  #sub.who-both { color: #fff3d6; }
+  #sub.who-tirek::after, #sub.who-disk::after { content: ''; display: block; margin: 14px auto 0; width: 120px; height: 6px; border-radius: 3px; }
+  #sub.who-tirek::after { background: #f4b860; box-shadow: 0 0 12px #f4b860; }
+  #sub.who-disk::after { background: #7b6cf6; box-shadow: 0 0 12px #7b6cf6; }
+  #title { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; text-align: center; }
+  .cont { font-weight: 800; font-size: 76px; letter-spacing: 14px; color: #f6f1ea; text-shadow: 0 0 30px rgba(255,255,255,0.25); }
+  .ep2 { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+  .ep2-n { font-weight: 700; font-size: 46px; letter-spacing: 16px; color: #f4b860; text-shadow: 0 0 20px rgba(244,184,96,0.5); }
+  .ep2-t { font-weight: 900; font-size: 112px; line-height: 1.02; letter-spacing: 2px; color: #8f80ff;
+    background: linear-gradient(180deg, #b6abff, #6f9cf0); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 26px rgba(123,108,246,0.65)); }
+  .crackw { position: relative; display: inline-block; }
+  .crackw::after { content: ''; position: absolute; left: 6%; top: 8%; width: 6px; height: 84%;
+    background: #ff9a5a; transform: skewX(-18deg); box-shadow: 0 0 14px 3px #ff8a40; clip-path: polygon(0 0, 100% 0, 30% 35%, 100% 55%, 10% 100%, 40% 55%, 0 38%); }
+  .logo { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 460px; }
+  .logo-a { font-weight: 900; font-size: 92px; letter-spacing: 10px; color: #EDE3CF; text-shadow: 0 0 24px rgba(244,184,96,0.55); }
+  .logo-b { font-weight: 800; font-size: 60px; letter-spacing: 22px; color: #f4b860; }
+  .logo-c { margin-top: 18px; font-weight: 500; font-size: 32px; color: rgba(237,227,207,0.7); letter-spacing: 1px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c" width="1080" height="1920"></canvas>
+  <div id="split"></div>
+  <div id="title"></div>
+  <div id="sub"></div>
+</div>
+<script type="module" src="./scene.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "omyrtqa-episode-01-animatic",
+  "version": "1.0.0",
+  "private": true,
+  "description": "«Омыртқа әлемі» 1-серия — процедуралық 3D аниматик (Three.js + Playwright + ffmpeg)",
+  "type": "module",
+  "scripts": {
+    "build": "./build.sh",
+    "preview": "node render.mjs --times 2,8,15,25,31,42,48,56"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  }
+}
