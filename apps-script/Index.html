@@ -38,7 +38,19 @@
   .hint.warn{background:#fff4e6;color:#a74d00}
   .hint.ok{background:#ebfbee;color:#1e6b2f}
   .save{margin-top:16px;width:100%;padding:14px;font-size:16px}
-  .tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:2px}
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+  /* Экранға сыймайтын кесте телефонда карточкаларға айналады */
+  table.stack,table.stack tbody,table.stack tr,table.stack td{display:block;width:100%}
+  table.stack tr:first-child{display:none}
+  table.stack tr{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;padding:6px 10px;background:var(--card);display:grid;grid-template-columns:1fr 1fr;column-gap:14px}
+  table.stack tr.empty{display:none}
+  table.stack td{display:flex;justify-content:space-between;gap:12px;border:0;padding:3px 0;position:static;text-align:right;white-space:normal;background:none}
+  table.stack td::before{content:attr(data-l);color:var(--muted);text-align:left;font-size:12px}
+  table.stack td{font-size:13px;align-items:baseline}
+  table.stack td:first-child{grid-column:1/-1;justify-content:flex-start;font-weight:700;font-size:14px;padding-bottom:4px;border-bottom:1px solid var(--line);margin-bottom:2px}
+  table.stack td:first-child::before{content:''}
+  table.stack td.blank{display:none}
+  table.stack tr.tot{background:#fafbfd}
   .tabs button{white-space:nowrap}
   .tabs button.on{background:var(--pri);color:#fff}
   .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
@@ -636,6 +648,38 @@ function renderLinks(box){
     });
   }).catch(function(e){ $('lk').innerHTML='<div class="center err">'+esc(e)+'</div>'; });
 }
+
+/* Кесте экранға сыймаса — карточка түріне ауыстыру */
+function fitTables(){
+  Array.prototype.forEach.call(document.querySelectorAll('.tbl table'), function(tb){
+    var box=tb.parentNode;
+    if (tb.classList.contains('stack')) return;
+    if (tb.scrollWidth <= box.clientWidth + 2) return;
+    var rows=tb.querySelectorAll('tr'); if (!rows.length) return;
+    var heads=Array.prototype.map.call(rows[0].children, function(c){ return c.textContent; });
+    Array.prototype.forEach.call(rows, function(tr, ri){
+      if (ri===0) return;
+      var any=false;
+      Array.prototype.forEach.call(tr.children, function(td, ci){
+        td.setAttribute('data-l', heads[ci]||'');
+        var txt=td.textContent.trim();
+        if (ci>0){ if (txt===''){ td.classList.add('blank'); } else any=true; }
+      });
+      if (!any) tr.classList.add('empty');
+    });
+    // Күндер кестесі: «Барлығы» жоғарыда, соңғы күндер бірінші
+    var body=rows[0].parentNode, dated=Array.prototype.filter.call(rows, function(tr,ri){ return ri>0 && /^\d{2}\.\d{2}$/.test(tr.children[0].textContent.trim()); });
+    if (dated.length>1){
+      var tot=tb.querySelector('tr.tot'), after=rows[0].nextSibling;
+      if (tot) body.insertBefore(tot, after);
+      dated.reverse().forEach(function(tr){ body.appendChild(tr); });
+    }
+    tb.classList.add('stack');
+  });
+}
+var _fitT=null;
+new MutationObserver(function(){ cancelAnimationFrame(_fitT); _fitT=requestAnimationFrame(fitTables); }).observe(document.getElementById('app'),{childList:true,subtree:true});
+window.addEventListener('resize', function(){ cancelAnimationFrame(_fitT); _fitT=requestAnimationFrame(fitTables); });
 
 boot();
 </script>
