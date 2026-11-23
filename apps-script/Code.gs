@@ -27,41 +27,41 @@ var ROLES = {
   target: {
     title: 'Таргет',
     fields: [
-      { key: 'leads', labels: ['кол-во лидов', 'количество лидов'], kz: 'Лид саны', type: 'int' },
-      { key: 'spend', labels: ['общая сумма'], kz: 'Жұмсалған сома ($)', type: 'money' },
-      { key: 'cpl', labels: ['цена за лид'], kz: 'Бір лид бағасы ($)', type: 'calc',
+      { key: 'leads', labels: ['кол-во лидов', 'количество лидов'], kz: 'Лид саны', ru: 'Кол-во лидов', type: 'int' },
+      { key: 'spend', labels: ['общая сумма'], kz: 'Жұмсалған сома ($)', ru: 'Потрачено ($)', type: 'money' },
+      { key: 'cpl', labels: ['цена за лид'], kz: 'Бір лид бағасы ($)', ru: 'Цена за лид ($)', type: 'calc',
         formula: function (c, r) { return r.spend && r.leads ? '=IFERROR(' + c + r.spend + '/' + c + r.leads + ')' : null; } }
     ]
   },
   callcenter: {
     title: 'Колл-центр',
     fields: [
-      { key: 'leads', labels: ['кол-во новых лидов', 'кол-во лидов'], kz: 'Жаңа лидтер', type: 'int' },
-      { key: 'booked', labels: ['запись'], kz: 'Жазылды (запись)', type: 'int' },
-      { key: 'noanswer', labels: ['недозвон'], kz: 'Көтермеді (недозвон)', type: 'int' },
-      { key: 'inwork', labels: ['в работе'], kz: 'Жұмыста', type: 'int' },
-      { key: 'refused', labels: ['отказ'], kz: 'Бас тартты (отказ)', type: 'int' },
-      { key: 'conv', labels: ['конверсия'], kz: 'Конверсия (%)', type: 'calc',
+      { key: 'leads', labels: ['кол-во новых лидов', 'кол-во лидов'], kz: 'Жаңа лидтер', ru: 'Новые лиды', type: 'int' },
+      { key: 'booked', labels: ['запись'], kz: 'Жазылды (запись)', ru: 'Запись', type: 'int' },
+      { key: 'noanswer', labels: ['недозвон'], kz: 'Көтермеді (недозвон)', ru: 'Недозвон', type: 'int' },
+      { key: 'inwork', labels: ['в работе'], kz: 'Жұмыста', ru: 'В работе', type: 'int' },
+      { key: 'refused', labels: ['отказ'], kz: 'Бас тартты (отказ)', ru: 'Отказ', type: 'int' },
+      { key: 'conv', labels: ['конверсия'], kz: 'Конверсия (%)', ru: 'Конверсия (%)', type: 'calc',
         formula: function (c, r) { return r.booked && r.leads ? '=IFERROR(ROUND(1000*' + c + r.booked + '/' + c + r.leads + ')/10)' : null; } }
     ]
   },
   reception: {
     title: 'Ресепшн',
     fields: [
-      { key: 'consult', labels: ['консультация на сегодня', 'консультация'], kz: 'Бүгінгі консультациялар', type: 'int' },
-      { key: 'came', labels: ['пришли'], kz: 'Келді', type: 'int' },
-      { key: 'bought', labels: ['купили'], kz: 'Сатып алды', type: 'int' },
-      { key: 'thinking', labels: ['думает'], kz: 'Ойланып жүр', type: 'int' },
-      { key: 'refused', labels: ['отказ'], kz: 'Бас тартты', type: 'int' },
-      { key: 'total', labels: ['касса общая'], kz: 'Жалпы касса', type: 'calc',
+      { key: 'consult', labels: ['консультация на сегодня', 'консультация'], kz: 'Бүгінгі консультациялар', ru: 'Консультации на сегодня', type: 'int' },
+      { key: 'came', labels: ['пришли'], kz: 'Келді', ru: 'Пришли', type: 'int' },
+      { key: 'bought', labels: ['купили'], kz: 'Сатып алды', ru: 'Купили', type: 'int' },
+      { key: 'thinking', labels: ['думает'], kz: 'Ойланып жүр', ru: 'Думают', type: 'int' },
+      { key: 'refused', labels: ['отказ'], kz: 'Бас тартты', ru: 'Отказ', type: 'int' },
+      { key: 'total', labels: ['касса общая'], kz: 'Жалпы касса', ru: 'Касса общая', type: 'calc',
         formula: function (c, r) {
           var parts = ['cash', 'card', 'transfer'].filter(function (k) { return r[k]; })
             .map(function (k) { return c + r[k]; });
           return parts.length ? '=' + parts.join('+') : null;
         } },
-      { key: 'cash', labels: ['нал', 'наличные'], kz: 'Қолма-қол (нал)', type: 'money' },
-      { key: 'card', labels: ['безнал'], kz: 'Карта (безнал)', type: 'money' },
-      { key: 'transfer', labels: ['перевод'], kz: 'Аударым (перевод)', type: 'money' }
+      { key: 'cash', labels: ['нал', 'наличные'], kz: 'Қолма-қол (нал)', ru: 'Наличные', type: 'money' },
+      { key: 'card', labels: ['безнал'], kz: 'Карта (безнал)', ru: 'Безнал', type: 'money' },
+      { key: 'transfer', labels: ['перевод'], kz: 'Аударым (перевод)', ru: 'Перевод', type: 'money' }
     ]
   }
 };
@@ -130,13 +130,13 @@ function apiSaveDay(key, blockId, dateStr, values) {
   var user = auth_(key);
   blockId = allowedBlock_(user, blockId);
   var d = parseDate_(dateStr);
-  if (user.role !== 'boss' && dateStr < START_DATE) throw new Error('Бағдарлама ' + START_DATE.split('-').reverse().join('.') + ' күнінен басталады');
+  if (user.role !== 'boss' && dateStr < START_DATE) throw new Error('Бағдарлама ' + START_DATE.split('-').reverse().join('.') + ' күнінен басталады / Программа работает с ' + START_DATE.split('-').reverse().join('.'));
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
     var sheet = getMonthSheet_(d.y, d.m, true);
     var block = findBlock_(sheet, blockId);
-    if (!block) throw new Error('Кестеде «' + blockId + '» блогы табылмады');
+    if (!block) throw new Error('Кестеде «' + blockId + '» блогы табылмады / Блок «' + blockId + '» не найден');
     var def = ROLES[block.role];
     var col = d.d + 1;
     var colL = colLetter_(col);
@@ -153,7 +153,7 @@ function apiSaveDay(key, blockId, dateStr, values) {
       if (!(f.key in values)) return;
       var raw = values[f.key];
       var nv = (raw === '' || raw === null || raw === undefined) ? '' : Number(String(raw).replace(',', '.'));
-      if (nv !== '' && (isNaN(nv) || nv < 0)) throw new Error('«' + f.kz + '» өрісінде қате сан');
+      if (nv !== '' && (isNaN(nv) || nv < 0)) throw new Error('«' + f.kz + '» өрісінде қате сан / Неверное число: ' + f.ru);
       if (f.type === 'int' && nv !== '') nv = Math.round(nv);
       var old = cleanVal_(cell.getValue());
       if (String(old) !== String(nv)) {
@@ -192,7 +192,7 @@ function apiGetMonthBlock(key, blockId, ym) {
 /** Бастыққа: айдың жалпы есебі (барлық блоктар). */
 function apiGetSummary(key, ym) {
   var user = auth_(key);
-  if (user.role !== 'boss') throw new Error('Тек бастыққа рұқсат');
+  if (user.role !== 'boss') throw new Error('Тек бастыққа рұқсат / Только для руководителя');
   var p = ym.split('-');
   var y = +p[0], m = +p[1];
   var sheet = getMonthSheet_(y, m, false);
@@ -215,17 +215,18 @@ function apiGetSummary(key, ym) {
 /** Бастыққа: барлық сілтемелер. */
 function apiGetLinks(key) {
   var user = auth_(key);
-  if (user.role !== 'boss') throw new Error('Тек бастыққа рұқсат');
+  if (user.role !== 'boss') throw new Error('Тек бастыққа рұқсат / Только для руководителя');
   var url = ScriptApp.getService().getUrl();
   return loadUsers_().map(function (u) {
-    return { name: u.name, role: u.role, block: u.block, url: url + '?k=' + encodeURIComponent(u.key) };
+    var link = /^https?:\/\//.test(u.link) ? u.link : url + '?k=' + encodeURIComponent(u.key);
+    return { name: u.name, role: u.role, block: u.block, url: link };
   });
 }
 
 /** Бастыққа: соңғы өзгерістер журналы. */
 function apiGetLog(key) {
   var user = auth_(key);
-  if (user.role !== 'boss') throw new Error('Тек бастыққа рұқсат');
+  if (user.role !== 'boss') throw new Error('Тек бастыққа рұқсат / Только для руководителя');
   var sh = ss_().getSheetByName(LOG_SHEET);
   if (!sh || sh.getLastRow() < 2) return [];
   var n = Math.min(50, sh.getLastRow() - 1);
@@ -278,6 +279,11 @@ function refreshLinks() {
   var sh = ss_().getSheetByName(ACCESS_SHEET);
   if (!sh) return setup();
   var url = ScriptApp.getService().getUrl();
+  // Тест-сілтеме (/dev) мамандарға ашылмайды — оны жазбаймыз
+  if (url && /\/dev$/.test(url)) {
+    SpreadsheetApp.getUi().alert('Сілтемені Deploy терезесінен (/exec) көшіріп, «Сілтеме» бағанына қолмен қойыңыз.');
+    return;
+  }
   var last = sh.getLastRow();
   if (last < 2) return;
   var keys = sh.getRange(2, 3, last - 1, 1).getValues();
@@ -300,21 +306,21 @@ function ss_() {
 
 function auth_(key) {
   key = String(key || '').trim();
-  if (!key) throw new Error('Сілтеме қате: кілт жоқ');
+  if (!key) throw new Error('Сілтеме қате: кілт жоқ / Неверная ссылка: нет ключа');
   var users = loadUsers_();
   for (var i = 0; i < users.length; i++) if (users[i].key === key) return users[i];
-  throw new Error('Рұқсат жоқ: сілтеме жарамсыз');
+  throw new Error('Рұқсат жоқ: сілтеме жарамсыз / Нет доступа: ссылка недействительна');
 }
 
 function loadUsers_() {
   var sh = ss_().getSheetByName(ACCESS_SHEET);
   if (!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues()
+  return sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues()
     .filter(function (r) { return String(r[2]).trim(); })
     .map(function (r) {
       return {
         name: String(r[0]).trim(), role: normRole_(r[1]), key: String(r[2]).trim(),
-        block: String(r[3]).trim(), linkedTarget: String(r[4]).trim()
+        block: String(r[3]).trim(), linkedTarget: String(r[4]).trim(), link: String(r[5]).trim()
       };
     });
 }
@@ -331,10 +337,10 @@ function normRole_(r) {
 /** Маман тек өз блогына, бастық — барлығына. */
 function allowedBlock_(user, blockId) {
   if (user.role === 'boss') {
-    if (!blockId) throw new Error('Блок таңдалмаған');
+    if (!blockId) throw new Error('Блок таңдалмаған / Блок не выбран');
     return blockId;
   }
-  if (!user.block) throw new Error('«Доступ» парағында блок көрсетілмеген');
+  if (!user.block) throw new Error('«Доступ» парағында блок көрсетілмеген / В листе «Доступ» не указан блок');
   return user.block;
 }
 
@@ -484,16 +490,16 @@ function log_(user, blockId, dateStr, text) {
 function rolesForClient_() {
   var out = {};
   Object.keys(ROLES).forEach(function (r) {
-    out[r] = { title: ROLES[r].title, fields: ROLES[r].fields.map(function (f) { return { key: f.key, kz: f.kz, type: f.type, label: f.labels[0] }; }) };
+    out[r] = { title: ROLES[r].title, fields: ROLES[r].fields.map(function (f) { return { key: f.key, kz: f.kz, ru: f.ru, type: f.type, label: f.labels[0] }; }) };
   });
   return out;
 }
 
 function parseDate_(s) {
   var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s));
-  if (!m) throw new Error('Күні қате');
+  if (!m) throw new Error('Күні қате / Неверная дата');
   var y = +m[1], mo = +m[2], d = +m[3];
-  if (mo < 1 || mo > 12 || d < 1 || d > daysIn_(y, mo)) throw new Error('Күні қате');
+  if (mo < 1 || mo > 12 || d < 1 || d > daysIn_(y, mo)) throw new Error('Күні қате / Неверная дата');
   return { y: y, m: mo, d: d };
 }
 

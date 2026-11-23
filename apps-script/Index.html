@@ -4,131 +4,240 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  :root{--bg:#f4f6fb;--card:#fff;--ink:#1c2333;--muted:#6b7385;--line:#e3e7ef;--pri:#3b5bdb;--pri2:#e7ecff;--ok:#2b8a3e;--warn:#e67700;--bad:#c92a2a;--r:14px}
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#1c2333;--muted:#6b7385;--line:#e3e7ef;--pri:#3b5bdb;--pri2:#e7ecff;--ok:#2b8a3e;--warn:#e67700;--bad:#c92a2a;--r:14px;
+    --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100}
   *{box-sizing:border-box}
   body{margin:0;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-  header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
-  header .logo{width:36px;height:36px;border-radius:10px;background:var(--pri);color:#fff;display:grid;place-items:center;font-weight:700}
+  header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+  header .logo{width:36px;height:36px;border-radius:10px;background:var(--pri);color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
   header .who{flex:1;min-width:0}
-  header .who b{display:block}
+  header .who b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   header .who small{color:var(--muted)}
+  .lang{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:none}
+  .lang button{border-radius:0;padding:7px 10px;background:#fff;color:var(--muted);font-size:13px}
+  .lang button.on{background:var(--pri);color:#fff}
   main{max-width:1100px;margin:0 auto;padding:16px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:16px;min-width:0}
   h2{font-size:17px;margin:0 0 12px}
+  h3{font-size:15px;margin:0 0 8px}
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .between{justify-content:space-between}
   input,select,button{font:inherit}
-  input[type=date],input[type=month],select{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  input[type=date],input[type=month],input[type=number].sm,select{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
   button{border:0;border-radius:10px;padding:10px 14px;background:var(--pri2);color:var(--pri);font-weight:600;cursor:pointer}
   button.pri{background:var(--pri);color:#fff}
   button:disabled{opacity:.5;cursor:default}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
   .fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:14px}
   .f label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
   .f input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:18px;background:#fff}
-  .f input:focus{outline:2px solid var(--pri2);border-color:var(--pri)}
   .f.calc input{background:#f1f3f8;color:var(--muted)}
   .hint{padding:10px 12px;border-radius:10px;background:var(--pri2);color:#243b8f;margin-top:12px;font-size:14px}
   .hint.warn{background:#fff4e6;color:#a74d00}
   .hint.ok{background:#ebfbee;color:#1e6b2f}
   .save{margin-top:16px;width:100%;padding:14px;font-size:16px}
-  .tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px}
+  .tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:2px}
   .tabs button{white-space:nowrap}
   .tabs button.on{background:var(--pri);color:#fff}
   .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
-  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
   .kpi small{color:var(--muted);display:block;font-size:12px}
-  .kpi b{font-size:22px}
+  .kpi b{font-size:22px;font-variant-numeric:tabular-nums}
   .kpi i{font-style:normal;color:var(--muted);font-size:12px}
+  .kpi .d{font-size:12px;font-weight:600;margin-left:4px}
+  .up{color:var(--ok)} .down{color:var(--bad)}
   .sec{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:18px 0 8px}
   .funnel{display:flex;flex-direction:column;gap:6px}
   .fn{display:flex;align-items:center;gap:10px}
-  .fn span{width:110px;font-size:13px;color:var(--muted)}
-  .fn .bar{height:26px;background:var(--pri);border-radius:6px;color:#fff;font-size:13px;display:flex;align-items:center;padding:0 8px;min-width:34px}
+  .fn span{width:110px;font-size:13px;color:var(--muted);flex:none}
+  .fn .bar{height:26px;background:var(--pri);border-radius:6px;color:#fff;font-size:13px;display:flex;align-items:center;padding:0 8px;min-width:34px;white-space:nowrap}
   .tbl{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
   th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
   th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--card)}
   th{color:var(--muted);font-weight:600;background:#fafbfd}
   tr.tot td{font-weight:700;background:#fafbfd}
   td.today{background:var(--pri2)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+  .chart{position:relative;height:240px}
+  .insights{display:flex;flex-direction:column;gap:8px}
+  .ins{padding:10px 12px;border-radius:10px;font-size:14px;display:flex;gap:8px}
+  .ins.good{background:#ebfbee;color:#1e6b2f}
+  .ins.warn{background:#fff4e6;color:#a74d00}
+  .ins.info{background:var(--pri2);color:#243b8f}
   .links .l{display:flex;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
   .links .l div{flex:1;min-width:0}
   .links .l small{color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .log div{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
   .log small{color:var(--muted)}
-  #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#1c2333;color:#fff;padding:10px 16px;border-radius:10px;display:none;z-index:9}
-  .center{text-align:center;padding:60px 16px;color:var(--muted)}
+  #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#1c2333;color:#fff;padding:10px 16px;border-radius:10px;z-index:9}
+  .center{text-align:center;padding:40px 16px;color:var(--muted)}
   .err{color:var(--bad)}
+  .muted{color:var(--muted);font-size:13px}
   a{color:var(--pri)}
 </style>
 </head>
 <body>
 <header>
   <div class="logo">Б</div>
-  <div class="who"><b id="who">Белес маркетинг</b><small id="whoRole">Жүктелуде…</small></div>
-  <a id="sheetLink" target="_blank" style="display:none">Кестені ашу ↗</a>
+  <div class="who"><b id="who">Маркетинг</b><small id="whoRole">…</small></div>
+  <a id="sheetLink" target="_blank" hidden></a>
+  <div class="lang"><button id="lkz">ҚАЗ</button><button id="lru">РУС</button></div>
 </header>
-<main id="app"><div class="center">Жүктелуде…</div></main>
-<div id="toast"></div>
+<main id="app"><div class="center">…</div></main>
+<div id="toast" hidden></div>
 
 <script>
-var S = { key:'', init:null, date:'', block:'', day:null, tab:'sum' };
-var ROLE_KZ = { boss:'Бастық', target:'Таргетолог', callcenter:'Колл-центр', reception:'Ресепшн' };
-var $ = function(id){ return document.getElementById(id); };
+/* ===================== Тіл / Язык ===================== */
+var T = {
+ kz:{loading:'Жүктелуде…',boss:'Бастық',target:'Таргетолог',callcenter:'Колл-центр',reception:'Ресепшн',
+  openSheet:'Кесте ↗',entryTitle:'Күнделікті мәлімет енгізу',today:'Бүгін',save:'Сақтау',saving:'Сақталуда…',saved:'✓ Кестеге сақталды',err:'Қате: ',
+  monthTable:'Айлық кесте',day:'Күн',total:'Барлығы',noData:'Бұл айда мәлімет жоқ',myStats:'Менің көрсеткіштерім',
+  tSum:'📊 Жалпы есеп',tAn:'📈 Аналитика',tEntry:'✏️ Енгізу',tLog:'🕑 Журнал',tLinks:'🔗 Сілтемелер',
+  monthReport:'Айлық есеп',noSheet:'Бұл айдың парағы әлі жоқ. Бірінші мәлімет енгізілгенде автоматты жасалады.',
+  secTarget:'Таргет',secCC:'Колл-центр',secRec:'Ресепшн',secCash:'Касса',secFunnel:'Воронка',secDays:'Күндер бойынша',secBlocks:'Блоктар бойынша',
+  leads:'Лидтер',spent:'Жұмсалды',avgCpl:'Орташа лид бағасы',costSale:'Бір сатылым бағасы',adsPerBuyer:'жарнама / сатып алғандар',
+  newLeads:'Жаңа лидтер',inTarget:'таргетте: ',booked:'Жазылды',conv:'конверсия ',noanswer:'Недозвон',inwork:'Жұмыста',refused:'Бас тартты',
+  consult:'Консультациялар',came:'Келді',fromConsult:' консультациядан',bought:'Сатып алды',fromCame:' келгендерден',thinking:'Ойланып жүр',
+  kassa:'Жалпы касса',cash:'Қолма-қол',card:'Карта (безнал)',transfer:'Аударым',avgCheck:'Орташа чек',
+  fLead:'Лид',fBooked:'Жазылды',fCame:'Келді',fBought:'Сатып алды',
+  thLead:'Лид',thSum:'$ сома',thCpl:'$ / лид',thCC:'КЦ лид',thBooked:'Жазылды',thCons:'Конс.',thCame:'Келді',thSold:'Сатты',thKassa:'Касса',
+  thBlock:'Блок',thLC:'Лид / Конс.',thBC:'Жазылды / Келді',
+  allSplit:'✓ Барлық лидтер бөлінді',splitWarn:function(s,l){return 'Жазылды + недозвон + жұмыста + отказ = '+s+', ал жаңа лидтер = '+l;},
+  cameMore:'«Келді» саны консультациядан көп',boughtMore:'«Сатып алды» саны «Келді»-ден көп',
+  tgtToday:'🔗 Таргет осы күні: ',notYet:'әлі енгізілмеген',leadW:' лид',prefilled:'«Жаңа лидтер» таргеттен автоматты толтырылды — қажет болса түзетіңіз.',
+  logTitle:'Соңғы өзгерістер',noLog:'Әзірге өзгеріс жоқ',linksTitle:'Мамандардың жеке сілтемелері',
+  linksNote:'Әр маманға тек өз сілтемесін жіберіңіз. Жаңа маман қосу немесе сілтемені өзгерту — кестедегі «Доступ» парағында.',
+  copy:'Көшіру',copied:'Көшірілді',blockNotFound:'Блок табылмады',
+  anTitle:'Аналитика',vsPrev:'өткен айдың сол күндерімен салыстырғанда',chFunnel:'Воронка күндер бойынша',chCpl:'Бір лид бағасы, $',chConv:'Колл-центр конверсиясы, %',chKassa:'Касса күндер бойынша',
+  unitEcon:'Жарнама тиімділігі',perLead:'1 лид',perBooked:'1 жазылу',perCame:'1 келген',perSale:'1 сатылым',rate:'Доллар бағамы, ₸',romi:'ROMI (касса / жарнама)',
+  ops:'Операторларды салыстыру',recs:'Ресепшндерді салыстыру',thOp:'Оператор',thConv:'Конв.',thNoans:'Недозвон',thRef:'Отказ',thCameP:'Келді %',thBoughtP:'Сатты %',thAvg:'Орт. чек',
+  weekdays:'Апта күндері бойынша (орташа)',wd:['Дс','Сс','Ср','Бс','Жм','Сн','Жс'],thWd:'Күн',thDays:'Күн саны',
+  best:'Үздік күндер',bestKassa:'Ең көп касса',bestLeads:'Ең көп лид',bestConv:'Ең жоғары конверсия',
+  insights:'Қорытындылар',
+  insNoans:function(p){return 'Недозвон үлесі '+p+' — жоғары. Қайта қоңырау шалу уақытын қараңыз.';},
+  insConvLow:function(p){return 'Колл-центр конверсиясы '+p+' — төмен (20%-дан аз).';},
+  insConvGood:function(p){return 'Колл-центр конверсиясы жақсы: '+p+'.';},
+  insCame:function(p){return 'Жазылғандардың '+p+' келді.';},
+  insSale:function(p){return 'Келгендердің '+p+' сатып алды.';},
+  insGap:function(a,b){return 'Таргетте '+a+' лид, колл-центр '+b+' лид өңдеді. Айырмашылығын тексеріңіз.';},
+  insCpl:function(a,b){return 'Лид бағасы соңғы 7 күнде $'+a+', ай бойынша орташа $'+b+'.';},
+  insEmpty:'Қорытынды шығару үшін мәлімет әлі аз.',
+  perDay:'күніне орташа',share:'үлесі'
+ },
+ ru:{loading:'Загрузка…',boss:'Руководитель',target:'Таргетолог',callcenter:'Колл-центр',reception:'Ресепшн',
+  openSheet:'Таблица ↗',entryTitle:'Ввод данных за день',today:'Сегодня',save:'Сохранить',saving:'Сохранение…',saved:'✓ Сохранено в таблицу',err:'Ошибка: ',
+  monthTable:'Таблица за месяц',day:'День',total:'Итого',noData:'В этом месяце нет данных',myStats:'Мои показатели',
+  tSum:'📊 Отчёт',tAn:'📈 Аналитика',tEntry:'✏️ Ввод',tLog:'🕑 Журнал',tLinks:'🔗 Ссылки',
+  monthReport:'Отчёт за месяц',noSheet:'Листа за этот месяц пока нет. Он создастся автоматически при первом вводе.',
+  secTarget:'Таргет',secCC:'Колл-центр',secRec:'Ресепшн',secCash:'Касса',secFunnel:'Воронка',secDays:'По дням',secBlocks:'По блокам',
+  leads:'Лиды',spent:'Потрачено',avgCpl:'Средняя цена лида',costSale:'Цена одной продажи',adsPerBuyer:'реклама / купившие',
+  newLeads:'Новые лиды',inTarget:'в таргете: ',booked:'Запись',conv:'конверсия ',noanswer:'Недозвон',inwork:'В работе',refused:'Отказ',
+  consult:'Консультации',came:'Пришли',fromConsult:' от консультаций',bought:'Купили',fromCame:' от пришедших',thinking:'Думают',
+  kassa:'Касса общая',cash:'Наличные',card:'Безнал',transfer:'Перевод',avgCheck:'Средний чек',
+  fLead:'Лид',fBooked:'Запись',fCame:'Пришли',fBought:'Купили',
+  thLead:'Лиды',thSum:'$ сумма',thCpl:'$ / лид',thCC:'КЦ лиды',thBooked:'Запись',thCons:'Конс.',thCame:'Пришли',thSold:'Купили',thKassa:'Касса',
+  thBlock:'Блок',thLC:'Лиды / Конс.',thBC:'Запись / Пришли',
+  allSplit:'✓ Все лиды распределены',splitWarn:function(s,l){return 'Запись + недозвон + в работе + отказ = '+s+', а новых лидов = '+l;},
+  cameMore:'«Пришли» больше, чем консультаций',boughtMore:'«Купили» больше, чем «Пришли»',
+  tgtToday:'🔗 Таргет за этот день: ',notYet:'ещё не внесено',leadW:' лид(ов)',prefilled:'«Новые лиды» заполнены из таргета автоматически — при необходимости исправьте.',
+  logTitle:'Последние изменения',noLog:'Изменений пока нет',linksTitle:'Личные ссылки сотрудников',
+  linksNote:'Отправляйте каждому сотруднику только его ссылку. Добавить сотрудника или сменить ссылку — в листе «Доступ».',
+  copy:'Копировать',copied:'Скопировано',blockNotFound:'Блок не найден',
+  anTitle:'Аналитика',vsPrev:'к тем же дням прошлого месяца',chFunnel:'Воронка по дням',chCpl:'Цена лида, $',chConv:'Конверсия колл-центра, %',chKassa:'Касса по дням',
+  unitEcon:'Эффективность рекламы',perLead:'1 лид',perBooked:'1 запись',perCame:'1 приход',perSale:'1 продажа',rate:'Курс доллара, ₸',romi:'ROMI (касса / реклама)',
+  ops:'Сравнение операторов',recs:'Сравнение ресепшн',thOp:'Оператор',thConv:'Конв.',thNoans:'Недозвон',thRef:'Отказ',thCameP:'Пришли %',thBoughtP:'Купили %',thAvg:'Ср. чек',
+  weekdays:'По дням недели (в среднем)',wd:['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],thWd:'День',thDays:'Дней',
+  best:'Лучшие дни',bestKassa:'Больше всего кассы',bestLeads:'Больше всего лидов',bestConv:'Лучшая конверсия',
+  insights:'Выводы',
+  insNoans:function(p){return 'Доля недозвонов '+p+' — высокая. Проверьте время повторных звонков.';},
+  insConvLow:function(p){return 'Конверсия колл-центра '+p+' — низкая (меньше 20%).';},
+  insConvGood:function(p){return 'Хорошая конверсия колл-центра: '+p+'.';},
+  insCame:function(p){return 'Из записанных пришли '+p+'.';},
+  insSale:function(p){return 'Из пришедших купили '+p+'.';},
+  insGap:function(a,b){return 'В таргете '+a+' лидов, колл-центр обработал '+b+'. Проверьте разницу.';},
+  insCpl:function(a,b){return 'Цена лида за последние 7 дней $'+a+', в среднем за месяц $'+b+'.';},
+  insEmpty:'Пока мало данных для выводов.',
+  perDay:'в среднем за день',share:'доля'
+ }
+};
+var LANG = 'kz';
+try { LANG = localStorage.getItem('lang') || 'kz'; } catch(e){}
+function t(k){ return (T[LANG] && T[LANG][k] !== undefined) ? T[LANG][k] : T.kz[k]; }
+function fl(f){ return LANG==='ru' ? (f.ru||f.kz) : f.kz; }
+function errText(e){ var s=String(e); if(s.indexOf(' / ')>-1){ var p=s.split(' / '); return LANG==='ru'?p.slice(1).join(' / '):p[0]; } return s; }
 
+/* ===================== Көмекші ===================== */
+var S = { key:'', init:null, date:'', block:'', day:null, tab:'sum', charts:[] };
+var $ = function(id){ return document.getElementById(id); };
 function call(fn){
   var args = Array.prototype.slice.call(arguments,1);
   return new Promise(function(res,rej){
-    var r = google.script.run.withSuccessHandler(res).withFailureHandler(function(e){ rej(e && e.message ? e.message : String(e)); });
+    var r = google.script.run.withSuccessHandler(res).withFailureHandler(function(e){ rej(errText(e && e.message ? e.message : e)); });
     r[fn].apply(r,args);
   });
 }
-function toast(t){ var e=$('toast'); e.textContent=t; e.style.display='block'; clearTimeout(e._t); e._t=setTimeout(function(){e.style.display='none';},2500); }
+function toast(m){ var e=$('toast'); e.textContent=m; e.hidden=false; clearTimeout(e._t); e._t=setTimeout(function(){e.hidden=true;},2500); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 function num(v){ var n=parseFloat(String(v==null?'':v).replace(',','.')); return isNaN(n)?0:n; }
-function fmt(n,d){ if(n===''||n==null||isNaN(n)) return '—'; return Number(n).toLocaleString('ru-RU',{maximumFractionDigits:d==null?2:d}); }
+function fmt(n,d){ if(n===''||n==null||isNaN(n)||!isFinite(n)) return '—'; return Number(n).toLocaleString('ru-RU',{maximumFractionDigits:d==null?2:d}); }
 function money(n){ return (n===''||n==null)?'—':fmt(n,2); }
 function pct(a,b){ return b? fmt(a/b*100,1)+'%' : '—'; }
 function sum(a){ return (a||[]).reduce(function(s,v){return s+num(v);},0); }
-function firstDay(ym){ var st=S.init.startDate||''; return st.slice(0,7)===ym ? +st.slice(8) : (st && ym<st.slice(0,7) ? 99 : 1); }
-function isBoss(){ return S.init.user.role==='boss'; }
-function clampDate(ds){ return (!isBoss() && S.init.startDate && ds<S.init.startDate) ? S.init.startDate : ds; }
 function shiftDate(ds,k){ var p=ds.split('-'); var d=new Date(+p[0],+p[1]-1,+p[2]+k); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+function prevYm(ym){ var p=ym.split('-'); var d=new Date(+p[0],+p[1]-2,1); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+function isBoss(){ return S.init && S.init.user.role==='boss'; }
+function firstDay(ym){ var st=(S.init&&S.init.startDate)||''; return st.slice(0,7)===ym ? +st.slice(8) : (st && ym<st.slice(0,7) ? 99 : 1); }
+function clampDate(ds){ return (!isBoss() && S.init.startDate && ds<S.init.startDate) ? S.init.startDate : ds; }
+function dd(i,ym){ return ('0'+(i+1)).slice(-2)+'.'+ym.slice(5); }
+function kpi(label,val,sub,delta){ return '<div class="kpi"><small>'+label+'</small><b>'+val+'</b>'+(delta||'')+(sub?'<br><i>'+sub+'</i>':'')+'</div>'; }
+function delta(cur,prev,invert){ if(!prev||!cur) return ''; var p=(cur-prev)/prev*100; var good=invert? p<0 : p>0; return '<span class="d '+(good?'up':'down')+'">'+(p>0?'▲':'▼')+fmt(Math.abs(p),0)+'%</span>'; }
+function killCharts(){ S.charts.forEach(function(c){ try{c.destroy();}catch(e){} }); S.charts=[]; }
 
-google.script.url.getLocation(function(loc){
-  S.key = (loc.parameter && loc.parameter.k) || '';
-  call('apiInit', S.key).then(function(r){
-    S.init = r; S.date = r.today;
-    $('who').textContent = r.user.name;
-    $('whoRole').textContent = ROLE_KZ[r.user.role] + (r.user.block && r.user.role!=='boss' ? ' · ' + r.user.block : '');
-    if (r.user.role === 'boss') {
-      S.block = (r.blocks[0]||{}).id || '';
-      if (r.sheetUrl){ $('sheetLink').href=r.sheetUrl; $('sheetLink').style.display=''; }
-      renderBoss();
-    } else {
-      S.block = r.user.block;
-      renderEmployee();
-    }
-  }).catch(function(e){ $('app').innerHTML = '<div class="center err">'+esc(e)+'</div>'; $('whoRole').textContent=''; });
-});
+/* ===================== Іске қосу ===================== */
+function setLangButtons(){ $('lkz').className=LANG==='kz'?'on':''; $('lru').className=LANG==='ru'?'on':''; document.documentElement.lang=LANG==='ru'?'ru':'kk'; }
+function switchLang(l){ LANG=l; try{localStorage.setItem('lang',l);}catch(e){} setLangButtons(); if(S.init) renderAll(); }
+$('lkz').onclick=function(){switchLang('kz');}; $('lru').onclick=function(){switchLang('ru');};
+setLangButtons();
 
-/* ---------------- Маман беті ---------------- */
+function renderAll(){
+  var r=S.init;
+  $('who').textContent = r.user.role==='boss' ? t('boss') : r.user.name;
+  $('whoRole').textContent = t(r.user.role) + (r.user.block && r.user.role!=='boss' ? ' · ' + r.user.block : '');
+  if (r.sheetUrl){ $('sheetLink').href=r.sheetUrl; $('sheetLink').textContent=t('openSheet'); $('sheetLink').hidden=false; } else $('sheetLink').hidden=true;
+  killCharts();
+  if (r.user.role==='boss') renderBoss(); else renderEmployee();
+}
+
+function boot(){
+  $('app').innerHTML='<div class="center">'+t('loading')+'</div>';
+  google.script.url.getLocation(function(loc){
+    S.key = (loc.parameter && loc.parameter.k) || '';
+    call('apiInit', S.key).then(function(r){
+      S.init = r; S.date = r.today;
+      S.block = r.user.role==='boss' ? ((r.blocks[0]||{}).id || '') : r.user.block;
+      renderAll();
+    }).catch(function(e){ $('app').innerHTML = '<div class="center err">'+esc(e)+'</div>'; $('whoRole').textContent=''; });
+  });
+}
+
+/* ===================== Маман беті ===================== */
 function renderEmployee(){
-  $('app').innerHTML = '<div id="entry"></div><div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Айлық кесте</h2><input type="month" id="mon"></div><div id="month" class="tbl" style="margin-top:12px"></div></div>';
-  $('mon').value = S.date.slice(0,7);
-  $('mon').onchange = loadMonthBlock;
+  $('app').innerHTML = '<div id="entry"></div><div class="card"><div class="row between"><h2 style="margin:0">'+t('monthTable')+'</h2><input type="month" id="mon"></div><div id="mystats" style="margin-top:12px"></div><div id="month" class="tbl" style="margin-top:12px"></div></div>';
+  $('mon').value = S.mon || S.date.slice(0,7);
+  $('mon').onchange = function(){ S.mon=this.value; loadMonthBlock(); };
   renderEntry($('entry'));
   loadMonthBlock();
 }
 
 function renderEntry(box, withBlockSelect){
   var sel = '';
-  if (withBlockSelect) {
-    sel = '<select id="blk">' + S.init.blocks.map(function(b){ return '<option value="'+esc(b.id)+'"'+(b.id===S.block?' selected':'')+'>'+esc(b.id)+'</option>'; }).join('') + '</select>';
-  }
-  box.innerHTML = '<div class="card"><h2>Күнделікті мәлімет енгізу</h2><div class="row">'+sel+
-    '<button id="prev">‹</button><input type="date" id="dt"><button id="next">›</button><button id="tod">Бүгін</button></div>'+
-    '<div id="form"><div class="center">Жүктелуде…</div></div></div>';
+  if (withBlockSelect) sel = '<select id="blk" aria-label="Блок">' + S.init.blocks.map(function(b){ return '<option value="'+esc(b.id)+'"'+(b.id===S.block?' selected':'')+'>'+esc(b.id)+'</option>'; }).join('') + '</select>';
+  box.innerHTML = '<div class="card"><h2>'+t('entryTitle')+'</h2><div class="row">'+sel+
+    '<button id="prev" aria-label="prev">‹</button><input type="date" id="dt"><button id="next" aria-label="next">›</button><button id="tod">'+t('today')+'</button></div>'+
+    '<div id="form"><div class="center">'+t('loading')+'</div></div></div>';
   $('dt').value = S.date;
   if (!isBoss() && S.init.startDate) $('dt').min = S.init.startDate;
   $('dt').onchange = function(){ S.date = clampDate(this.value); this.value=S.date; loadDay(); };
@@ -140,191 +249,262 @@ function renderEntry(box, withBlockSelect){
 }
 
 function loadDay(){
-  var f = $('form'); if(!f) return;
-  f.innerHTML = '<div class="center">Жүктелуде…</div>';
+  var f=$('form'); if(!f) return;
+  f.innerHTML='<div class="center">'+t('loading')+'</div>';
   call('apiGetDay', S.key, S.block, S.date).then(function(d){ S.day=d; drawForm(); }).catch(function(e){ f.innerHTML='<div class="center err">'+esc(e)+'</div>'; });
 }
 
 function drawForm(){
-  var d = S.day, role = d.role, def = S.init.roles[role];
-  if (!def) { $('form').innerHTML = '<div class="center err">Блок табылмады</div>'; return; }
-  var prefilled = false;
-  var html = '<div class="fields">';
+  var d=S.day, role=d.role, def=S.init.roles[role];
+  if (!def) { $('form').innerHTML='<div class="center err">'+t('blockNotFound')+'</div>'; return; }
+  var prefilled=false, html='<div class="fields">';
   def.fields.forEach(function(f){
-    if (d.available.indexOf(f.key) === -1) return;
-    var v = d.values[f.key]; if (v===undefined) v='';
-    if (role==='callcenter' && f.key==='leads' && v==='' && d.targetLeads!=='' && d.targetLeads!=null) { v = d.targetLeads; prefilled = true; }
-    var calc = f.type==='calc';
-    html += '<div class="f'+(calc?' calc':'')+'"><label>'+esc(f.kz)+'</label><input data-k="'+f.key+'" inputmode="decimal" '+(calc?'readonly tabindex="-1"':'')+' value="'+esc(v)+'" placeholder="0"></div>';
+    if (d.available.indexOf(f.key)===-1) return;
+    var v=d.values[f.key]; if (v===undefined) v='';
+    if (role==='callcenter' && f.key==='leads' && v==='' && d.targetLeads!=='' && d.targetLeads!=null){ v=d.targetLeads; prefilled=true; }
+    var calc=f.type==='calc';
+    html+='<div class="f'+(calc?' calc':'')+'"><label for="f_'+f.key+'">'+esc(fl(f))+'</label><input id="f_'+f.key+'" data-k="'+f.key+'" inputmode="decimal" '+(calc?'readonly tabindex="-1"':'')+' value="'+esc(v)+'" placeholder="0"></div>';
   });
-  html += '</div><div id="hints"></div>';
-  if (role==='callcenter') {
-    html += '<div class="hint">🔗 Таргет осы күні: <b>'+(d.targetLeads===''||d.targetLeads==null?'әлі енгізілмеген':fmt(d.targetLeads)+' лид')+'</b>'+
-      (d.targetSpend? ' · $'+money(d.targetSpend):'') + (prefilled?'<br>«Жаңа лидтер» таргеттен автоматты толтырылды — қажет болса түзетіңіз.':'')+'</div>';
-  }
-  html += '<button class="pri save" id="saveBtn">Сақтау</button>';
-  $('form').innerHTML = html;
-  Array.prototype.forEach.call(document.querySelectorAll('#form input:not([readonly])'), function(i){ i.oninput = recalc; });
-  $('saveBtn').onclick = save;
+  html+='</div><div id="hints"></div>';
+  if (role==='callcenter') html+='<div class="hint">'+t('tgtToday')+'<b>'+(d.targetLeads===''||d.targetLeads==null?t('notYet'):fmt(d.targetLeads)+t('leadW'))+'</b>'+(d.targetSpend?' · $'+money(d.targetSpend):'')+(prefilled?'<br>'+t('prefilled'):'')+'</div>';
+  html+='<button class="pri save" id="saveBtn">'+t('save')+'</button>';
+  $('form').innerHTML=html;
+  Array.prototype.forEach.call(document.querySelectorAll('#form input:not([readonly])'), function(i){ i.oninput=recalc; });
+  $('saveBtn').onclick=save;
   recalc();
 }
-
 function vals(){ var o={}; Array.prototype.forEach.call(document.querySelectorAll('#form input[data-k]'), function(i){ o[i.dataset.k]=i.value.trim(); }); return o; }
 function setCalc(k,v){ var i=document.querySelector('#form input[data-k="'+k+'"]'); if(i) i.value=v; }
-
 function recalc(){
-  var v = vals(), role = S.day.role, h = '';
-  if (role==='target') {
-    setCalc('cpl', num(v.leads)? (num(v.spend)/num(v.leads)).toFixed(2) : '');
-  } else if (role==='callcenter') {
-    setCalc('conv', num(v.leads)? (num(v.booked)/num(v.leads)*100).toFixed(1) : '');
-    var s = num(v.booked)+num(v.noanswer)+num(v.inwork)+num(v.refused);
-    if (v.leads!=='') {
-      h = s===num(v.leads) ? '<div class="hint ok">✓ Барлық лидтер бөлінді ('+s+' / '+num(v.leads)+')</div>'
-        : '<div class="hint warn">Жазылды + недозвон + жұмыста + отказ = '+s+', ал жаңа лидтер = '+num(v.leads)+'</div>';
-    }
-  } else if (role==='reception') {
-    setCalc('total', (num(v.cash)+num(v.card)+num(v.transfer)) || '');
-    if (v.came!=='' && v.consult!=='' && num(v.came)>num(v.consult)) h += '<div class="hint warn">«Келді» саны консультациядан көп</div>';
-    if (v.bought!=='' && v.came!=='' && num(v.bought)>num(v.came)) h += '<div class="hint warn">«Сатып алды» саны «Келді»-ден көп</div>';
+  var v=vals(), role=S.day.role, h='';
+  if (role==='target') setCalc('cpl', num(v.leads)?(num(v.spend)/num(v.leads)).toFixed(2):'');
+  else if (role==='callcenter'){
+    setCalc('conv', num(v.leads)?(num(v.booked)/num(v.leads)*100).toFixed(1):'');
+    var s=num(v.booked)+num(v.noanswer)+num(v.inwork)+num(v.refused);
+    if (v.leads!=='') h = s===num(v.leads) ? '<div class="hint ok">'+t('allSplit')+' ('+s+' / '+num(v.leads)+')</div>' : '<div class="hint warn">'+t('splitWarn')(s,num(v.leads))+'</div>';
+  } else if (role==='reception'){
+    setCalc('total', (num(v.cash)+num(v.card)+num(v.transfer))||'');
+    if (v.came!==''&&v.consult!==''&&num(v.came)>num(v.consult)) h+='<div class="hint warn">'+t('cameMore')+'</div>';
+    if (v.bought!==''&&v.came!==''&&num(v.bought)>num(v.came)) h+='<div class="hint warn">'+t('boughtMore')+'</div>';
   }
-  $('hints').innerHTML = h;
+  $('hints').innerHTML=h;
 }
-
 function save(){
-  var b = $('saveBtn'); b.disabled = true; b.textContent = 'Сақталуда…';
-  var v = vals();
-  var def = S.init.roles[S.day.role];
-  def.fields.forEach(function(f){ if (f.type==='calc') delete v[f.key]; });
-  call('apiSaveDay', S.key, S.block, S.date, v).then(function(d){
-    S.day = d; drawForm(); toast('✓ Кестеге сақталды');
-    if ($('mon')) loadMonthBlock();
-  }).catch(function(e){ b.disabled=false; b.textContent='Сақтау'; toast('Қате: '+e); });
+  var b=$('saveBtn'); b.disabled=true; b.textContent=t('saving');
+  var v=vals(); S.init.roles[S.day.role].fields.forEach(function(f){ if(f.type==='calc') delete v[f.key]; });
+  call('apiSaveDay', S.key, S.block, S.date, v).then(function(d){ S.day=d; drawForm(); toast(t('saved')); if($('mon')) loadMonthBlock(); })
+    .catch(function(e){ b.disabled=false; b.textContent=t('save'); toast(t('err')+e); });
 }
 
 function loadMonthBlock(){
   var box=$('month'); if(!box) return;
-  box.innerHTML='<div class="center">Жүктелуде…</div>';
-  call('apiGetMonthBlock', S.key, S.block, $('mon').value).then(function(r){
-    var def = S.init.roles[r.role];
-    var keys = def.fields.filter(function(f){ return r.rows[f.key]; });
-    if (!keys.length){ box.innerHTML='<div class="center">Бұл айда мәлімет жоқ</div>'; return; }
-    var ym = $('mon').value, todayD = S.init.today.slice(0,7)===ym ? +S.init.today.slice(8) : 0;
-    var h = '<table><tr><th>Күн</th>'+keys.map(function(f){return '<th>'+esc(f.kz)+'</th>';}).join('')+'</tr>';
-    var f0 = firstDay(ym)-1;
-    keys.forEach(function(f){ r.rows[f.key] = r.rows[f.key].map(function(x,i){ return i<f0?'':x; }); });
-    for (var i=f0;i<r.days;i++){
-      h += '<tr><td'+(i+1===todayD?' class="today"':'')+'>'+('0'+(i+1)).slice(-2)+'.'+ym.slice(5)+'</td>'+keys.map(function(f){ var x=r.rows[f.key][i]; return '<td>'+(x===''?'':fmt(x))+'</td>'; }).join('')+'</tr>';
-    }
-    h += '<tr class="tot"><td>Барлығы</td>'+keys.map(function(f){
-      var a=r.rows[f.key];
-      if (f.key==='cpl') return '<td>'+money(sum(r.rows.leads)? sum(r.rows.spend)/sum(r.rows.leads):'')+'</td>';
+  box.innerHTML='<div class="center">'+t('loading')+'</div>';
+  var ym=$('mon').value;
+  call('apiGetMonthBlock', S.key, S.block, ym).then(function(r){
+    var def=S.init.roles[r.role];
+    var keys=def.fields.filter(function(f){ return r.rows[f.key]; });
+    if (!keys.length){ box.innerHTML='<div class="center">'+t('noData')+'</div>'; $('mystats').innerHTML=''; return; }
+    var f0=firstDay(ym)-1;
+    keys.forEach(function(f){ r.rows[f.key]=r.rows[f.key].map(function(x,i){ return i<f0?'':x; }); });
+    drawMyStats(r, f0);
+    var todayD=S.init.today.slice(0,7)===ym ? +S.init.today.slice(8) : 0;
+    var h='<table><tr><th>'+t('day')+'</th>'+keys.map(function(f){return '<th>'+esc(fl(f))+'</th>';}).join('')+'</tr>';
+    for (var i=f0;i<r.days;i++) h+='<tr><td'+(i+1===todayD?' class="today"':'')+'>'+dd(i,ym)+'</td>'+keys.map(function(f){ var x=r.rows[f.key][i]; return '<td>'+(x===''?'':fmt(x))+'</td>'; }).join('')+'</tr>';
+    h+='<tr class="tot"><td>'+t('total')+'</td>'+keys.map(function(f){
+      if (f.key==='cpl') return '<td>'+money(sum(r.rows.leads)?sum(r.rows.spend)/sum(r.rows.leads):'')+'</td>';
       if (f.key==='conv') return '<td>'+pct(sum(r.rows.booked),sum(r.rows.leads))+'</td>';
-      return '<td>'+fmt(sum(a))+'</td>'; }).join('')+'</tr></table>';
-    box.innerHTML = h;
+      return '<td>'+fmt(sum(r.rows[f.key]))+'</td>'; }).join('')+'</tr></table>';
+    box.innerHTML=h;
   }).catch(function(e){ box.innerHTML='<div class="center err">'+esc(e)+'</div>'; });
 }
 
-/* ---------------- Бастық беті ---------------- */
+function drawMyStats(r){
+  var R=r.rows, n=function(k){return sum(R[k]);}, days=(R[Object.keys(R)[0]]||[]).filter(function(x,i){ return Object.keys(R).some(function(k){return R[k][i]!==''&&R[k][i]!==0;}); }).length || 0, h='';
+  if (r.role==='target') h=kpi(t('leads'),fmt(n('leads'),0),days?fmt(n('leads')/days,1)+' '+t('perDay'):'')+kpi(t('spent'),'$'+money(n('spend')))+kpi(t('avgCpl'),n('leads')?'$'+money(n('spend')/n('leads')):'—');
+  else if (r.role==='callcenter') h=kpi(t('newLeads'),fmt(n('leads'),0))+kpi(t('booked'),fmt(n('booked'),0),t('conv')+pct(n('booked'),n('leads')))+kpi(t('noanswer'),fmt(n('noanswer'),0),t('share')+' '+pct(n('noanswer'),n('leads')))+kpi(t('refused'),fmt(n('refused'),0),t('share')+' '+pct(n('refused'),n('leads')));
+  else { var k=n('cash')+n('card')+n('transfer')||n('total');
+    h=kpi(t('consult'),fmt(n('consult'),0))+kpi(t('came'),fmt(n('came'),0),pct(n('came'),n('consult'))+t('fromConsult'))+kpi(t('bought'),fmt(n('bought'),0),pct(n('bought'),n('came'))+t('fromCame'))+kpi(t('kassa'),fmt(k))+kpi(t('avgCheck'),n('bought')?fmt(k/n('bought'),0):'—'); }
+  $('mystats').innerHTML='<div class="sec" style="margin-top:0">'+t('myStats')+'</div><div class="kpis">'+h+'</div>';
+}
+
+/* ===================== Бастық беті ===================== */
 function renderBoss(){
-  var tabs = [['sum','📊 Жалпы есеп'],['entry','✏️ Енгізу / түзету'],['log','🕑 Журнал'],['links','🔗 Сілтемелер']];
-  $('app').innerHTML = '<div class="tabs">'+tabs.map(function(t){ return '<button data-t="'+t[0]+'"'+(S.tab===t[0]?' class="on"':'')+'>'+t[1]+'</button>'; }).join('')+'</div><div id="tab"></div>';
+  killCharts();
+  var tabs=[['sum',t('tSum')],['an',t('tAn')],['entry',t('tEntry')],['log',t('tLog')],['links',t('tLinks')]];
+  $('app').innerHTML='<div class="tabs" role="tablist">'+tabs.map(function(x){ return '<button role="tab" data-t="'+x[0]+'"'+(S.tab===x[0]?' class="on"':'')+'>'+x[1]+'</button>'; }).join('')+'</div><div id="tab"></div>';
   Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function(b){ b.onclick=function(){ S.tab=b.dataset.t; renderBoss(); }; });
-  var box = $('tab');
+  var box=$('tab');
   if (S.tab==='sum') renderSummary(box);
-  else if (S.tab==='entry') renderEntry(box, true);
+  else if (S.tab==='an') renderAnalytics(box);
+  else if (S.tab==='entry') renderEntry(box,true);
   else if (S.tab==='log') renderLog(box);
   else renderLinks(box);
 }
 
-function renderSummary(box){
-  box.innerHTML = '<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Айлық есеп</h2><input type="month" id="smon"></div><div id="sum"><div class="center">Жүктелуде…</div></div></div>';
-  $('smon').value = S.smon || S.init.today.slice(0,7);
-  $('smon').onchange = function(){ S.smon=this.value; loadSummary(); };
-  loadSummary();
-}
-
-function loadSummary(){
-  var ym = $('smon').value;
-  call('apiGetSummary', S.key, ym).then(function(r){ drawSummary(r, ym); }).catch(function(e){ $('sum').innerHTML='<div class="center err">'+esc(e)+'</div>'; });
-}
+function monthPicker(id){ return '<input type="month" id="'+id+'" value="'+(S.smon||S.init.today.slice(0,7))+'">'; }
 
 function agg(blocks, role, key, days){
   var out=[]; for(var i=0;i<days;i++) out.push(0);
-  blocks.filter(function(b){return b.role===role && b.rows[key];}).forEach(function(b){ b.rows[key].forEach(function(v,i){ out[i]+=num(v); }); });
+  blocks.filter(function(b){return b.role===role && b.rows[key];}).forEach(function(b){ b.rows[key].forEach(function(v,i){ if(i<days) out[i]+=num(v); }); });
   return out;
 }
+function model(r){
+  var B=r.blocks, D=r.days, A=function(role,k){ return agg(B,role,k,D); };
+  var m={D:D,B:B,leads:A('target','leads'),spend:A('target','spend'),cc:A('callcenter','leads'),booked:A('callcenter','booked'),noans:A('callcenter','noanswer'),inwork:A('callcenter','inwork'),ccRef:A('callcenter','refused'),
+    consult:A('reception','consult'),came:A('reception','came'),bought:A('reception','bought'),think:A('reception','thinking'),rRef:A('reception','refused'),cash:A('reception','cash'),card:A('reception','card'),tr:A('reception','transfer')};
+  m.kassa=m.cash.map(function(v,i){return v+m.card[i]+m.tr[i];});
+  var kt=A('reception','total'); if(sum(m.kassa)===0&&sum(kt)>0) m.kassa=kt;
+  ['leads','spend','cc','booked','noans','inwork','ccRef','consult','came','bought','think','rRef','cash','card','tr','kassa'].forEach(function(k){ m['T'+k]=sum(m[k]); });
+  return m;
+}
 
-function kpi(label, val, sub){ return '<div class="kpi"><small>'+label+'</small><b>'+val+'</b>'+(sub?'<br><i>'+sub+'</i>':'')+'</div>'; }
+function renderSummary(box){
+  box.innerHTML='<div class="card"><div class="row between"><h2 style="margin:0">'+t('monthReport')+'</h2>'+monthPicker('smon')+'</div><div id="sum"><div class="center">'+t('loading')+'</div></div></div>';
+  $('smon').onchange=function(){ S.smon=this.value; renderSummary(box); };
+  var ym=$('smon').value;
+  call('apiGetSummary', S.key, ym).then(function(r){ drawSummary(r,ym); }).catch(function(e){ $('sum').innerHTML='<div class="center err">'+esc(e)+'</div>'; });
+}
 
 function drawSummary(r, ym){
-  if (!r.sheetName){ $('sum').innerHTML='<div class="center">Бұл айдың парағы әлі жоқ. Бірінші мәлімет енгізілгенде автоматты жасалады.</div>'; return; }
-  var B=r.blocks, D=r.days, A=function(role,k){ return agg(B,role,k,D); };
-  var leads=A('target','leads'), spend=A('target','spend');
-  var ccLeads=A('callcenter','leads'), booked=A('callcenter','booked'), noans=A('callcenter','noanswer'), inwork=A('callcenter','inwork'), ccRef=A('callcenter','refused');
-  var consult=A('reception','consult'), came=A('reception','came'), bought=A('reception','bought'), think=A('reception','thinking'), rRef=A('reception','refused');
-  var cash=A('reception','cash'), card=A('reception','card'), tr=A('reception','transfer');
-  var kassa=cash.map(function(v,i){return v+card[i]+tr[i];});
-  // Касса общая жолы бар, бірақ нал/безнал бос болса — сол жолды қолданамыз
-  var kTot=A('reception','total'); if (sum(kassa)===0 && sum(kTot)>0) kassa=kTot;
-  var L=sum(leads), Sp=sum(spend), Bk=sum(booked), Cm=sum(came), Bt=sum(bought), K=sum(kassa);
-
-  var h = '<div class="sec">Таргет</div><div class="kpis">'+
-    kpi('Лидтер', fmt(L,0))+kpi('Жұмсалды', '$'+money(Sp))+kpi('Орташа лид бағасы', L?'$'+money(Sp/L):'—')+
-    kpi('Бір сатылым бағасы', Bt?'$'+money(Sp/Bt):'—','жарнама / сатып алғандар')+'</div>';
-  h += '<div class="sec">Колл-центр</div><div class="kpis">'+
-    kpi('Жаңа лидтер', fmt(sum(ccLeads),0), 'таргетте: '+fmt(L,0))+kpi('Жазылды', fmt(Bk,0), 'конверсия '+pct(Bk,sum(ccLeads)))+
-    kpi('Недозвон', fmt(sum(noans),0))+kpi('Жұмыста', fmt(sum(inwork),0))+kpi('Бас тартты', fmt(sum(ccRef),0))+'</div>';
-  h += '<div class="sec">Ресепшн</div><div class="kpis">'+
-    kpi('Консультациялар', fmt(sum(consult),0))+kpi('Келді', fmt(Cm,0), pct(Cm,sum(consult))+' консультациядан')+
-    kpi('Сатып алды', fmt(Bt,0), pct(Bt,Cm)+' келгендерден')+kpi('Ойланып жүр', fmt(sum(think),0))+kpi('Бас тартты', fmt(sum(rRef),0))+'</div>';
-  h += '<div class="sec">Касса</div><div class="kpis">'+
-    kpi('Жалпы касса', fmt(K))+kpi('Қолма-қол', fmt(sum(cash)))+kpi('Карта (безнал)', fmt(sum(card)))+kpi('Аударым', fmt(sum(tr)))+
-    kpi('Орташа чек', Bt?fmt(K/Bt):'—')+'</div>';
-
-  var fl=[['Лид',L],['Жазылды',Bk],['Келді',Cm],['Сатып алды',Bt]], mx=Math.max(1,L,Bk,Cm,Bt);
-  h += '<div class="sec">Воронка</div><div class="funnel">'+fl.map(function(x,i){
-    return '<div class="fn"><span>'+x[0]+'</span><div class="bar" style="width:'+Math.max(6,x[1]/mx*100)+'%">'+fmt(x[1],0)+(i?' · '+pct(x[1],fl[i-1][1]):'')+'</div></div>'; }).join('')+'</div>';
-
-  var todayD = S.init.today.slice(0,7)===ym ? +S.init.today.slice(8) : 0;
-  h += '<div class="sec">Күндер бойынша</div><div class="tbl"><table><tr><th>Күн</th><th>Лид</th><th>$ сома</th><th>$ / лид</th><th>КЦ лид</th><th>Жазылды</th><th>Конс.</th><th>Келді</th><th>Сатты</th><th>Касса</th></tr>';
-  for (var i=firstDay(ym)-1;i<D;i++){
-    h += '<tr><td'+(i+1===todayD?' class="today"':'')+'>'+('0'+(i+1)).slice(-2)+'.'+ym.slice(5)+'</td><td>'+z(leads[i])+'</td><td>'+z(spend[i],1)+'</td><td>'+(leads[i]?money(spend[i]/leads[i]):'')+'</td><td>'+z(ccLeads[i])+'</td><td>'+z(booked[i])+'</td><td>'+z(consult[i])+'</td><td>'+z(came[i])+'</td><td>'+z(bought[i])+'</td><td>'+z(kassa[i],1)+'</td></tr>';
-  }
-  h += '<tr class="tot"><td>Барлығы</td><td>'+fmt(L,0)+'</td><td>'+money(Sp)+'</td><td>'+(L?money(Sp/L):'—')+'</td><td>'+fmt(sum(ccLeads),0)+'</td><td>'+fmt(Bk,0)+'</td><td>'+fmt(sum(consult),0)+'</td><td>'+fmt(Cm,0)+'</td><td>'+fmt(Bt,0)+'</td><td>'+fmt(K)+'</td></tr></table></div>';
-
-  // Блоктар бойынша (мыс. әр колл-центр операторы бөлек)
-  var multi = B.filter(function(b){return b.role!=='target';});
-  if (multi.length>2){
-    h += '<div class="sec">Блоктар бойынша</div><div class="tbl"><table><tr><th>Блок</th><th>Лид / Конс.</th><th>Жазылды / Келді</th><th>Сатты</th><th>Касса</th></tr>';
-    multi.forEach(function(b){
-      if (b.role==='callcenter') h+='<tr><td>'+esc(b.id)+'</td><td>'+fmt(sum(b.rows.leads),0)+'</td><td>'+fmt(sum(b.rows.booked),0)+' ('+pct(sum(b.rows.booked),sum(b.rows.leads))+')</td><td></td><td></td></tr>';
-      else { var kk = sum(b.rows.cash)+sum(b.rows.card)+sum(b.rows.transfer) || sum(b.rows.total);
-        h+='<tr><td>'+esc(b.id)+'</td><td>'+fmt(sum(b.rows.consult),0)+'</td><td>'+fmt(sum(b.rows.came),0)+'</td><td>'+fmt(sum(b.rows.bought),0)+'</td><td>'+fmt(kk)+'</td></tr>'; }
-    });
-    h += '</table></div>';
-  }
-  $('sum').innerHTML = h;
+  if (!r.sheetName){ $('sum').innerHTML='<div class="center">'+t('noSheet')+'</div>'; return; }
+  var m=model(r), L=m.Tleads, Sp=m.Tspend, Bk=m.Tbooked, Cm=m.Tcame, Bt=m.Tbought, K=m.Tkassa;
+  var h='<div class="sec">'+t('secTarget')+'</div><div class="kpis">'+kpi(t('leads'),fmt(L,0))+kpi(t('spent'),'$'+money(Sp))+kpi(t('avgCpl'),L?'$'+money(Sp/L):'—')+kpi(t('costSale'),Bt?'$'+money(Sp/Bt):'—',t('adsPerBuyer'))+'</div>';
+  h+='<div class="sec">'+t('secCC')+'</div><div class="kpis">'+kpi(t('newLeads'),fmt(m.Tcc,0),t('inTarget')+fmt(L,0))+kpi(t('booked'),fmt(Bk,0),t('conv')+pct(Bk,m.Tcc))+kpi(t('noanswer'),fmt(m.Tnoans,0))+kpi(t('inwork'),fmt(m.Tinwork,0))+kpi(t('refused'),fmt(m.TccRef,0))+'</div>';
+  h+='<div class="sec">'+t('secRec')+'</div><div class="kpis">'+kpi(t('consult'),fmt(m.Tconsult,0))+kpi(t('came'),fmt(Cm,0),pct(Cm,m.Tconsult)+t('fromConsult'))+kpi(t('bought'),fmt(Bt,0),pct(Bt,Cm)+t('fromCame'))+kpi(t('thinking'),fmt(m.Tthink,0))+kpi(t('refused'),fmt(m.TrRef,0))+'</div>';
+  h+='<div class="sec">'+t('secCash')+'</div><div class="kpis">'+kpi(t('kassa'),fmt(K))+kpi(t('cash'),fmt(m.Tcash))+kpi(t('card'),fmt(m.Tcard))+kpi(t('transfer'),fmt(m.Ttr))+kpi(t('avgCheck'),Bt?fmt(K/Bt,0):'—')+'</div>';
+  var fl_=[[t('fLead'),L],[t('fBooked'),Bk],[t('fCame'),Cm],[t('fBought'),Bt]], mx=Math.max(1,L,Bk,Cm,Bt);
+  h+='<div class="sec">'+t('secFunnel')+'</div><div class="funnel">'+fl_.map(function(x,i){ return '<div class="fn"><span>'+x[0]+'</span><div class="bar" style="width:'+Math.max(8,x[1]/mx*100)+'%">'+fmt(x[1],0)+(i?' · '+pct(x[1],fl_[i-1][1]):'')+'</div></div>'; }).join('')+'</div>';
+  var todayD=S.init.today.slice(0,7)===ym ? +S.init.today.slice(8) : 0;
+  h+='<div class="sec">'+t('secDays')+'</div><div class="tbl"><table><tr><th>'+t('day')+'</th><th>'+t('thLead')+'</th><th>'+t('thSum')+'</th><th>'+t('thCpl')+'</th><th>'+t('thCC')+'</th><th>'+t('thBooked')+'</th><th>'+t('thCons')+'</th><th>'+t('thCame')+'</th><th>'+t('thSold')+'</th><th>'+t('thKassa')+'</th></tr>';
+  for (var i=firstDay(ym)-1;i<m.D;i++) h+='<tr><td'+(i+1===todayD?' class="today"':'')+'>'+dd(i,ym)+'</td><td>'+z(m.leads[i])+'</td><td>'+z(m.spend[i],1)+'</td><td>'+(m.leads[i]?money(m.spend[i]/m.leads[i]):'')+'</td><td>'+z(m.cc[i])+'</td><td>'+z(m.booked[i])+'</td><td>'+z(m.consult[i])+'</td><td>'+z(m.came[i])+'</td><td>'+z(m.bought[i])+'</td><td>'+z(m.kassa[i],1)+'</td></tr>';
+  h+='<tr class="tot"><td>'+t('total')+'</td><td>'+fmt(L,0)+'</td><td>'+money(Sp)+'</td><td>'+(L?money(Sp/L):'—')+'</td><td>'+fmt(m.Tcc,0)+'</td><td>'+fmt(Bk,0)+'</td><td>'+fmt(m.Tconsult,0)+'</td><td>'+fmt(Cm,0)+'</td><td>'+fmt(Bt,0)+'</td><td>'+fmt(K)+'</td></tr></table></div>';
+  $('sum').innerHTML=h;
 }
-function z(v,money){ return v ? (money? fmt(v,2) : fmt(v,0)) : ''; }
+function z(v,d){ return v ? (d? fmt(v,2) : fmt(v,0)) : ''; }
 
+/* ===================== Аналитика ===================== */
+function getRate(){ var r=520; try{ r=+localStorage.getItem('usdRate')||520; }catch(e){} return r; }
+
+function renderAnalytics(box){
+  killCharts();
+  box.innerHTML='<div class="card"><div class="row between"><h2 style="margin:0">'+t('anTitle')+'</h2>'+monthPicker('amon')+'</div><div id="an"><div class="center">'+t('loading')+'</div></div></div>';
+  $('amon').onchange=function(){ S.smon=this.value; renderAnalytics(box); };
+  var ym=$('amon').value;
+  Promise.all([call('apiGetSummary',S.key,ym), call('apiGetSummary',S.key,prevYm(ym)).catch(function(){return null;})])
+    .then(function(rs){ drawAnalytics(rs[0], rs[1], ym); })
+    .catch(function(e){ $('an').innerHTML='<div class="center err">'+esc(e)+'</div>'; });
+}
+
+function drawAnalytics(r, pr, ym){
+  if (!r.sheetName){ $('an').innerHTML='<div class="center">'+t('noSheet')+'</div>'; return; }
+  var m=model(r), p=(pr&&pr.sheetName)?model(pr):null, rate=getRate();
+  var f0=firstDay(ym)-1, last=-1;
+  for (var j=0;j<m.D;j++) if (m.leads[j]||m.cc[j]||m.consult[j]||m.came[j]||m.kassa[j]) last=j;
+  var idx=[]; for(var i=f0;i<=last;i++) idx.push(i);
+  var labels=idx.map(function(i){return dd(i,ym);});
+  // Өткен айды сол күн санымен салыстыру
+  var P=function(k){ return p? sum(p[k].slice(0,last+1)) : 0; };
+  var cpl=m.Tleads?m.Tspend/m.Tleads:0, pcpl=P('leads')?P('spend')/P('leads'):0;
+  var conv=m.Tcc?m.Tbooked/m.Tcc:0;
+
+  var h='<p class="muted">'+(p?'▲▼ — '+t('vsPrev'):'')+'</p>';
+  h+='<div class="kpis">'+
+    kpi(t('leads'),fmt(m.Tleads,0),'',delta(m.Tleads,P('leads')))+
+    kpi(t('avgCpl'),cpl?'$'+money(cpl):'—','',delta(cpl,pcpl,true))+
+    kpi(t('booked'),fmt(m.Tbooked,0),t('conv')+pct(m.Tbooked,m.Tcc),delta(m.Tbooked,P('booked')))+
+    kpi(t('came'),fmt(m.Tcame,0),'',delta(m.Tcame,P('came')))+
+    kpi(t('bought'),fmt(m.Tbought,0),'',delta(m.Tbought,P('bought')))+
+    kpi(t('kassa'),fmt(m.Tkassa,0),'',delta(m.Tkassa,P('kassa')))+'</div>';
+
+  // Қорытындылар
+  var ins=[];
+  if (m.Tcc>=5){
+    var na=m.Tnoans/m.Tcc; if(na>0.3) ins.push(['warn',t('insNoans')(pct(m.Tnoans,m.Tcc))]);
+    if(conv<0.2) ins.push(['warn',t('insConvLow')(pct(m.Tbooked,m.Tcc))]); else ins.push(['good',t('insConvGood')(pct(m.Tbooked,m.Tcc))]);
+  }
+  if (m.Tbooked>=3 && m.Tcame) ins.push(['info',t('insCame')(pct(m.Tcame,m.Tbooked))]);
+  if (m.Tcame>=3) ins.push([m.Tbought/m.Tcame>=0.5?'good':'info',t('insSale')(pct(m.Tbought,m.Tcame))]);
+  if (m.Tleads>=10 && Math.abs(m.Tleads-m.Tcc)/m.Tleads>0.15) ins.push(['warn',t('insGap')(fmt(m.Tleads,0),fmt(m.Tcc,0))]);
+  var l7=idx.slice(-7), s7=l7.reduce(function(a,i){return a+m.spend[i];},0), n7=l7.reduce(function(a,i){return a+m.leads[i];},0);
+  if (n7 && cpl && idx.length>7) ins.push(['info',t('insCpl')(money(s7/n7),money(cpl))]);
+  h+='<div class="sec">'+t('insights')+'</div><div class="insights">'+(ins.length?ins.map(function(x){return '<div class="ins '+x[0]+'">'+esc(x[1])+'</div>';}).join(''):'<div class="ins info">'+t('insEmpty')+'</div>')+'</div>';
+
+  // Графиктер
+  h+='<div class="grid2" style="margin-top:16px">'+
+    '<div><h3>'+t('chFunnel')+'</h3><div class="chart"><canvas id="c1"></canvas></div></div>'+
+    '<div><h3>'+t('chKassa')+'</h3><div class="chart"><canvas id="c2"></canvas></div></div>'+
+    '<div><h3>'+t('chCpl')+'</h3><div class="chart"><canvas id="c3"></canvas></div></div>'+
+    '<div><h3>'+t('chConv')+'</h3><div class="chart"><canvas id="c4"></canvas></div></div></div>';
+
+  // Жарнама тиімділігі
+  var Sp=m.Tspend, romi=Sp? (m.Tkassa/rate)/Sp : 0;
+  h+='<div class="sec">'+t('unitEcon')+'</div><div class="kpis">'+
+    kpi(t('perLead'),m.Tleads?'$'+money(Sp/m.Tleads):'—')+kpi(t('perBooked'),m.Tbooked?'$'+money(Sp/m.Tbooked):'—')+
+    kpi(t('perCame'),m.Tcame?'$'+money(Sp/m.Tcame):'—')+kpi(t('perSale'),m.Tbought?'$'+money(Sp/m.Tbought):'—')+
+    kpi(t('romi'),romi?fmt(romi,1)+'×':'—','$'+money(m.Tkassa/rate)+' / $'+money(Sp))+
+    '<div class="kpi"><small><label for="rate">'+t('rate')+'</label></small><input id="rate" class="sm" type="number" min="1" step="1" value="'+rate+'" style="width:100%;margin-top:4px"></div></div>';
+
+  // Операторлар
+  var ccB=m.B.filter(function(b){return b.role==='callcenter';}), rcB=m.B.filter(function(b){return b.role==='reception';});
+  h+='<div class="sec">'+t('ops')+'</div><div class="tbl"><table><tr><th>'+t('thOp')+'</th><th>'+t('newLeads')+'</th><th>'+t('booked')+'</th><th>'+t('thConv')+'</th><th>'+t('thNoans')+'</th><th>'+t('thRef')+'</th></tr>'+
+    ccB.map(function(b){ var R=b.rows, l=sum(R.leads); return '<tr><td>'+esc(b.id)+'</td><td>'+fmt(l,0)+'</td><td>'+fmt(sum(R.booked),0)+'</td><td>'+pct(sum(R.booked),l)+'</td><td>'+pct(sum(R.noanswer),l)+'</td><td>'+pct(sum(R.refused),l)+'</td></tr>'; }).join('')+'</table></div>';
+  h+='<div class="sec">'+t('recs')+'</div><div class="tbl"><table><tr><th>'+t('thBlock')+'</th><th>'+t('consult')+'</th><th>'+t('thCameP')+'</th><th>'+t('thBoughtP')+'</th><th>'+t('thKassa')+'</th><th>'+t('thAvg')+'</th></tr>'+
+    rcB.map(function(b){ var R=b.rows, k=sum(R.cash)+sum(R.card)+sum(R.transfer)||sum(R.total), bt=sum(R.bought); return '<tr><td>'+esc(b.id)+'</td><td>'+fmt(sum(R.consult),0)+'</td><td>'+pct(sum(R.came),sum(R.consult))+'</td><td>'+pct(bt,sum(R.came))+'</td><td>'+fmt(k,0)+'</td><td>'+(bt?fmt(k/bt,0):'—')+'</td></tr>'; }).join('')+'</table></div>';
+
+  // Апта күндері
+  var p_=ym.split('-'), wd=[0,1,2,3,4,5,6].map(function(){return {n:0,leads:0,booked:0,came:0,kassa:0};});
+  idx.forEach(function(i){ var has=m.leads[i]||m.cc[i]||m.came[i]||m.kassa[i]; if(!has) return; var w=(new Date(+p_[0],+p_[1]-1,i+1).getDay()+6)%7; var o=wd[w]; o.n++; o.leads+=m.leads[i]; o.booked+=m.booked[i]; o.came+=m.came[i]; o.kassa+=m.kassa[i]; });
+  h+='<div class="sec">'+t('weekdays')+'</div><div class="tbl"><table><tr><th>'+t('thWd')+'</th><th>'+t('thDays')+'</th><th>'+t('thLead')+'</th><th>'+t('thBooked')+'</th><th>'+t('thCame')+'</th><th>'+t('thKassa')+'</th></tr>'+
+    wd.map(function(o,i){ return '<tr><td>'+t('wd')[i]+'</td><td>'+o.n+'</td><td>'+(o.n?fmt(o.leads/o.n,1):'—')+'</td><td>'+(o.n?fmt(o.booked/o.n,1):'—')+'</td><td>'+(o.n?fmt(o.came/o.n,1):'—')+'</td><td>'+(o.n?fmt(o.kassa/o.n,0):'—')+'</td></tr>'; }).join('')+'</table></div>';
+
+  // Үздік күндер
+  var best=function(arr){ var bi=-1,bv=0; idx.forEach(function(i){ if(arr[i]>bv){bv=arr[i];bi=i;} }); return bi<0?'—':dd(bi,ym)+' · '+fmt(bv,1); };
+  var convArr=m.cc.map(function(l,i){ return l>=3? m.booked[i]/l*100 : 0; });
+  h+='<div class="sec">'+t('best')+'</div><div class="kpis">'+kpi(t('bestKassa'),'<span style="font-size:16px">'+best(m.kassa)+'</span>')+kpi(t('bestLeads'),'<span style="font-size:16px">'+best(m.leads)+'</span>')+kpi(t('bestConv'),'<span style="font-size:16px">'+(best(convArr)==='—'?'—':best(convArr)+'%')+'</span>')+'</div>';
+
+  $('an').innerHTML=h;
+  $('rate').onchange=function(){ var v=+this.value; if(v>0){ try{localStorage.setItem('usdRate',v);}catch(e){} drawAnalytics(r,pr,ym); } };
+  drawCharts(m, idx, labels);
+}
+
+function drawCharts(m, idx, labels){
+  killCharts();
+  if (typeof Chart==='undefined') return;
+  var pick=function(a){ return idx.map(function(i){return a[i]||0;}); };
+  var css=getComputedStyle(document.documentElement), c=function(n){return css.getPropertyValue(n).trim();};
+  var grid={color:'#eef0f4'}, ticks={color:c('--muted'),font:{size:11}}, yticks={color:c('--muted'),font:{size:11},callback:function(v){return Number(v).toLocaleString('ru-RU');}};
+  var base={responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{position:'bottom',labels:{boxWidth:10,boxHeight:10,usePointStyle:true,color:c('--ink')}},tooltip:{backgroundColor:'#1c2333'}},
+    scales:{x:{grid:{display:false},ticks:ticks},y:{beginAtZero:true,grid:grid,ticks:yticks,border:{display:false}}}};
+  var line=function(label,data,color){ return {label:label,data:data,borderColor:color,backgroundColor:color,borderWidth:2,pointRadius:4,pointHoverRadius:6,tension:.25}; };
+  var one=JSON.parse(JSON.stringify(base)); one.plugins.legend={display:false}; one.scales.y.ticks=yticks;
+  S.charts.push(new Chart($('c1'),{type:'line',data:{labels:labels,datasets:[line(t('fLead'),pick(m.leads),c('--s1')),line(t('fBooked'),pick(m.booked),c('--s2')),line(t('fCame'),pick(m.came),c('--s3')),line(t('fBought'),pick(m.bought),c('--s4'))]},options:base}));
+  var stacked=JSON.parse(JSON.stringify(base)); stacked.scales.x.stacked=true; stacked.scales.y.stacked=true; stacked.scales.y.ticks=yticks;
+  var bar=function(label,data,color){ return {label:label,data:data,backgroundColor:color,borderColor:'#fff',borderWidth:{top:2},borderRadius:4,borderSkipped:'bottom',maxBarThickness:28}; };
+  S.charts.push(new Chart($('c2'),{type:'bar',data:{labels:labels,datasets:[bar(t('cash'),pick(m.cash),c('--s1')),bar(t('card'),pick(m.card),c('--s2')),bar(t('transfer'),pick(m.tr),c('--s3'))]},options:stacked}));
+  S.charts.push(new Chart($('c3'),{type:'line',data:{labels:labels,datasets:[line(t('avgCpl'),idx.map(function(i){return m.leads[i]?Math.round(m.spend[i]/m.leads[i]*100)/100:null;}),c('--s1'))]},options:one}));
+  S.charts.push(new Chart($('c4'),{type:'line',data:{labels:labels,datasets:[line(t('chConv'),idx.map(function(i){return m.cc[i]?Math.round(m.booked[i]/m.cc[i]*1000)/10:null;}),c('--s2'))]},options:one}));
+}
+
+/* ===================== Журнал, сілтемелер ===================== */
 function renderLog(box){
-  box.innerHTML='<div class="card"><h2>Соңғы өзгерістер</h2><div class="log" id="lg"><div class="center">Жүктелуде…</div></div></div>';
+  box.innerHTML='<div class="card"><h2>'+t('logTitle')+'</h2><div class="log" id="lg"><div class="center">'+t('loading')+'</div></div></div>';
   call('apiGetLog', S.key).then(function(r){
-    $('lg').innerHTML = r.length ? r.map(function(x){ return '<div><b>'+esc(x.name)+'</b> · '+esc(x.block)+' · '+esc(x.date)+' <small>('+esc(x.time)+')</small><br>'+esc(x.changes)+'</div>'; }).join('') : '<div class="center">Әзірге өзгеріс жоқ</div>';
+    $('lg').innerHTML = r.length ? r.map(function(x){ return '<div><b>'+esc(x.name)+'</b> · '+esc(x.block)+' · '+esc(x.date)+' <small>('+esc(x.time)+')</small><br>'+esc(x.changes)+'</div>'; }).join('') : '<div class="center">'+t('noLog')+'</div>';
   }).catch(function(e){ $('lg').innerHTML='<div class="center err">'+esc(e)+'</div>'; });
 }
-
 function renderLinks(box){
-  box.innerHTML='<div class="card"><h2>Мамандардың жеке сілтемелері</h2><p style="color:var(--muted);margin-top:0">Әр маманға тек өз сілтемесін жіберіңіз. Жаңа маман қосу немесе сілтемені өзгерту — кестедегі «Доступ» парағында.</p><div class="links" id="lk"><div class="center">Жүктелуде…</div></div></div>';
+  box.innerHTML='<div class="card"><h2>'+t('linksTitle')+'</h2><p class="muted" style="margin-top:0">'+t('linksNote')+'</p><div class="links" id="lk"><div class="center">'+t('loading')+'</div></div></div>';
   call('apiGetLinks', S.key).then(function(r){
-    $('lk').innerHTML = r.map(function(u,i){ return '<div class="l"><div><b>'+esc(u.name)+'</b> · '+esc(ROLE_KZ[u.role]||u.role)+(u.block?' · '+esc(u.block):'')+'<small>'+esc(u.url)+'</small></div><button data-i="'+i+'">Көшіру</button></div>'; }).join('');
+    $('lk').innerHTML = r.map(function(u,i){ return '<div class="l"><div><b>'+esc(u.name)+'</b> · '+esc(t(u.role)||u.role)+(u.block?' · '+esc(u.block):'')+'<small>'+esc(u.url)+'</small></div><button data-i="'+i+'">'+t('copy')+'</button></div>'; }).join('');
     Array.prototype.forEach.call(document.querySelectorAll('#lk button'), function(b){
       b.onclick=function(){ var u=r[+b.dataset.i].url;
-        (navigator.clipboard? navigator.clipboard.writeText(u) : Promise.reject()).then(function(){toast('Көшірілді');}).catch(function(){ prompt('Сілтемені көшіріңіз:', u); }); };
+        (navigator.clipboard? navigator.clipboard.writeText(u) : Promise.reject()).then(function(){toast(t('copied'));}).catch(function(){ var s=b.parentNode.querySelector('small'); var rg=document.createRange(); rg.selectNodeContents(s); var sl=getSelection(); sl.removeAllRanges(); sl.addRange(rg); }); };
     });
   }).catch(function(e){ $('lk').innerHTML='<div class="center err">'+esc(e)+'</div>'; });
 }
+
+boot();
 </script>
 </body>
 </html>
