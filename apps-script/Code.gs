@@ -11,6 +11,11 @@
  * Кілттер «Доступ» парағында сақталады.
  */
 
+// «Маркетинг приложение» кестесі
+var SPREADSHEET_ID = '1nVmHYM9AfG45Q_L5NDz8CFHa8dogqU3CB0hwvbZGJgk';
+// Бағдарлама осы күннен бастап жұмыс істейді (мамандар бұрынғы күндерге жаза алмайды)
+var START_DATE = '2026-11-23';
+
 var ACCESS_SHEET = 'Доступ';
 var LOG_SHEET = 'Журнал';
 var MONTHS = ['ЯНВАРЬ', 'ФЕВРАЛЬ', 'МАРТ', 'АПРЕЛЬ', 'МАЙ', 'ИЮНЬ', 'ИЮЛЬ',
@@ -37,7 +42,7 @@ var ROLES = {
       { key: 'inwork', labels: ['в работе'], kz: 'Жұмыста', type: 'int' },
       { key: 'refused', labels: ['отказ'], kz: 'Бас тартты (отказ)', type: 'int' },
       { key: 'conv', labels: ['конверсия'], kz: 'Конверсия (%)', type: 'calc',
-        formula: function (c, r) { return r.booked && r.leads ? '=IFERROR(ROUND(' + c + r.booked + '/' + c + r.leads + '*100,1),0)' : null; } }
+        formula: function (c, r) { return r.booked && r.leads ? '=IFERROR(ROUND(1000*' + c + r.booked + '/' + c + r.leads + ')/10)' : null; } }
     ]
   },
   reception: {
@@ -52,7 +57,7 @@ var ROLES = {
         formula: function (c, r) {
           var parts = ['cash', 'card', 'transfer'].filter(function (k) { return r[k]; })
             .map(function (k) { return c + r[k]; });
-          return parts.length ? '=SUM(' + parts.join(',') + ')' : null;
+          return parts.length ? '=' + parts.join('+') : null;
         } },
       { key: 'cash', labels: ['нал', 'наличные'], kz: 'Қолма-қол (нал)', type: 'money' },
       { key: 'card', labels: ['безнал'], kz: 'Карта (безнал)', type: 'money' },
@@ -78,12 +83,13 @@ function apiInit(key) {
   var res = {
     user: { name: user.name, role: user.role, block: user.block },
     today: Utilities.formatDate(now, tz, 'yyyy-MM-dd'),
+    startDate: START_DATE,
     roles: rolesForClient_()
   };
   if (user.role === 'boss') {
     var sheet = getMonthSheet_(now.getFullYear(), now.getMonth() + 1, false) || anyMonthSheet_();
     res.blocks = sheet ? detectBlocks_(sheet).map(function (b) { return { id: b.id, name: b.name, role: b.role }; }) : [];
-    res.sheetUrl = SpreadsheetApp.getActive().getUrl();
+    res.sheetUrl = ss_().getUrl();
   }
   return res;
 }
@@ -124,6 +130,7 @@ function apiSaveDay(key, blockId, dateStr, values) {
   var user = auth_(key);
   blockId = allowedBlock_(user, blockId);
   var d = parseDate_(dateStr);
+  if (user.role !== 'boss' && dateStr < START_DATE) throw new Error('Бағдарлама ' + START_DATE.split('-').reverse().join('.') + ' күнінен басталады');
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -219,7 +226,7 @@ function apiGetLinks(key) {
 function apiGetLog(key) {
   var user = auth_(key);
   if (user.role !== 'boss') throw new Error('Тек бастыққа рұқсат');
-  var sh = SpreadsheetApp.getActive().getSheetByName(LOG_SHEET);
+  var sh = ss_().getSheetByName(LOG_SHEET);
   if (!sh || sh.getLastRow() < 2) return [];
   var n = Math.min(50, sh.getLastRow() - 1);
   var tz = Session.getScriptTimeZone();
@@ -243,7 +250,7 @@ function onOpen() {
 
 /** «Доступ» парағын жасайды, әр блокқа жеке кілт береді. */
 function setup() {
-  var ss = SpreadsheetApp.getActive();
+  var ss = ss_();
   var sh = ss.getSheetByName(ACCESS_SHEET);
   if (!sh) {
     sh = ss.insertSheet(ACCESS_SHEET);
@@ -268,7 +275,7 @@ function setup() {
 
 /** «Сілтеме» бағанын толтырады (веб-қосымша орналастырылғаннан кейін). */
 function refreshLinks() {
-  var sh = SpreadsheetApp.getActive().getSheetByName(ACCESS_SHEET);
+  var sh = ss_().getSheetByName(ACCESS_SHEET);
   if (!sh) return setup();
   var url = ScriptApp.getService().getUrl();
   var last = sh.getLastRow();
@@ -282,6 +289,15 @@ function refreshLinks() {
 
 /* ============================ Көмекші функциялар ============================ */
 
+function ss_() {
+  if (!ss_.cache) {
+    var active = null;
+    try { active = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) {}
+    ss_.cache = (active && active.getId() === SPREADSHEET_ID) ? active : SpreadsheetApp.openById(SPREADSHEET_ID);
+  }
+  return ss_.cache;
+}
+
 function auth_(key) {
   key = String(key || '').trim();
   if (!key) throw new Error('Сілтеме қате: кілт жоқ');
@@ -291,7 +307,7 @@ function auth_(key) {
 }
 
 function loadUsers_() {
-  var sh = SpreadsheetApp.getActive().getSheetByName(ACCESS_SHEET);
+  var sh = ss_().getSheetByName(ACCESS_SHEET);
   if (!sh || sh.getLastRow() < 2) return [];
   return sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues()
     .filter(function (r) { return String(r[2]).trim(); })
@@ -390,7 +406,7 @@ function findBlock_(sheet, blockId) {
 
 /** Айдың парағын табады (мыс. «НОЯБРЬ»), керек болса жасайды. */
 function getMonthSheet_(y, m, create) {
-  var ss = SpreadsheetApp.getActive();
+  var ss = ss_();
   var base = MONTHS[m - 1];
   var withYear = ss.getSheetByName(base + ' ' + y);
   if (withYear) return withYear;
@@ -410,7 +426,7 @@ function sheetYearOk_(sheet, y) {
 }
 
 function anyMonthSheet_() {
-  var sheets = SpreadsheetApp.getActive().getSheets();
+  var sheets = ss_().getSheets();
   for (var i = 0; i < sheets.length; i++) {
     var n = sheets[i].getName().split(' ')[0].toUpperCase();
     if (MONTHS.indexOf(n) !== -1 && detectBlocks_(sheets[i]).length) return sheets[i];
@@ -420,12 +436,11 @@ function anyMonthSheet_() {
 
 /** Жаңа айдың парағын бұрынғы айдың үлгісімен жасайды. */
 function createMonthSheet_(y, m, name) {
-  var ss = SpreadsheetApp.getActive();
+  var ss = ss_();
   var tpl = anyMonthSheet_();
   if (!tpl) throw new Error('Үлгі ретінде ай парағы табылмады');
   var sh = tpl.copyTo(ss).setName(name);
-  ss.setActiveSheet(sh);
-  ss.moveActiveSheet(1);
+  try { ss.setActiveSheet(sh); ss.moveActiveSheet(1); } catch (e) {}
   var blocks = detectBlocks_(sh);
   blocks.forEach(function (b) {
     var n = b.lastRow - b.firstRow;
@@ -454,7 +469,7 @@ function createMonthSheet_(y, m, name) {
 }
 
 function log_(user, blockId, dateStr, text) {
-  var ss = SpreadsheetApp.getActive();
+  var ss = ss_();
   var sh = ss.getSheetByName(LOG_SHEET);
   if (!sh) {
     sh = ss.insertSheet(LOG_SHEET);

@@ -1,6 +1,8 @@
 # Белес маркетинг — кестеге қосылған бағдарлама
 
-Google Таблицаға (**«Белес маркетинг»**) тікелей жазатын веб-бағдарлама.
+**[«Маркетинг приложение»](https://docs.google.com/spreadsheets/d/1nVmHYM9AfG45Q_L5NDz8CFHa8dogqU3CB0hwvbZGJgk/edit)** кестесіне тікелей жазатын веб-бағдарлама.
+Кесте «Белес маркетинг» кестесінің көшірмесі: құрылымы сол, ескі сандар тазаланған, бағдарлама **23.11.2026** күнінен басталады
+(мамандар бұдан бұрынғы күндерге жаза алмайды; бастау күні `Code.gs` ішіндегі `START_DATE`). «Доступ» парағы кілттерімен бірге дайын тұр.
 Код: [`apps-script/`](apps-script/) — `Code.gs` (сервер), `Index.html` (интерфейс), `appsscript.json` (баптау).
 
 ## Не істейді
@@ -20,12 +22,13 @@ Google Таблицаға (**«Белес маркетинг»**) тікелей
 
 ## Орнату (1 рет, ~5 минут)
 
-1. Кестені ашыңыз → **Кеңейтімдер (Extensions) → Apps Script**.
+1. [«Маркетинг приложение»](https://docs.google.com/spreadsheets/d/1nVmHYM9AfG45Q_L5NDz8CFHa8dogqU3CB0hwvbZGJgk/edit) кестесін ашыңыз → **Кеңейтімдер (Extensions) → Apps Script**.
 2. `Code.gs` файлының ішін өшіріп, осы репозиторийдегі [`apps-script/Code.gs`](apps-script/Code.gs) мазмұнын қойыңыз.
 3. **+ → HTML** басып, файлды `Index` деп атаңыз да, [`apps-script/Index.html`](apps-script/Index.html) мазмұнын қойыңыз.
 4. (Міндетті емес) **Project Settings → Show "appsscript.json"** қосып, [`apps-script/appsscript.json`](apps-script/appsscript.json) мазмұнын қойыңыз (уақыт белдеуі — Алматы).
-5. Сақтаңыз (💾), функциялар тізімінен **`setup`** таңдап **Run** басыңыз → Google рұқсат сұрайды → рұқсат беріңіз.
-   Кестеде **«Доступ»** парағы пайда болады: әр блокқа жеке кілт берілген.
+5. Сақтаңыз (💾), функциялар тізімінен **`setup`** таңдап **Run** басыңыз → Google рұқсат сұрайды → рұқсат беріңіз
+   («Google hasn't verified this app» шықса: Advanced → Go to … (unsafe) → Allow — бұл сіздің өз скриптіңіз).
+   «Доступ» парағы дайын тұр, кілттер өзгермейді.
 6. **Deploy → New deployment → Web app**:
    - *Execute as*: **Me**
    - *Who has access*: **Anyone**

@@ -90,6 +90,9 @@ function fmt(n,d){ if(n===''||n==null||isNaN(n)) return '—'; return Number(n).
 function money(n){ return (n===''||n==null)?'—':fmt(n,2); }
 function pct(a,b){ return b? fmt(a/b*100,1)+'%' : '—'; }
 function sum(a){ return (a||[]).reduce(function(s,v){return s+num(v);},0); }
+function firstDay(ym){ var st=S.init.startDate||''; return st.slice(0,7)===ym ? +st.slice(8) : (st && ym<st.slice(0,7) ? 99 : 1); }
+function isBoss(){ return S.init.user.role==='boss'; }
+function clampDate(ds){ return (!isBoss() && S.init.startDate && ds<S.init.startDate) ? S.init.startDate : ds; }
 function shiftDate(ds,k){ var p=ds.split('-'); var d=new Date(+p[0],+p[1]-1,+p[2]+k); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
 
 google.script.url.getLocation(function(loc){
@@ -127,8 +130,9 @@ function renderEntry(box, withBlockSelect){
     '<button id="prev">‹</button><input type="date" id="dt"><button id="next">›</button><button id="tod">Бүгін</button></div>'+
     '<div id="form"><div class="center">Жүктелуде…</div></div></div>';
   $('dt').value = S.date;
-  $('dt').onchange = function(){ S.date = this.value; loadDay(); };
-  $('prev').onclick = function(){ S.date = shiftDate(S.date,-1); $('dt').value=S.date; loadDay(); };
+  if (!isBoss() && S.init.startDate) $('dt').min = S.init.startDate;
+  $('dt').onchange = function(){ S.date = clampDate(this.value); this.value=S.date; loadDay(); };
+  $('prev').onclick = function(){ S.date = clampDate(shiftDate(S.date,-1)); $('dt').value=S.date; loadDay(); };
   $('next').onclick = function(){ S.date = shiftDate(S.date,1); $('dt').value=S.date; loadDay(); };
   $('tod').onclick = function(){ S.date = S.init.today; $('dt').value=S.date; loadDay(); };
   if (withBlockSelect) $('blk').onchange = function(){ S.block=this.value; loadDay(); };
@@ -207,7 +211,9 @@ function loadMonthBlock(){
     if (!keys.length){ box.innerHTML='<div class="center">Бұл айда мәлімет жоқ</div>'; return; }
     var ym = $('mon').value, todayD = S.init.today.slice(0,7)===ym ? +S.init.today.slice(8) : 0;
     var h = '<table><tr><th>Күн</th>'+keys.map(function(f){return '<th>'+esc(f.kz)+'</th>';}).join('')+'</tr>';
-    for (var i=0;i<r.days;i++){
+    var f0 = firstDay(ym)-1;
+    keys.forEach(function(f){ r.rows[f.key] = r.rows[f.key].map(function(x,i){ return i<f0?'':x; }); });
+    for (var i=f0;i<r.days;i++){
       h += '<tr><td'+(i+1===todayD?' class="today"':'')+'>'+('0'+(i+1)).slice(-2)+'.'+ym.slice(5)+'</td>'+keys.map(function(f){ var x=r.rows[f.key][i]; return '<td>'+(x===''?'':fmt(x))+'</td>'; }).join('')+'</tr>';
     }
     h += '<tr class="tot"><td>Барлығы</td>'+keys.map(function(f){
@@ -282,7 +288,7 @@ function drawSummary(r, ym){
 
   var todayD = S.init.today.slice(0,7)===ym ? +S.init.today.slice(8) : 0;
   h += '<div class="sec">Күндер бойынша</div><div class="tbl"><table><tr><th>Күн</th><th>Лид</th><th>$ сома</th><th>$ / лид</th><th>КЦ лид</th><th>Жазылды</th><th>Конс.</th><th>Келді</th><th>Сатты</th><th>Касса</th></tr>';
-  for (var i=0;i<D;i++){
+  for (var i=firstDay(ym)-1;i<D;i++){
     h += '<tr><td'+(i+1===todayD?' class="today"':'')+'>'+('0'+(i+1)).slice(-2)+'.'+ym.slice(5)+'</td><td>'+z(leads[i])+'</td><td>'+z(spend[i],1)+'</td><td>'+(leads[i]?money(spend[i]/leads[i]):'')+'</td><td>'+z(ccLeads[i])+'</td><td>'+z(booked[i])+'</td><td>'+z(consult[i])+'</td><td>'+z(came[i])+'</td><td>'+z(bought[i])+'</td><td>'+z(kassa[i],1)+'</td></tr>';
   }
   h += '<tr class="tot"><td>Барлығы</td><td>'+fmt(L,0)+'</td><td>'+money(Sp)+'</td><td>'+(L?money(Sp/L):'—')+'</td><td>'+fmt(sum(ccLeads),0)+'</td><td>'+fmt(Bk,0)+'</td><td>'+fmt(sum(consult),0)+'</td><td>'+fmt(Cm,0)+'</td><td>'+fmt(Bt,0)+'</td><td>'+fmt(K)+'</td></tr></table></div>';
