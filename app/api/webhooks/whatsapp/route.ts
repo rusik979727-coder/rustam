@@ -3,6 +3,8 @@ import { createIncomingLead } from "@/lib/leads";
 import { safeEqual, verifyMetaSignature } from "@/lib/security";
 import { handlePatientReply } from "@/lib/automations";
 import { normalizePhone } from "@/lib/phone";
+import { saveInbound, updateStatus } from "@/lib/whatsapp";
+import { db } from "@/lib/db";
 
 /** Meta webhook верификациясы */
 export async function GET(req: NextRequest) {
@@ -30,11 +32,18 @@ export async function POST(req: NextRequest) {
     const v = ch.value ?? {};
     const names: Record<string, string> = {};
     for (const c of v.contacts ?? []) names[c.wa_id] = c.profile?.name;
+    // Жеткізу статустары: sent / delivered / read / failed
+    for (const st of v.statuses ?? []) {
+      if (st.id && st.status) await updateStatus(String(st.id), String(st.status), st.errors?.[0]?.title);
+    }
     for (const m of v.messages ?? []) {
       const phone = normalizePhone(m.from);
-      const text: string = m.text?.body ?? m.button?.text ?? "";
+      const text: string = String(m.text?.body ?? m.button?.text ?? m.interactive?.button_reply?.title ?? (m.type ? `[${m.type}]` : "")).slice(0, 4000);
+      const saved = await saveInbound(phone, text, m.id);
+      if (!saved) continue; // Meta бір хабарды қайта жіберсе
       if (await handlePatientReply(phone, text)) continue;
-      await createIncomingLead({ name: names[m.from], phone, source: "WHATSAPP", comment: text });
+      const { lead } = await createIncomingLead({ name: names[m.from], phone, source: "WHATSAPP", comment: text });
+      await db.message.update({ where: { id: saved.id }, data: { leadId: lead.id, patientId: lead.patientId } });
     }
   }
   return NextResponse.json({ ok: true });

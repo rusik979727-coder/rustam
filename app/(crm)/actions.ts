@@ -11,7 +11,7 @@ import { audit } from "@/lib/audit";
 import { createIncomingLead, autoAssignManager } from "@/lib/leads";
 import { normalizePhone } from "@/lib/phone";
 import { findConflict } from "@/lib/schedule";
-import { onAppointmentStatus, runFrequent, sendDailyReport } from "@/lib/automations";
+import { onAppointmentStatus, runFrequent, sendDailyReport, requestConfirmation } from "@/lib/automations";
 import { assertPatientAccess } from "@/lib/access";
 import { checkUpload, passwordProblem } from "@/lib/security";
 import { LEAD_STATUSES, APPT_STATUSES, PAYMENT_METHODS, ROLES, CLOSED_LEAD_STATUSES, NO_ANSWER_RETRY_HOURS } from "@/lib/constants";
@@ -318,6 +318,7 @@ export async function createAppointment(fd: FormData) {
     data: { status: "BOOKED", firstResponseAt: new Date() },
   });
   await audit(u.id, "Appointment", a.id, "create", { patientId, doctorId, startAt });
+  await requestConfirmation(a.id); // тек тегін терезе ашық болса
   revalidatePath("/schedule");
   revalidatePath(`/patients/${patientId}`);
   const clean = backUrl.replace(/[?&]error=conflict/, "");

@@ -10,9 +10,11 @@ import { money, dt, dateOnly } from "@/lib/format";
 import { PAYMENT_METHODS, COMPLAINTS, APPT_STATUSES } from "@/lib/constants";
 import { Field, Select, StatusBadge, Empty, Stat } from "@/components/ui";
 import { PatientForm } from "@/components/PatientForm";
+import { Chat } from "@/components/Chat";
+import { canChat } from "@/lib/chat-access";
 import { createCourse, setCourseStatus, addMedicalNote, uploadFile, createPayment, setAppointmentStatus } from "../../actions";
 
-export default async function PatientPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; badfile?: string }> }) {
+export default async function PatientPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; badfile?: string; wa?: string }> }) {
   const user = await requireUser();
   const { t, locale } = await getT();
   const id = Number((await params).id);
@@ -180,6 +182,13 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
           </section>
         )}
       </div>
+
+      {staff && (
+        <section className="card" id="chat">
+          <h2 className="h2">WhatsApp</h2>
+          <Chat phone={p.phone} t={t} back={`/patients/${p.id}`} notice={sp.wa} canSend={await canChat(user, p.phone)} />
+        </section>
+      )}
 
       {staff && p.leads.length > 0 && (
         <section className="card">

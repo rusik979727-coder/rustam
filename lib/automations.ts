@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { sendTelegram, sendToPatient } from "./notify";
+import { decideReminder, lastInboundAt, sendText, sendTemplate, waConfigured, TEMPLATES, isWindowOpenFor, paidThisMonth } from "./whatsapp";
 import { audit } from "./audit";
 import { addDays, money, monthKey, startOfDay, startOfMonth, time, dateOnly, pct } from "./format";
 import { funnel } from "./stats";
@@ -111,32 +112,70 @@ export async function escalateUnanswered(now = new Date()) {
   return leads.length;
 }
 
-/** 2) Пациенттерге қабылдау туралы еске салу (24 сағат және 2 сағат бұрын). */
+const reminderText = (when: string, doctor: string) =>
+  `Белес клиникасы: ${when} қабылдауға жазылғансыз (${doctor}).\n1 — растаймын, 2 — ауыстыру керек.\n` +
+  `Клиника Белес: вы записаны на ${when}. 1 — подтверждаю, 2 — перенести.`;
+
+/**
+ * 2) Үнемді еске салу (lib/whatsapp.ts → decideReminder):
+ *  - тегін 24 сағаттық терезе ашық болса — тегін мәтін;
+ *  - пациент «1» деп растап қойса — ақылы еске салу жіберілмейді;
+ *  - тек расталмаған және терезе жабық болса — бір ақылы үлгі хабарлама.
+ * WhatsApp қосылмаған болса — SMS (бар болса) арқылы негізгі еске салу.
+ */
 export async function sendReminders(now = new Date()) {
-  let sent = 0;
-  const in2h = new Date(now.getTime() + 2 * 3600_000);
-  const in24h = new Date(now.getTime() + 24 * 3600_000);
+  const hoursBefore = Number(process.env.REMINDER_HOURS || 24);
+  const stats = { free: 0, paid: 0, skipped: 0 };
   const appts = await db.appointment.findMany({
-    where: { status: { in: ["BOOKED", "CONFIRMED"] }, startAt: { gt: now, lte: in24h } },
+    where: { status: { in: ["BOOKED", "CONFIRMED"] }, startAt: { gt: now, lte: new Date(now.getTime() + hoursBefore * 3600_000) } },
     include: { patient: true, doctor: true },
   });
   for (const a of appts) {
     const when = `${dateOnly(a.startAt)} ${time(a.startAt)}`;
-    if (a.startAt <= in2h && !a.remind2Sent) {
-      await sendToPatient(a.patient.phone, `Белес клиникасы: бүгін ${time(a.startAt)}-да қабылдауыңыз бар (${a.doctor.name}). Күтеміз!`);
-      await db.appointment.update({ where: { id: a.id }, data: { remind2Sent: true, remind24Sent: true } });
-      sent++;
-    } else if (a.startAt > in2h && !a.remind24Sent) {
-      await sendToPatient(
-        a.patient.phone,
-        `Белес клиникасы: ${when} қабылдауға жазылғансыз (${a.doctor.name}).\n1 — растаймын, 2 — ауыстыру керек.\n` +
-          `Клиника Белес: вы записаны на ${when}. 1 — подтверждаю, 2 — перенести.`,
-      );
-      await db.appointment.update({ where: { id: a.id }, data: { remind24Sent: true } });
-      sent++;
+    const d = decideReminder({
+      now,
+      startAt: a.startAt,
+      status: a.status,
+      lastInboundAt: await lastInboundAt(a.patient.phone),
+      mainSent: a.remind24Sent,
+      sameDaySent: a.remind2Sent,
+      hoursBefore,
+    });
+    const upd: { remind24Sent?: boolean; remind2Sent?: boolean } = {};
+
+    if (d.main) {
+      upd.remind24Sent = true;
+      if (d.main === "free") {
+        await sendText(a.patient.phone, reminderText(when, a.doctor.name));
+        stats.free++;
+      } else if (d.main === "paid") {
+        if (waConfigured()) {
+          await sendTemplate(a.patient.phone, TEMPLATES.reminder(), [a.patient.fullName, when, a.doctor.name], `[Үлгі] ${reminderText(when, a.doctor.name)}`);
+        } else {
+          await sendToPatient(a.patient.phone, reminderText(when, a.doctor.name)); // SMS fallback
+        }
+        stats.paid++;
+      } else stats.skipped++;
     }
+    if (d.sameDay) {
+      upd.remind2Sent = true;
+      if (d.sameDay === "free" && !d.main) {
+        await sendText(a.patient.phone, `Белес клиникасы: бүгін ${time(a.startAt)}-да күтеміз (${a.doctor.name}). / Ждём вас сегодня в ${time(a.startAt)}.`);
+        stats.free++;
+      } else stats.skipped++;
+    }
+    if (Object.keys(upd).length) await db.appointment.update({ where: { id: a.id }, data: upd });
   }
-  return sent;
+  return stats;
+}
+
+/** Жазылған сәтте растау сұрау — тек тегін терезе ашық болса (ақылы жібермейміз). */
+export async function requestConfirmation(apptId: number) {
+  const a = await db.appointment.findUnique({ where: { id: apptId }, include: { patient: true, doctor: true } });
+  if (!a || !(await isWindowOpenFor(a.patient.phone))) return false;
+  const when = `${dateOnly(a.startAt)} ${time(a.startAt)}`;
+  const r = await sendText(a.patient.phone, reminderText(when, a.doctor.name));
+  return r.ok || r.status === "offline";
 }
 
 /** 3) Курс аяқталғаннан 30 күн өткенде — «жағдайын сұрау» тапсырмасы. */
@@ -213,6 +252,7 @@ export async function buildDailyReport(now = new Date()) {
     `Өтінімдер: ${f.total} (жазылды ${f.booked}, бас тартты ${f.lost})`,
     `Қабылдау: ${appts.length} (келді ${arrived}, келмеді ${noShow})`,
     `Бүгінгі түсім: ${money(payments._sum.amount ?? 0)}`,
+    `WhatsApp ақылы хабарламалар (ай): ${await paidThisMonth(now)}`,
     `Ай түсімі: ${money(monthRev)}${plan?.revenue ? ` / ${money(plan.revenue)} (${pct(monthRev, plan.revenue)}%)` : ""}`,
     ``,
     `<b>Менеджерлер:</b>`,
@@ -232,7 +272,7 @@ export async function runFrequent(now = new Date()) {
     callbacks: await callbackTasks(now),
     followUps: await followUps(now),
   };
-  if (res.escalated || res.reminders) await audit(null, "Automation", null, "run", res);
+  if (res.escalated || res.reminders.free || res.reminders.paid) await audit(null, "Automation", null, "run", res);
   return res;
 }
 
@@ -250,6 +290,8 @@ export async function handlePatientReply(phone: string, text: string) {
   if (answer === "1") {
     await db.appointment.update({ where: { id: appt.id }, data: { status: "CONFIRMED" } });
     await audit(null, "Appointment", appt.id, "confirmed_by_patient");
+    // Пациент жаңа ғана жазды — терезе ашық, жауап тегін
+    await sendText(phone, `Рахмет! ${dateOnly(appt.startAt)} ${time(appt.startAt)} қабылдауыңыз расталды. / Спасибо, запись подтверждена.`);
   } else {
     const assignee = await responsibleFor(patient.id);
     if (assignee)
@@ -262,6 +304,7 @@ export async function handlePatientReply(phone: string, text: string) {
         patientId: patient.id,
       });
     await audit(null, "Appointment", appt.id, "reschedule_requested");
+    await sendText(phone, "Түсіндік, менеджер жақын арада хабарласып, ыңғайлы уақытты ұсынады. / Менеджер свяжется с вами для переноса.");
   }
   return true;
 }

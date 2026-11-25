@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { getT } from "@/lib/i18n-server";
 import { db } from "@/lib/db";
 import { Nav } from "@/components/Nav";
+import { visiblePhones } from "@/lib/chat-access";
 import { LangSwitch } from "@/components/LangSwitch";
 import { logoutAction } from "@/app/actions-public";
 
@@ -11,14 +12,16 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
   const head = user.role === "HEAD_MANAGER";
   const doctor = user.role === "DOCTOR";
 
-  const [openTasks, newLeads] = await Promise.all([
+  const phones = await visiblePhones(user);
+  const [openTasks, newLeads, unreadWa] = await Promise.all([
     db.task.count({ where: { assigneeId: user.id, done: false, dueAt: { lte: new Date() } } }),
     doctor ? 0 : db.lead.count({ where: { status: "NEW", ...(head ? {} : { managerId: user.id }) } }),
+    doctor ? 0 : db.message.count({ where: { direction: "IN", readAt: null, ...(phones ? { phone: { in: phones } } : {}) } }),
   ]);
 
   const items = [
     { href: "/", label: head ? t("nav.dashboard") : t("nav.my") },
-    ...(!doctor ? [{ href: "/leads", label: t("nav.leads"), badge: newLeads }] : []),
+    ...(!doctor ? [{ href: "/leads", label: t("nav.leads"), badge: newLeads }, { href: "/chats", label: "WhatsApp", badge: unreadWa }] : []),
     { href: "/patients", label: t("nav.patients") },
     { href: "/schedule", label: t("nav.schedule") },
     ...(!doctor ? [{ href: "/payments", label: t("nav.payments") }] : []),

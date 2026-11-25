@@ -29,6 +29,7 @@ model User {
   medicalNotes   MedicalNote[]
   plans          MonthlyPlan[]
   auditLogs      AuditLog[]
+  messages       Message[]
 }
 
 model Doctor {
@@ -71,6 +72,7 @@ model Patient {
   medicalNotes MedicalNote[]
   attachments  Attachment[]
   tasks        Task[]
+  messages     Message[]
 }
 
 model Lead {
@@ -93,6 +95,7 @@ model Lead {
   updatedAt       DateTime       @updatedAt
   activities      LeadActivity[]
   tasks           Task[]
+  messages        Message[]
 
   @@index([status])
   @@index([managerId])
@@ -242,4 +245,29 @@ model LoginAttempt {
   createdAt DateTime @default(now())
 
   @@index([key, createdAt])
+}
+
+/// WhatsApp хабарламалары (кіріс және шығыс)
+model Message {
+  id         Int       @id @default(autoincrement())
+  phone      String // +7XXXXXXXXXX
+  direction  String // IN | OUT
+  kind       String    @default("TEXT") // TEXT | TEMPLATE
+  text       String
+  // OUT: queued | sent | delivered | read | failed | offline (WhatsApp қосылмаған)
+  status     String    @default("sent")
+  paid       Boolean   @default(false) // ақылы үлгі хабарлама ма
+  waId       String?   @unique
+  error      String?
+  userId     Int?
+  user       User?     @relation(fields: [userId], references: [id])
+  leadId     Int?
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  patientId  Int?
+  patient    Patient?  @relation(fields: [patientId], references: [id])
+  readAt     DateTime? // IN хабарламаны менеджер оқыды
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@index([direction, readAt])
 }

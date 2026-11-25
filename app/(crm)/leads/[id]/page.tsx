@@ -6,9 +6,10 @@ import { db } from "@/lib/db";
 import { LEAD_STATUSES, LEAD_SOURCES, COMPLAINTS, LOST_REASONS } from "@/lib/constants";
 import { dt, toLocalInput } from "@/lib/format";
 import { Field, Select, StatusBadge } from "@/components/ui";
+import { Chat } from "@/components/Chat";
 import { updateLead, addLeadActivity, reassignLead, convertLead } from "../../actions";
 
-export default async function LeadPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string }> }) {
+export default async function LeadPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; wa?: string }> }) {
   const user = await requireUser(["HEAD_MANAGER", "MANAGER"]);
   const { t } = await getT();
   const id = Number((await params).id);
@@ -71,6 +72,11 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
           )}
         </section>
       </div>
+
+      <section className="card" id="chat">
+        <h2 className="h2">WhatsApp</h2>
+        <Chat phone={lead.phone} t={t} back={`/leads/${lead.id}`} notice={sp.wa} />
+      </section>
 
       <section className="card">
         <h2 className="h2">{t("leads.history")}</h2>

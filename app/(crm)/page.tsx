@@ -8,6 +8,7 @@ import { debtors } from "@/lib/debts";
 import { Stat, Meter, Empty, StatusBadge } from "@/components/ui";
 import { reassignLead, autoAssignUnassigned, runAutomationsNow, toggleTask } from "./actions";
 import { integrations } from "@/lib/notify";
+import { paidThisMonth } from "@/lib/whatsapp";
 import { NOT_SPAM, CLOSED_LEAD_STATUSES, OPEN_LEAD_STATUSES } from "@/lib/constants";
 
 type SP = Promise<{ from?: string; to?: string; manager?: string }>;
@@ -251,7 +252,7 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
         <span className="mx-2 hidden h-5 w-px bg-slate-200 md:block" />
         <form action={runAutomationsNow}><button className="btn-ghost btn-sm">⚙ {t("dash.runAutomations")}</button></form>
         <span className="text-xs text-slate-500">
-          Telegram: {integ.telegram ? "✓" : "✗"} · WhatsApp: {integ.whatsapp ? "✓" : "✗"} · SMS: {integ.sms ? "✓" : "✗"}
+          Telegram: {integ.telegram ? "✓" : "✗"} · WhatsApp: {integ.whatsapp ? "✓" : "✗"} · SMS: {integ.sms ? "✓" : "✗"} · {t("chat.paidMonth")}: <b>{await paidThisMonth()}</b>
         </span>
         <span className="sr-only">{locale}</span>
       </section>
