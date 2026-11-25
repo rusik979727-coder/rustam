@@ -1,0 +1,232 @@
+// Белес клиникасы CRM — дерекқор схемасы
+// Статустар мен түрлер String түрінде сақталады (мәндері lib/constants.ts ішінде).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int            @id @default(autoincrement())
+  name           String
+  login          String         @unique
+  passwordHash   String
+  role           String // HEAD_MANAGER | MANAGER | DOCTOR
+  active         Boolean        @default(true)
+  lastAssignedAt DateTime?
+  createdAt      DateTime       @default(now())
+  doctor         Doctor?
+  leads          Lead[]
+  tasks          Task[]
+  activities     LeadActivity[]
+  payments       Payment[]
+  appointments   Appointment[]
+  medicalNotes   MedicalNote[]
+  plans          MonthlyPlan[]
+  auditLogs      AuditLog[]
+}
+
+model Doctor {
+  id           Int               @id @default(autoincrement())
+  name         String
+  specialty    String
+  room         String?
+  active       Boolean           @default(true)
+  userId       Int?              @unique
+  user         User?             @relation(fields: [userId], references: [id])
+  appointments Appointment[]
+  courses      TreatmentCourse[]
+}
+
+model Service {
+  id           Int           @id @default(autoincrement())
+  nameKk       String
+  nameRu       String
+  price        Int
+  durationMin  Int
+  active       Boolean       @default(true)
+  appointments Appointment[]
+}
+
+model Patient {
+  id           Int               @id @default(autoincrement())
+  fullName     String
+  phone        String            @unique
+  iin          String?
+  birthDate    DateTime?
+  gender       String?
+  diagnosis    String? // HERNIA | PROTRUSION | ARTHROSIS | ARTHRITIS | OTHER
+  hasMri       Boolean           @default(false)
+  notes        String?
+  createdAt    DateTime          @default(now())
+  leads        Lead[]
+  appointments Appointment[]
+  courses      TreatmentCourse[]
+  payments     Payment[]
+  medicalNotes MedicalNote[]
+  attachments  Attachment[]
+  tasks        Task[]
+}
+
+model Lead {
+  id              Int            @id @default(autoincrement())
+  name            String
+  phone           String
+  source          String
+  complaint       String         @default("OTHER")
+  status          String         @default("NEW") // NEW CONTACTED BOOKED ARRIVED PAID LOST
+  comment         String?
+  lostReason      String?
+  nextContactAt   DateTime?
+  firstResponseAt DateTime?
+  escalatedAt     DateTime?
+  managerId       Int?
+  manager         User?          @relation(fields: [managerId], references: [id])
+  patientId       Int?
+  patient         Patient?       @relation(fields: [patientId], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  activities      LeadActivity[]
+  tasks           Task[]
+
+  @@index([status])
+  @@index([managerId])
+  @@index([phone])
+}
+
+model LeadActivity {
+  id        Int      @id @default(autoincrement())
+  leadId    Int
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  type      String // CALL MESSAGE NOTE STATUS SYSTEM
+  text      String
+  createdAt DateTime @default(now())
+}
+
+model Appointment {
+  id          Int              @id @default(autoincrement())
+  patientId   Int
+  patient     Patient          @relation(fields: [patientId], references: [id])
+  doctorId    Int
+  doctor      Doctor           @relation(fields: [doctorId], references: [id])
+  serviceId   Int
+  service     Service          @relation(fields: [serviceId], references: [id])
+  courseId    Int?
+  course      TreatmentCourse? @relation(fields: [courseId], references: [id])
+  managerId   Int?
+  manager     User?            @relation(fields: [managerId], references: [id])
+  startAt     DateTime
+  endAt       DateTime
+  status      String           @default("BOOKED") // BOOKED CONFIRMED ARRIVED NO_SHOW CANCELLED
+  price       Int              @default(0)
+  comment     String?
+  remind24Sent Boolean         @default(false)
+  remind2Sent  Boolean         @default(false)
+  createdAt   DateTime         @default(now())
+  payments    Payment[]
+
+  @@index([startAt])
+  @@index([doctorId, startAt])
+}
+
+model TreatmentCourse {
+  id            Int           @id @default(autoincrement())
+  patientId     Int
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  doctorId      Int?
+  doctor        Doctor?       @relation(fields: [doctorId], references: [id])
+  title         String
+  totalSessions Int
+  doneSessions  Int           @default(0)
+  price         Int
+  status        String        @default("ACTIVE") // ACTIVE DONE CANCELLED
+  finishedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  appointments  Appointment[]
+  payments      Payment[]
+}
+
+model MedicalNote {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id])
+  diagnosis String?
+  text      String
+  createdAt DateTime @default(now())
+}
+
+model Attachment {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  fileName  String
+  path      String
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id            Int              @id @default(autoincrement())
+  patientId     Int
+  patient       Patient          @relation(fields: [patientId], references: [id])
+  amount        Int
+  method        String // KASPI CASH CARD TRANSFER
+  courseId      Int?
+  course        TreatmentCourse? @relation(fields: [courseId], references: [id])
+  appointmentId Int?
+  appointment   Appointment?     @relation(fields: [appointmentId], references: [id])
+  managerId     Int?
+  manager       User?            @relation(fields: [managerId], references: [id])
+  comment       String?
+  createdAt     DateTime         @default(now())
+
+  @@index([createdAt])
+}
+
+model Task {
+  id         Int      @id @default(autoincrement())
+  title      String
+  kind       String   @default("MANUAL") // MANUAL NO_SHOW COURSE_ENDING FOLLOWUP_30 RESCHEDULE CALLBACK
+  assigneeId Int
+  assignee   User     @relation(fields: [assigneeId], references: [id])
+  leadId     Int?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  patientId  Int?
+  patient    Patient? @relation(fields: [patientId], references: [id])
+  refKey     String?  @unique // автотапсырма қайталанбауы үшін
+  dueAt      DateTime
+  done       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([assigneeId, done])
+}
+
+model MonthlyPlan {
+  id        Int    @id @default(autoincrement())
+  month     String // "2026-11"
+  managerId Int?
+  manager   User?  @relation(fields: [managerId], references: [id])
+  leads     Int    @default(0)
+  bookings  Int    @default(0)
+  revenue   Int    @default(0)
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  entity    String
+  entityId  Int?
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
