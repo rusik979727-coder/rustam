@@ -8,5 +8,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|api/webhooks|api/cron|_next|favicon.ico).*)"],
+  matcher: ["/((?!login|api/webhooks|api/cron|api/health|_next|favicon.ico).*)"],
 };

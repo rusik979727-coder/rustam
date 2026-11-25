@@ -1,0 +1,16 @@
+# HTTPS сертификатын Caddy өзі алады және автоматты жаңартады (Let's Encrypt / ZeroSSL).
+# Домен .env ішіндегі DOMAIN айнымалысынан алынады.
+{$DOMAIN} {
+	encode zstd gzip
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy app:3000 {
+		# Клиенттің нақты IP-і (логин шектеуі үшін) — жалғандауға болмайды
+		header_up X-Real-IP {remote_host}
+	}
+	log {
+		output stdout
+		format console
+	}
+}

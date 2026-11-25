@@ -15,7 +15,8 @@ export async function loginAction(_: unknown, fd: FormData) {
   const login = String(fd.get("login") || "").trim().slice(0, 100);
   const password = String(fd.get("password") || "").slice(0, 200);
   const h = await headers();
-  const ip = (h.get("x-forwarded-for")?.split(",")[0] || h.get("x-real-ip") || "local").trim();
+  // Caddy X-Real-IP-ді клиенттің нақты адресінен қояды (жалғандауға болмайды)
+  const ip = (h.get("x-real-ip") || h.get("x-forwarded-for")?.split(",")[0] || "local").trim();
   const since = new Date(Date.now() - LOGIN_WINDOW_MIN * 60000);
   // Логин бойынша да, IP бойынша да шектеу
   const [byLogin, byIp] = await Promise.all([

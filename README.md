@@ -53,7 +53,7 @@ npm run dev                   # http://localhost:3000
 Демо логиндер (құпиясөз `beles123`): `head` — бас менеджер, `aigerim`, `dana`, `erlan` — менеджерлер, `doctor` — дәрігер.
 **Продакшнда** демо-деректерді жүктемеңіз немесе құпиясөздерді Баптаулар бөлімінде ауыстырыңыз.
 
-Продакшн: `prisma/schema.prisma` ішінде `provider = "postgresql"` қойып, `DATABASE_URL` PostgreSQL-ге бағыттаңыз; `npm run build && npm start` + `npm run cron`.
+**Серверге орнату (production):** [DEPLOY.md](DEPLOY.md) — Docker + PostgreSQL + автоматты HTTPS + күнделікті шифрланған резерв көшірме, бір командамен (`./deploy/install.sh`).
 
 ## WhatsApp (ресми Cloud API)
 
