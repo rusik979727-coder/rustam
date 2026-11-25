@@ -34,7 +34,7 @@ WA_PHONE_NUMBER_ID=""
 WA_VERIFY_TOKEN="$(rand 16)"
 META_APP_SECRET=""
 WA_TPL_REMINDER="appointment_reminder"
-WA_TPL_FOLLOWUP="patient_followup"
+WA_TPL_FOLLOWUP="client_followup"
 WA_TPL_LANG="kk"
 IG_VERIFY_TOKEN="$(rand 16)"
 

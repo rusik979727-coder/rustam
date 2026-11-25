@@ -3,7 +3,7 @@
 {$DOMAIN} {
 	encode zstd gzip
 	request_body {
-		max_size 25MB
+		max_size 2MB
 	}
 	reverse_proxy app:3000 {
 		# Клиенттің нақты IP-і (логин шектеуі үшін) — жалғандауға болмайды

@@ -1,4 +1,4 @@
-export const ROLES = ["HEAD_MANAGER", "MANAGER", "DOCTOR"] as const;
+export const ROLES = ["HEAD_MANAGER", "MANAGER"] as const;
 export type Role = (typeof ROLES)[number];
 
 /**
@@ -17,8 +17,4 @@ export const NO_ANSWER_RETRY_HOURS = 2;
 
 export const LEAD_SOURCES = ["INSTAGRAM", "WHATSAPP", "2GIS", "SITE", "CALL", "REFERRAL", "OTHER"] as const;
 export const COMPLAINTS = ["HERNIA", "PROTRUSION", "ARTHROSIS", "ARTHRITIS", "OTHER"] as const;
-export const APPT_STATUSES = ["BOOKED", "CONFIRMED", "ARRIVED", "NO_SHOW", "CANCELLED"] as const;
-export type ApptStatus = (typeof APPT_STATUSES)[number];
-export const ACTIVE_APPT_STATUSES: ApptStatus[] = ["BOOKED", "CONFIRMED", "ARRIVED"];
-export const PAYMENT_METHODS = ["KASPI", "CASH", "CARD", "TRANSFER"] as const;
 export const LOST_REASONS = ["EXPENSIVE", "FAR", "NO_ANSWER", "OTHER_CLINIC", "NOT_NOW", "OTHER"] as const;

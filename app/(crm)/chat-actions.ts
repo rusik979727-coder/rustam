@@ -36,12 +36,12 @@ export async function sendFollowupTemplate(fd: FormData) {
   const u = await requireUser(["HEAD_MANAGER", "MANAGER"]);
   const phone = normalizePhone(String(fd.get("phone") ?? ""));
   if (!(await canChat(u, phone))) throw new Error("Forbidden");
-  const name = (await db.patient.findUnique({ where: { phone } }))?.fullName ?? (await db.lead.findFirst({ where: { phone } }))?.name ?? "";
+  const name = (await db.lead.findFirst({ where: { phone }, orderBy: { createdAt: "desc" } }))?.name ?? "";
   const r = await sendTemplate(
     phone,
     TEMPLATES.followup(),
     [name],
-    `[Үлгі, ақылы] Сәлеметсіз бе, ${name}! Белес клиникасынан жазып тұрмыз. Жауап беруге ыңғайлы болса, осы чатқа жазыңыз.`,
+    `[Үлгі, ақылы] Сәлеметсіз бе, ${name}! Белес клиникасынан жазып тұрмыз. Ыңғайлы болса, осы чатқа жауап беріңіз.`,
     u.id,
   );
   await audit(u.id, "Message", null, "template_sent", { phone, ok: r.ok });

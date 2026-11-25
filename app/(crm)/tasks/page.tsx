@@ -15,7 +15,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const assigneeId = head ? (sp.who === "all" ? undefined : sp.who ? Number(sp.who) : undefined) : user.id;
   const tasks = await db.task.findMany({
     where: { ...(assigneeId ? { assigneeId } : {}), done: sp.done === "1" },
-    include: { assignee: true, lead: true, patient: true },
+    include: { assignee: true, lead: true },
     orderBy: { dueAt: sp.done === "1" ? "desc" : "asc" },
     take: 300,
   });
@@ -55,8 +55,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                   <td className="whitespace-nowrap">{dt(x.dueAt)}</td>
                   {head && <td>{x.assignee.name}</td>}
                   <td className="whitespace-nowrap text-xs">
-                    {x.lead && <Link className="link" href={`/leads/${x.lead.id}`}>{t("nav.leads")} #{x.lead.id}</Link>}{" "}
-                    {x.patient && <Link className="link" href={`/patients/${x.patient.id}`}>{x.patient.fullName}</Link>}
+                    {x.lead && <Link className="link" href={`/leads/${x.lead.id}`}>{t("nav.leads")} #{x.lead.id}</Link>}
                   </td>
                 </tr>
               ))}

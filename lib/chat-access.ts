@@ -1,13 +1,12 @@
 import { db } from "./db";
 import type { CurrentUser } from "./auth";
 
-/** Бас менеджер — барлық чат; менеджер — өз өтінімдерінің және пациенттердің нөмірлері; дәрігер — жоқ. */
+/** Бас менеджер — барлық чат; менеджер — тек өз өтінімдерінің нөмірлері. */
 export async function canChat(user: CurrentUser, phone: string) {
   if (user.role === "HEAD_MANAGER") return true;
   if (user.role !== "MANAGER") return false;
   const lead = await db.lead.findFirst({ where: { phone }, orderBy: { createdAt: "desc" }, select: { managerId: true } });
-  if (lead) return lead.managerId === user.id;
-  return (await db.patient.count({ where: { phone } })) > 0;
+  return !!lead && lead.managerId === user.id;
 }
 
 /** Менеджерге көрінетін нөмірлер шарты (кіріс жәшігі үшін). null — шектеусіз. */

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Белес CRM резерв көшірмесі: дерекқор + жүктелген файлдар, шифрланған (AES-256, gpg).
+# Белес резерв көшірмесі: дерекқор, шифрланған (AES-256, gpg).
 # Серверде күн сайын: crontab -e →  30 2 * * * /opt/beles/scripts/backup.sh >> /var/log/beles-backup.log 2>&1
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -12,8 +12,7 @@ mkdir -p "$DIR"; chmod 700 "$DIR"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 docker compose exec -T db pg_dump -U beles -d beles --format=custom > "$TMP/db.dump"
-docker compose exec -T app tar -C /app -cf - uploads > "$TMP/uploads.tar"
-tar -C "$TMP" -czf "$TMP/beles.tgz" db.dump uploads.tar
+tar -C "$TMP" -czf "$TMP/beles.tgz" db.dump
 gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
     --symmetric --cipher-algo AES256 -o "$DIR/beles-$TS.tgz.gpg" "$TMP/beles.tgz"
 chmod 600 "$DIR/beles-$TS.tgz.gpg"

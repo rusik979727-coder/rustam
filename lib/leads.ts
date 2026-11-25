@@ -39,7 +39,7 @@ export function guessComplaint(text?: string): string {
 /**
  * Жаңа өтінімді тіркеу (қолмен де, webhook арқылы да).
  * - нөмір бойынша ашық өтінім бар болса — жаңасы құрылмай, соған жазба қосылады;
- * - бар пациент болса — өтінім соған байланады;
+ * - бұрын жабылған өтінімі болса (қайталама клиент) — аты сол жерден алынып, белгіленеді;
  * - менеджер көрсетілмесе — автобөлу.
  */
 export async function createIncomingLead(input: IncomingLead) {
@@ -65,19 +65,24 @@ export async function createIncomingLead(input: IncomingLead) {
     return { lead: open, duplicate: true };
   }
 
-  const patient = await db.patient.findUnique({ where: { phone } });
+  const previous = await db.lead.findFirst({ where: { phone }, orderBy: { createdAt: "desc" } });
   const managerId = input.managerId === undefined || input.managerId === null ? await autoAssignManager() : input.managerId;
 
   const lead = await db.lead.create({
     data: {
-      name: input.name?.trim() || patient?.fullName || phone,
+      name: input.name?.trim() || previous?.name || phone,
       phone,
       source,
       complaint,
       comment: input.comment || null,
       managerId,
-      patientId: patient?.id ?? null,
-      activities: { create: { type: "SYSTEM", text: `Өтінім түсті: ${source}`, userId: input.createdBy ?? null } },
+      activities: {
+        create: {
+          type: "SYSTEM",
+          text: `Өтінім түсті: ${source}${previous ? ` (қайталама клиент, бұрынғы өтінім #${previous.id})` : ""}`,
+          userId: input.createdBy ?? null,
+        },
+      },
     },
   });
   await audit(input.createdBy ?? null, "Lead", lead.id, "create", { source, managerId });

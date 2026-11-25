@@ -2,19 +2,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { requireUser, isHead, createSession, type CurrentUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { createIncomingLead, autoAssignManager } from "@/lib/leads";
 import { normalizePhone } from "@/lib/phone";
-import { findConflict } from "@/lib/schedule";
-import { onAppointmentStatus, runFrequent, sendDailyReport, requestConfirmation } from "@/lib/automations";
-import { assertPatientAccess } from "@/lib/access";
-import { checkUpload, passwordProblem } from "@/lib/security";
-import { LEAD_STATUSES, APPT_STATUSES, PAYMENT_METHODS, ROLES, CLOSED_LEAD_STATUSES, NO_ANSWER_RETRY_HOURS } from "@/lib/constants";
+import { runFrequent, sendDailyReport, requestConfirmation } from "@/lib/automations";
+import { passwordProblem } from "@/lib/security";
+import { dateOnly, time } from "@/lib/format";
+import { LEAD_STATUSES, ROLES, CLOSED_LEAD_STATUSES, NO_ANSWER_RETRY_HOURS } from "@/lib/constants";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const num = (fd: FormData, k: string) => {
@@ -24,10 +20,6 @@ const num = (fd: FormData, k: string) => {
 const date = (fd: FormData, k: string) => {
   const v = str(fd, k);
   return v ? new Date(v) : null;
-};
-const back = (fd: FormData, fallback: string) => {
-  const b = str(fd, "back");
-  return b.startsWith("/") ? b : fallback;
 };
 
 async function loadLeadFor(user: CurrentUser, id: number) {
@@ -63,13 +55,24 @@ export async function createLead(fd: FormData) {
   redirect(`/leads/${lead.id}${duplicate ? "?dup=1" : ""}`);
 }
 
-async function applyLeadStatus(u: CurrentUser, leadId: number, status: string, extra: { lostReason?: string | null } = {}) {
+async function applyLeadStatus(
+  u: CurrentUser,
+  leadId: number,
+  status: string,
+  extra: { lostReason?: string | null; amount?: number | null } = {},
+) {
   const lead = await loadLeadFor(u, leadId);
   if (!(LEAD_STATUSES as readonly string[]).includes(status) || lead.status === status) return lead;
   await db.lead.update({
     where: { id: leadId },
     data: {
       status,
+      // «Емге төледі» — сома мен күні түсім есебіне кіреді
+      ...(status === "PAID"
+        ? { paidAt: new Date(), amount: extra.amount ?? lead.amount }
+        : lead.status === "PAID"
+          ? { paidAt: null }
+          : {}),
       lostReason: status === "LOST" ? extra.lostReason || lead.lostReason || "OTHER" : null,
       firstResponseAt: lead.firstResponseAt ?? (status !== "NEW" ? new Date() : null),
       // «Не отвечает» → N сағаттан кейін қайта хабарласу автоматты қойылады
@@ -83,10 +86,40 @@ async function applyLeadStatus(u: CurrentUser, leadId: number, status: string, e
   return lead;
 }
 
+const amountOf = (fd: FormData) => {
+  const v = num(fd, "amount");
+  return v !== null && Number.isFinite(v) && v >= 0 ? Math.round(v) : null;
+};
+
+/** Конс күнін қою/ауыстыру: статус «Конс»-қа көтеріледі, еске салулар қайта қосылады, тегін болса растау сұралады. */
+async function applyConsult(u: CurrentUser, leadId: number, consultAt: Date | null) {
+  if (consultAt && isNaN(consultAt.getTime())) return;
+  const lead = await loadLeadFor(u, leadId);
+  await db.lead.update({
+    where: { id: leadId },
+    data: { consultAt, consultConfirmedAt: null, remindMainSent: false, remindSameDaySent: false },
+  });
+  await db.leadActivity.create({
+    data: { leadId, userId: u.id, type: "SYSTEM", text: consultAt ? `Конс: ${dateOnly(consultAt)} ${time(consultAt)}` : "Конс күні алынды" },
+  });
+  if (consultAt && ["NEW", "CONTACTED", "NO_ANSWER"].includes(lead.status)) await applyLeadStatus(u, leadId, "BOOKED");
+  if (consultAt && consultAt > new Date()) await requestConfirmation(leadId); // тек тегін терезе ашық болса
+}
+
+export async function setConsult(fd: FormData) {
+  const u = await requireStaff();
+  const id = Number(str(fd, "id"));
+  await applyConsult(u, id, date(fd, "consultAt"));
+  revalidatePath("/leads");
+  revalidatePath(`/leads/${id}`);
+  revalidatePath("/");
+}
+
 export async function moveLead(fd: FormData) {
   const u = await requireStaff();
-  await applyLeadStatus(u, Number(str(fd, "id")), str(fd, "status"), { lostReason: str(fd, "lostReason") || null });
+  await applyLeadStatus(u, Number(str(fd, "id")), str(fd, "status"), { lostReason: str(fd, "lostReason") || null, amount: amountOf(fd) });
   revalidatePath("/leads");
+  revalidatePath("/");
   revalidatePath(`/leads/${str(fd, "id")}`);
 }
 
@@ -103,9 +136,14 @@ export async function updateLead(fd: FormData) {
       source: str(fd, "source") || lead.source,
       comment: str(fd, "comment") || null,
       nextContactAt: date(fd, "nextContactAt"),
+      ...(lead.status === "PAID" && amountOf(fd) !== null ? { amount: amountOf(fd) } : {}),
     },
   });
-  if (str(fd, "status")) await applyLeadStatus(u, id, str(fd, "status"), { lostReason: str(fd, "lostReason") || null });
+  const consultAt = date(fd, "consultAt");
+  if ((consultAt?.getTime() ?? null) !== (lead.consultAt?.getTime() ?? null)) await applyConsult(u, id, consultAt);
+  // Статус — тек менеджер формада шынымен өзгертсе (әйтпесе конс қойылғандағы «Конс» статусын ескі мән басып кетер еді)
+  const formStatus = str(fd, "status");
+  if (formStatus && formStatus !== lead.status) await applyLeadStatus(u, id, formStatus, { lostReason: str(fd, "lostReason") || null, amount: amountOf(fd) });
   await audit(u.id, "Lead", id, "update");
   revalidatePath(`/leads/${id}`);
 }
@@ -154,218 +192,6 @@ export async function autoAssignUnassigned() {
   revalidatePath("/leads");
 }
 
-export async function convertLead(fd: FormData) {
-  const u = await requireStaff();
-  const id = Number(str(fd, "id"));
-  const lead = await loadLeadFor(u, id);
-  let patientId = lead.patientId;
-  if (!patientId) {
-    const existing = await db.patient.findUnique({ where: { phone: lead.phone } });
-    const p =
-      existing ??
-      (await db.patient.create({ data: { fullName: lead.name, phone: lead.phone, diagnosis: lead.complaint } }));
-    patientId = p.id;
-    await db.lead.update({ where: { id }, data: { patientId } });
-    await audit(u.id, "Patient", p.id, existing ? "link" : "create", { fromLead: id });
-  }
-  redirect(`/patients/${patientId}`);
-}
-
-/* ---------------- Пациенттер ---------------- */
-
-export async function savePatient(fd: FormData) {
-  const u = await requireUser();
-  const id = num(fd, "id");
-  const data = {
-    fullName: str(fd, "fullName"),
-    phone: normalizePhone(str(fd, "phone")),
-    iin: str(fd, "iin") || null,
-    birthDate: date(fd, "birthDate"),
-    gender: str(fd, "gender") || null,
-    diagnosis: str(fd, "diagnosis") || null,
-    hasMri: fd.get("hasMri") === "on",
-    notes: str(fd, "notes") || null,
-  };
-  if (id) await assertPatientAccess(u, id);
-  else if (u.role === "DOCTOR") throw new Error("Forbidden");
-  const dup = await db.patient.findUnique({ where: { phone: data.phone } });
-  if (dup && dup.id !== id) redirect(`/patients/${dup.id}?dup=1`);
-  const p = id ? await db.patient.update({ where: { id }, data }) : await db.patient.create({ data });
-  await audit(u.id, "Patient", p.id, id ? "update" : "create");
-  revalidatePath("/patients");
-  redirect(`/patients/${p.id}`);
-}
-
-export async function createCourse(fd: FormData) {
-  const u = await requireUser();
-  const patientId = Number(str(fd, "patientId"));
-  await assertPatientAccess(u, patientId);
-  const c = await db.treatmentCourse.create({
-    data: {
-      patientId,
-      title: str(fd, "title"),
-      totalSessions: Number(str(fd, "totalSessions") || 10),
-      price: Number(str(fd, "price") || 0),
-      doctorId: num(fd, "doctorId"),
-    },
-  });
-  await audit(u.id, "Course", c.id, "create", { patientId, price: c.price });
-  revalidatePath(`/patients/${patientId}`);
-}
-
-export async function setCourseStatus(fd: FormData) {
-  const u = await requireUser();
-  const id = Number(str(fd, "id"));
-  const status = str(fd, "status");
-  if (!["ACTIVE", "DONE", "CANCELLED"].includes(status)) return;
-  const existing = await db.treatmentCourse.findUniqueOrThrow({ where: { id } });
-  await assertPatientAccess(u, existing.patientId);
-  const c = await db.treatmentCourse.update({
-    where: { id },
-    data: { status, finishedAt: status === "DONE" ? new Date() : null },
-  });
-  await audit(u.id, "Course", id, "status", status);
-  revalidatePath(`/patients/${c.patientId}`);
-}
-
-export async function addMedicalNote(fd: FormData) {
-  const u = await requireUser();
-  const patientId = Number(str(fd, "patientId"));
-  const text = str(fd, "text").slice(0, 10000);
-  if (!text) return;
-  await assertPatientAccess(u, patientId);
-  await db.medicalNote.create({ data: { patientId, authorId: u.id, text, diagnosis: str(fd, "diagnosis") || null } });
-  if (str(fd, "diagnosis")) await db.patient.update({ where: { id: patientId }, data: { diagnosis: str(fd, "diagnosis") } });
-  revalidatePath(`/patients/${patientId}`);
-}
-
-export async function uploadFile(fd: FormData) {
-  const u = await requireUser();
-  const patientId = Number(str(fd, "patientId"));
-  await assertPatientAccess(u, patientId);
-  const file = fd.get("file");
-  if (!(file instanceof File) || file.size === 0) return;
-  const data = Buffer.from(await file.arrayBuffer());
-  const ok = checkUpload(file.name, data);
-  if (!ok) {
-    await audit(u.id, "Attachment", patientId, "upload_rejected", file.name);
-    redirect(`/patients/${patientId}?badfile=1`);
-  }
-  const dir = path.join(process.cwd(), "uploads", String(patientId));
-  await mkdir(dir, { recursive: true });
-  // Дискідегі атау — кездейсоқ, пайдаланушы берген атау тек көрсету үшін
-  const ext = file.name.split(".").pop()!.toLowerCase();
-  const stored = `${randomUUID()}.${ext}`;
-  await writeFile(path.join(dir, stored), data, { mode: 0o600 });
-  await db.attachment.create({
-    data: { patientId, fileName: file.name.slice(0, 200), path: `${patientId}/${stored}`, mime: ok.mime, size: data.length },
-  });
-  await audit(u.id, "Attachment", patientId, "upload", file.name);
-  revalidatePath(`/patients/${patientId}`);
-}
-
-/* ---------------- Кесте ---------------- */
-
-export async function createAppointment(fd: FormData) {
-  const u = await requireUser();
-  const patientId = Number(str(fd, "patientId"));
-  const doctorId = Number(str(fd, "doctorId"));
-  const serviceId = Number(str(fd, "serviceId"));
-  const startAt = date(fd, "startAt")!;
-  const courseId = num(fd, "courseId");
-  if (u.role === "DOCTOR") {
-    // Дәрігер тек өзіне және тек өз пациентіне жаза алады (басқа пациентке қол жеткізу үшін жазбау)
-    if (doctorId !== u.doctor?.id) throw new Error("Forbidden");
-    await assertPatientAccess(u, patientId);
-  }
-  if (courseId) {
-    const course = await db.treatmentCourse.findUnique({ where: { id: courseId } });
-    if (!course || course.patientId !== patientId) throw new Error("Bad course");
-  }
-  if (!startAt || isNaN(startAt.getTime())) throw new Error("Bad date");
-  const service = await db.service.findUniqueOrThrow({ where: { id: serviceId } });
-  const endAt = new Date(startAt.getTime() + service.durationMin * 60000);
-  const backUrl = back(fd, "/schedule");
-
-  const sameDay = await db.appointment.findMany({
-    where: {
-      doctorId,
-      status: { in: ["BOOKED", "CONFIRMED", "ARRIVED"] },
-      startAt: { lt: endAt },
-      endAt: { gt: startAt },
-    },
-  });
-  if (findConflict({ startAt, endAt }, sameDay)) {
-    const sep = backUrl.includes("?") ? "&" : "?";
-    redirect(`${backUrl}${sep}error=conflict`);
-  }
-
-  const a = await db.appointment.create({
-    data: {
-      patientId,
-      doctorId,
-      serviceId,
-      startAt,
-      endAt,
-      courseId,
-      price: courseId ? 0 : service.price,
-      comment: str(fd, "comment") || null,
-      managerId: u.role === "DOCTOR" ? null : u.id,
-    },
-  });
-  await db.lead.updateMany({
-    where: { patientId, status: { in: ["NEW", "CONTACTED", "NO_ANSWER"] } },
-    data: { status: "BOOKED", firstResponseAt: new Date() },
-  });
-  await audit(u.id, "Appointment", a.id, "create", { patientId, doctorId, startAt });
-  await requestConfirmation(a.id); // тек тегін терезе ашық болса
-  revalidatePath("/schedule");
-  revalidatePath(`/patients/${patientId}`);
-  const clean = backUrl.replace(/[?&]error=conflict/, "");
-  redirect(clean);
-}
-
-export async function setAppointmentStatus(fd: FormData) {
-  const u = await requireUser();
-  const id = Number(str(fd, "id"));
-  const status = str(fd, "status");
-  if (!(APPT_STATUSES as readonly string[]).includes(status)) return;
-  if (u.role === "DOCTOR") {
-    const own = await db.appointment.findUniqueOrThrow({ where: { id } });
-    if (own.doctorId !== u.doctor?.id) throw new Error("Forbidden");
-  }
-  const a = await db.appointment.update({ where: { id }, data: { status } });
-  await audit(u.id, "Appointment", id, "status", status);
-  await onAppointmentStatus(id, status);
-  revalidatePath("/schedule");
-  revalidatePath(`/patients/${a.patientId}`);
-  revalidatePath("/");
-}
-
-/* ---------------- Касса ---------------- */
-
-export async function createPayment(fd: FormData) {
-  const u = await requireStaff();
-  const patientId = Number(str(fd, "patientId"));
-  const amount = Number(str(fd, "amount"));
-  const method = str(fd, "method");
-  if (!amount || amount <= 0 || !(PAYMENT_METHODS as readonly string[]).includes(method)) return;
-  const courseId = num(fd, "courseId");
-  const p = await db.payment.create({
-    data: { patientId, amount, method, courseId, managerId: u.id, comment: str(fd, "comment") || null },
-  });
-  if (courseId) {
-    await db.lead.updateMany({
-      where: { patientId, status: { in: ["NEW", "CONTACTED", "NO_ANSWER", "BOOKED", "ARRIVED"] } },
-      data: { status: "PAID" },
-    });
-  }
-  await audit(u.id, "Payment", p.id, "create", { patientId, amount, method });
-  revalidatePath("/payments");
-  revalidatePath(`/patients/${patientId}`);
-  revalidatePath("/");
-}
-
 /* ---------------- Тапсырмалар ---------------- */
 
 export async function createTask(fd: FormData) {
@@ -377,7 +203,6 @@ export async function createTask(fd: FormData) {
       assigneeId,
       dueAt: date(fd, "dueAt") ?? new Date(),
       leadId: isHead(u) ? num(fd, "leadId") : null,
-      patientId: isHead(u) ? num(fd, "patientId") : null,
     },
   });
   revalidatePath("/tasks");
@@ -426,38 +251,6 @@ export async function saveUser(fd: FormData) {
     }
   } else if (data.passwordHash) await db.user.create({ data: { ...data, passwordHash: data.passwordHash } });
   await audit(u.id, "User", id, id ? "update" : "create", { login: data.login, role });
-  revalidatePath("/settings");
-}
-
-export async function saveDoctor(fd: FormData) {
-  const u = await requireHead();
-  const id = num(fd, "id");
-  const data = {
-    name: str(fd, "name"),
-    specialty: str(fd, "specialty"),
-    room: str(fd, "room") || null,
-    userId: num(fd, "userId"),
-    active: id ? fd.get("active") === "on" : true,
-  };
-  if (id) await db.doctor.update({ where: { id }, data });
-  else await db.doctor.create({ data });
-  await audit(u.id, "Doctor", id, id ? "update" : "create", data.name);
-  revalidatePath("/settings");
-}
-
-export async function saveService(fd: FormData) {
-  const u = await requireHead();
-  const id = num(fd, "id");
-  const data = {
-    nameKk: str(fd, "nameKk"),
-    nameRu: str(fd, "nameRu") || str(fd, "nameKk"),
-    price: Number(str(fd, "price") || 0),
-    durationMin: Number(str(fd, "durationMin") || 30),
-    active: id ? fd.get("active") === "on" : true,
-  };
-  if (id) await db.service.update({ where: { id }, data });
-  else await db.service.create({ data });
-  await audit(u.id, "Service", id, id ? "update" : "create", data);
   revalidatePath("/settings");
 }
 

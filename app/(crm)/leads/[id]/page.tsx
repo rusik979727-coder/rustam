@@ -4,19 +4,19 @@ import { requireUser, isHead } from "@/lib/auth";
 import { getT } from "@/lib/i18n-server";
 import { db } from "@/lib/db";
 import { LEAD_STATUSES, LEAD_SOURCES, COMPLAINTS, LOST_REASONS } from "@/lib/constants";
-import { dt, toLocalInput } from "@/lib/format";
+import { dt, toLocalInput, money } from "@/lib/format";
 import { Field, Select, StatusBadge } from "@/components/ui";
 import { Chat } from "@/components/Chat";
-import { updateLead, addLeadActivity, reassignLead, convertLead } from "../../actions";
+import { updateLead, addLeadActivity, reassignLead, setConsult } from "../../actions";
 
-export default async function LeadPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; wa?: string }> }) {
+export default async function LeadPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; wa?: string; consult?: string }> }) {
   const user = await requireUser(["HEAD_MANAGER", "MANAGER"]);
   const { t } = await getT();
   const id = Number((await params).id);
   const sp = await searchParams;
   const lead = await db.lead.findUnique({
     where: { id },
-    include: { manager: true, patient: true, activities: { include: { user: true }, orderBy: { createdAt: "desc" } } },
+    include: { manager: true, activities: { include: { user: true }, orderBy: { createdAt: "desc" } } },
   });
   if (!lead || (!isHead(user) && lead.managerId !== user.id)) notFound();
   const managers = isHead(user) ? await db.user.findMany({ where: { role: "MANAGER", active: true } }) : [];
@@ -33,7 +33,8 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="card lg:col-span-2">
-          <form action={updateLead} className="grid gap-3 md:grid-cols-2">
+          {/* key: өтінім өзгерсе форма қайта жасалады — ескі мәндер (мыс. статус) қайта сақталып кетпеуі үшін */}
+          <form key={`f-${lead.updatedAt.getTime()}`} action={updateLead} className="grid gap-3 md:grid-cols-2">
             <input type="hidden" name="id" value={lead.id} />
             <Field label={t("common.name")}><input name="name" defaultValue={lead.name} className="input" /></Field>
             <Field label={t("common.phone")}>
@@ -49,6 +50,8 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
             <Field label={t("leads.lostReason")}><Select name="lostReason" defaultValue={lead.lostReason} options={[{ value: "", label: "—" }, ...LOST_REASONS.map((s) => ({ value: s, label: t(`lost.${s}`) }))]} /></Field>
             <Field label={t("leads.nextContact")}><input type="datetime-local" name="nextContactAt" defaultValue={lead.nextContactAt ? toLocalInput(lead.nextContactAt) : ""} className="input" /></Field>
             <Field label={t("common.comment")}><input name="comment" defaultValue={lead.comment ?? ""} className="input" /></Field>
+            <Field label={t("leads.consultAt")}><input type="datetime-local" name="consultAt" step={900} defaultValue={lead.consultAt ? toLocalInput(lead.consultAt) : ""} className="input" /></Field>
+            <Field label={`${t("leads.amount")} (${t("status.PAID")})`}><input type="number" name="amount" min={0} step="any" defaultValue={lead.amount ?? ""} className="input" /></Field>
             <div className="md:col-span-2"><button className="btn">{t("common.save")}</button></div>
           </form>
         </section>
@@ -62,14 +65,19 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
               <button className="btn-ghost whitespace-nowrap">{t("leads.reassign")}</button>
             </form>
           )}
-          {lead.patient ? (
-            <div className="space-y-2">
-              <Link className="btn-ghost w-full" href={`/patients/${lead.patient.id}`}>{t("patients.card")}: {lead.patient.fullName}</Link>
-              <Link className="btn w-full" href={`/schedule?patient=${lead.patient.id}`}>{t("leads.book")}</Link>
-            </div>
-          ) : (
-            <form action={convertLead}><input type="hidden" name="id" value={lead.id} /><button className="btn w-full">{t("leads.toPatient")}</button></form>
-          )}
+          {/* Конс-қа жазу — кестенің орнына тек күні мен уақыты */}
+          <form key={`c-${lead.updatedAt.getTime()}`} id="consult" action={setConsult} className={`space-y-2 rounded-lg border p-3 ${sp.consult ? "border-brand-500 bg-brand-50" : "border-slate-200"}`}>
+            <input type="hidden" name="id" value={lead.id} />
+            <div className="text-sm font-medium">{t("leads.book")}</div>
+            <input type="datetime-local" name="consultAt" step={900} required defaultValue={lead.consultAt ? toLocalInput(lead.consultAt) : ""} className="input" autoFocus={!!sp.consult} aria-label={t("leads.consultAt")} />
+            <button className="btn w-full">{t("common.save")}</button>
+            {lead.consultAt && (
+              <p className="text-xs text-slate-600">
+                🗓 {dt(lead.consultAt)} · {lead.consultConfirmedAt ? <span className="font-medium text-emerald-700">✓ {t("leads.confirmed")}</span> : t("leads.notConfirmed")}
+              </p>
+            )}
+          </form>
+          {lead.status === "PAID" && lead.amount ? <div className="text-sm">{t("leads.amount")}: <b className="text-emerald-700">{money(lead.amount)}</b> · {dt(lead.paidAt)}</div> : null}
         </section>
       </div>
 

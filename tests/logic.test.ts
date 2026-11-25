@@ -1,39 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { overlaps, findConflict } from "@/lib/schedule";
-import { patientBalance } from "@/lib/finance";
 import { funnel, avgResponseMinutes, groupCount } from "@/lib/stats";
 import { pickManager } from "@/lib/assign";
 import { normalizePhone } from "@/lib/phone";
 import { guessComplaint } from "@/lib/leads";
 
 const at = (h: number, m = 0) => new Date(2026, 10, 25, h, m);
-
-describe("schedule", () => {
-  it("detects overlap but allows back-to-back", () => {
-    expect(overlaps({ startAt: at(10), endAt: at(10, 30) }, { startAt: at(10, 15), endAt: at(11) })).toBe(true);
-    expect(overlaps({ startAt: at(10), endAt: at(10, 30) }, { startAt: at(10, 30), endAt: at(11) })).toBe(false);
-  });
-  it("ignores itself when editing", () => {
-    const e = [{ id: 1, startAt: at(10), endAt: at(11) }];
-    expect(findConflict({ id: 1, startAt: at(10), endAt: at(11) }, e)).toBeNull();
-    expect(findConflict({ startAt: at(10, 30), endAt: at(11, 30) }, e)?.id).toBe(1);
-  });
-});
-
-describe("finance", () => {
-  it("counts courses + arrived non-course visits minus payments", () => {
-    const b = patientBalance({
-      courses: [{ price: 150000, status: "ACTIVE" }, { price: 99999, status: "CANCELLED" }],
-      appointments: [
-        { price: 8000, status: "ARRIVED", courseId: null },
-        { price: 8000, status: "NO_SHOW", courseId: null },
-        { price: 0, status: "ARRIVED", courseId: 1 },
-      ],
-      payments: [{ amount: 8000 }, { amount: 75000 }],
-    });
-    expect(b).toEqual({ charged: 158000, paid: 83000, debt: 75000, prepaid: 0 });
-  });
-});
 
 describe("stats", () => {
   const base = { managerId: 1, source: "INSTAGRAM", lostReason: null };

@@ -29,26 +29,13 @@ export async function sendTelegram(text: string): Promise<boolean> {
   }
 }
 
-async function sendWhatsApp(phone: string, text: string) {
-  const token = process.env.WA_TOKEN;
-  const id = process.env.WA_PHONE_NUMBER_ID;
-  if (!token || !id) return false;
-  try {
-    const r = await fetch(`https://graph.facebook.com/v21.0/${id}/messages`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ messaging_product: "whatsapp", to: phone.replace(/\D/g, ""), type: "text", text: { body: text } }),
-    });
-    return r.ok;
-  } catch (e) {
-    console.error("[whatsapp]", e);
+/** SMS (Mobizon) — WhatsApp қосылмаған жағдайда клиентке еске салу үшін. */
+export async function sendSms(phone: string, text: string): Promise<boolean> {
+  const key = process.env.MOBIZON_API_KEY;
+  if (!key) {
+    console.log("[sms:off]", phone, text);
     return false;
   }
-}
-
-async function sendSms(phone: string, text: string) {
-  const key = process.env.MOBIZON_API_KEY;
-  if (!key) return false;
   try {
     const url = new URL("https://api.mobizon.kz/service/message/sendsmsmessage");
     url.searchParams.set("apiKey", key);
@@ -60,12 +47,4 @@ async function sendSms(phone: string, text: string) {
     console.error("[sms]", e);
     return false;
   }
-}
-
-/** Пациентке хабарлама: алдымен WhatsApp, болмаса SMS. */
-export async function sendToPatient(phone: string, text: string): Promise<boolean> {
-  if (await sendWhatsApp(phone, text)) return true;
-  if (await sendSms(phone, text)) return true;
-  console.log("[patient-msg:off]", phone, text);
-  return false;
 }

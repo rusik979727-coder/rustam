@@ -4,14 +4,13 @@ import { getT } from "@/lib/i18n-server";
 import { db } from "@/lib/db";
 import { addDays, money, monthKey, pct, startOfDay, startOfMonth, ymd, dt, time } from "@/lib/format";
 import { funnel, avgResponseMinutes, groupCount } from "@/lib/stats";
-import { debtors } from "@/lib/debts";
 import { Stat, Meter, Empty, StatusBadge } from "@/components/ui";
 import { reassignLead, autoAssignUnassigned, runAutomationsNow, toggleTask } from "./actions";
 import { integrations } from "@/lib/notify";
 import { paidThisMonth } from "@/lib/whatsapp";
 import { NOT_SPAM, CLOSED_LEAD_STATUSES, OPEN_LEAD_STATUSES } from "@/lib/constants";
 
-type SP = Promise<{ from?: string; to?: string; manager?: string }>;
+type SP = Promise<{ from?: string; to?: string }>;
 
 export default async function Home({ searchParams }: { searchParams: SP }) {
   const user = await requireUser();
@@ -19,10 +18,13 @@ export default async function Home({ searchParams }: { searchParams: SP }) {
   return <MyDay />;
 }
 
+const sum = (xs: { amount: number | null }[]) => xs.reduce((s, x) => s + (x.amount ?? 0), 0);
+const nextMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 1);
+
 /* ===================== Бас менеджер панелі ===================== */
 
 async function HeadDashboard({ searchParams }: { searchParams: SP }) {
-  const { t, locale } = await getT();
+  const { t } = await getT();
   const sp = await searchParams;
   const now = new Date();
   const today = startOfDay(now);
@@ -30,8 +32,9 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
   const from = sp.from ? startOfDay(new Date(sp.from)) : startOfMonth(now);
   const to = sp.to ? addDays(startOfDay(new Date(sp.to)), 1) : tomorrow;
   const escMin = Number(process.env.ESCALATION_MINUTES || 15);
+  const monthFrom = startOfMonth(now);
 
-  const [managers, periodLeads, todayLeads, unanswered, todayAppts, todayRev, periodPayments, overdueTasks, unassigned, plan, debts] =
+  const [managers, periodLeads, todayLeads, unanswered, todayConsults, paidToday, periodPaid, overdueTasks, unassigned, plan, monthLeads, monthBooked, monthPaid, paidMsgs] =
     await Promise.all([
       db.user.findMany({ where: { role: { in: ["MANAGER", "HEAD_MANAGER"] }, active: true }, orderBy: { name: "asc" } }),
       db.lead.findMany({ where: { createdAt: { gte: from, lt: to }, ...NOT_SPAM } }),
@@ -42,25 +45,22 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
         orderBy: { createdAt: "asc" },
         take: 10,
       }),
-      db.appointment.findMany({ where: { startAt: { gte: today, lt: tomorrow } } }),
-      db.payment.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: today } } }),
-      db.payment.findMany({ where: { createdAt: { gte: from, lt: to } }, select: { amount: true, managerId: true, patientId: true } }),
+      db.lead.findMany({ where: { consultAt: { gte: today, lt: tomorrow } }, select: { status: true, consultConfirmedAt: true } }),
+      db.lead.findMany({ where: { paidAt: { gte: today } }, select: { amount: true } }),
+      db.lead.findMany({ where: { paidAt: { gte: from, lt: to } }, select: { amount: true, managerId: true } }),
       db.task.findMany({ where: { done: false, dueAt: { lt: today } }, select: { assigneeId: true } }),
       db.lead.findMany({ where: { managerId: null, status: { notIn: CLOSED_LEAD_STATUSES } }, orderBy: { createdAt: "asc" }, take: 20 }),
       db.monthlyPlan.findFirst({ where: { month: monthKey(now), managerId: null } }),
-      debtors(8),
+      db.lead.count({ where: { createdAt: { gte: monthFrom }, ...NOT_SPAM } }),
+      // Конс жоспары: осы айға конс күні қойылған өтінімдер
+      db.lead.count({ where: { consultAt: { gte: monthFrom, lt: nextMonth(now) } } }),
+      db.lead.findMany({ where: { paidAt: { gte: monthFrom } }, select: { amount: true } }),
+      paidThisMonth(),
     ]);
 
-  const monthFrom = startOfMonth(now);
-  const [monthLeads, monthRev] = await Promise.all([
-    db.lead.findMany({ where: { createdAt: { gte: monthFrom }, ...NOT_SPAM }, select: { status: true } }),
-    db.payment.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: monthFrom } } }),
-  ]);
-  const monthBooked = await db.appointment.count({ where: { createdAt: { gte: monthFrom }, status: { not: "CANCELLED" } } });
-
-  const periodRevenue = periodPayments.reduce((s, p) => s + p.amount, 0);
+  const periodRevenue = sum(periodPaid);
   const f = funnel(periodLeads);
-  const noShow = todayAppts.filter((a) => a.status === "NO_SHOW").length;
+  const arrivedToday = todayConsults.filter((c) => c.status === "ARRIVED" || c.status === "PAID").length;
 
   const teamRows = managers
     .map((m) => {
@@ -73,7 +73,7 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
         paid: mf.paid,
         conv: mf.convBooked,
         resp: avgResponseMinutes(ml),
-        revenue: periodPayments.filter((p) => p.managerId === m.id).reduce((s, p) => s + p.amount, 0),
+        revenue: sum(periodPaid.filter((p) => p.managerId === m.id)),
         overdue: overdueTasks.filter((x) => x.assigneeId === m.id).length,
       };
     })
@@ -81,10 +81,10 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
     .sort((a, b) => b.revenue - a.revenue || b.booked - a.booked);
 
   const sources = groupCount(periodLeads, (l) => l.source).map(([src, n]) => {
-    const sl = periodLeads.filter((l) => l.source === src);
-    const sf = funnel(sl);
+    const sf = funnel(periodLeads.filter((l) => l.source === src));
     return { src, n, booked: sf.booked, paid: sf.paid, conv: sf.convPaid };
   });
+  const complaints = groupCount(periodLeads, (l) => l.complaint);
   const lost = groupCount(periodLeads.filter((l) => l.status === "LOST"), (l) => l.lostReason ?? "OTHER");
   const integ = integrations();
   const managerOpts = managers.filter((m) => m.role === "MANAGER");
@@ -105,9 +105,9 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Stat label={t("dash.newLeads")} value={todayLeads} hint={t("common.today")} />
         <Stat label={t("dash.unanswered", { m: escMin })} value={unanswered.length} tone={unanswered.length ? "alert" : "default"} />
-        <Stat label={t("dash.todayAppts")} value={todayAppts.filter((a) => a.status !== "CANCELLED").length} />
-        <Stat label={t("dash.noShow")} value={noShow} tone={noShow ? "alert" : "default"} />
-        <Stat label={t("dash.todayRevenue")} value={money(todayRev._sum.amount ?? 0)} tone="good" />
+        <Stat label={t("dash.todayConsults")} value={todayConsults.length} hint={`${t("dash.confirmed")}: ${todayConsults.filter((c) => c.consultConfirmedAt).length}`} />
+        <Stat label={t("dash.arrivedToday")} value={arrivedToday} />
+        <Stat label={t("dash.todayRevenue")} value={money(sum(paidToday))} tone="good" hint={`${paidToday.length} ${t("dash.paidCount")}`} />
         <Stat label={t("dash.periodRevenue")} value={money(periodRevenue)} />
       </section>
 
@@ -132,7 +132,7 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
           <table className="table">
             <thead>
               <tr>
-                <th>#</th><th>{t("common.manager")}</th><th>{t("dash.leads")}</th><th>{t("dash.booked")}</th><th>{t("dash.paid")}</th>
+                <th>#</th><th>{t("common.manager")}</th><th>{t("dash.leads")}</th><th>{t("status.BOOKED")}</th><th>{t("dash.paid")}</th>
                 <th>{t("dash.conv")}</th><th>{t("dash.response")}</th><th>{t("dash.revenue")}</th><th>{t("dash.overdue")}</th>
               </tr>
             </thead>
@@ -158,14 +158,14 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
           </table>
         </section>
 
-        {/* Жоспар / факт */}
+        {/* Жоспар / факт + воронка */}
         <section className="card space-y-4">
           <h2 className="h2">{t("dash.plan", { month: monthKey(now) })}</h2>
           {plan ? (
             <>
-              <Meter label={t("dash.planLeads")} fact={monthLeads.length} plan={plan.leads} />
+              <Meter label={t("dash.planLeads")} fact={monthLeads} plan={plan.leads} />
               <Meter label={t("dash.planBookings")} fact={monthBooked} plan={plan.bookings} />
-              <Meter label={t("dash.planRevenue")} fact={monthRev._sum.amount ?? 0} plan={plan.revenue} format={money} />
+              <Meter label={t("dash.planRevenue")} fact={sum(monthPaid)} plan={plan.revenue} format={money} />
             </>
           ) : (
             <p className="text-sm text-slate-500">{t("dash.noPlan")} → <Link href="/settings" className="link">{t("nav.settings")}</Link></p>
@@ -215,13 +215,23 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
           <h2 className="h2">{t("dash.sources")}</h2>
           {sources.length === 0 ? <Empty text={t("common.empty")} /> : (
             <table className="table">
-              <thead><tr><th>{t("leads.source")}</th><th>{t("dash.leads")}</th><th>{t("dash.booked")}</th><th>{t("dash.paid")}</th><th>{t("dash.conv")}</th></tr></thead>
+              <thead><tr><th>{t("leads.source")}</th><th>{t("dash.leads")}</th><th>{t("status.BOOKED")}</th><th>{t("dash.paid")}</th><th>{t("dash.conv")}</th></tr></thead>
               <tbody>
                 {sources.map((s) => (
                   <tr key={s.src}><td>{t(`source.${s.src}`)}</td><td>{s.n}</td><td>{s.booked}</td><td>{s.paid}</td><td>{s.conv}%</td></tr>
                 ))}
               </tbody>
             </table>
+          )}
+        </section>
+
+        {/* Шағымдар + бас тарту */}
+        <section className="card">
+          <h2 className="h2">{t("leads.complaint")}</h2>
+          {complaints.length === 0 ? <Empty text={t("common.empty")} /> : (
+            <table className="table"><tbody>
+              {complaints.map(([c, n]) => <tr key={c}><td>{t(`complaint.${c}`)}</td><td className="text-right font-medium">{n}</td><td className="w-14 text-right text-slate-500">{pct(n, f.total)}%</td></tr>)}
+            </tbody></table>
           )}
           <h2 className="h2 mt-4">{t("dash.lostReasons")}</h2>
           {lost.length === 0 ? <Empty text={t("common.empty")} /> : (
@@ -230,37 +240,21 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
             </tbody></table>
           )}
         </section>
-
-        {/* Қарыздар */}
-        <section className="card">
-          <h2 className="h2">{t("dash.debtors")}</h2>
-          {debts.length === 0 ? <Empty text={t("common.empty")} /> : (
-            <table className="table"><tbody>
-              {debts.map((d) => (
-                <tr key={d.id}><td><Link href={`/patients/${d.id}`} className="link">{d.fullName}</Link><div className="text-xs text-slate-500">{d.phone}</div></td><td className="whitespace-nowrap text-right font-medium text-red-600">{money(d.debt)}</td></tr>
-              ))}
-            </tbody></table>
-          )}
-        </section>
       </div>
 
       <section className="card flex flex-wrap items-center gap-3 text-sm">
-        <span className="font-medium">{t("common.export")}:</span>
-        <a className="btn-ghost btn-sm" href={`/api/export?type=leads&${qs}`}>{t("nav.leads")}</a>
-        <a className="btn-ghost btn-sm" href={`/api/export?type=payments&${qs}`}>{t("pay.list")}</a>
-        <a className="btn-ghost btn-sm" href={`/api/export?type=patients`}>{t("nav.patients")}</a>
+        <a className="btn-ghost btn-sm" href={`/api/export?${qs}`}>{t("common.export")}</a>
         <span className="mx-2 hidden h-5 w-px bg-slate-200 md:block" />
         <form action={runAutomationsNow}><button className="btn-ghost btn-sm">⚙ {t("dash.runAutomations")}</button></form>
         <span className="text-xs text-slate-500">
-          Telegram: {integ.telegram ? "✓" : "✗"} · WhatsApp: {integ.whatsapp ? "✓" : "✗"} · SMS: {integ.sms ? "✓" : "✗"} · {t("chat.paidMonth")}: <b>{await paidThisMonth()}</b>
+          Telegram: {integ.telegram ? "✓" : "✗"} · WhatsApp: {integ.whatsapp ? "✓" : "✗"} · SMS: {integ.sms ? "✓" : "✗"} · {t("chat.paidMonth")}: <b>{paidMsgs}</b>
         </span>
-        <span className="sr-only">{locale}</span>
       </section>
     </div>
   );
 }
 
-/* ===================== Менеджер / дәрігер күні ===================== */
+/* ===================== Менеджердің күні ===================== */
 
 async function MyDay() {
   const user = await requireUser();
@@ -269,10 +263,9 @@ async function MyDay() {
   const today = startOfDay(now);
   const tomorrow = addDays(today, 1);
   const monthFrom = startOfMonth(now);
-  const isDoctor = user.role === "DOCTOR";
 
-  const [calls, tasks, appts, monthLeads, monthRev, plan] = await Promise.all([
-    isDoctor ? [] : db.lead.findMany({
+  const [calls, tasks, consults, monthLeads, monthPaid, plan, myBooked] = await Promise.all([
+    db.lead.findMany({
       where: {
         managerId: user.id,
         status: { in: OPEN_LEAD_STATUSES },
@@ -281,50 +274,43 @@ async function MyDay() {
       orderBy: [{ nextContactAt: "asc" }, { createdAt: "asc" }],
     }),
     db.task.findMany({ where: { assigneeId: user.id, done: false }, orderBy: { dueAt: "asc" }, take: 30 }),
-    db.appointment.findMany({
-      where: { startAt: { gte: today, lt: tomorrow }, ...(isDoctor ? { doctorId: user.doctor?.id ?? -1 } : { managerId: user.id }) },
-      include: { patient: true, doctor: true, service: true },
-      orderBy: { startAt: "asc" },
-    }),
-    isDoctor ? [] : db.lead.findMany({ where: { managerId: user.id, createdAt: { gte: monthFrom }, ...NOT_SPAM } }),
-    db.payment.aggregate({ _sum: { amount: true }, where: { managerId: user.id, createdAt: { gte: monthFrom } } }),
+    db.lead.findMany({ where: { managerId: user.id, consultAt: { gte: today, lt: addDays(today, 2) } }, orderBy: { consultAt: "asc" } }),
+    db.lead.findMany({ where: { managerId: user.id, createdAt: { gte: monthFrom }, ...NOT_SPAM } }),
+    db.lead.findMany({ where: { managerId: user.id, paidAt: { gte: monthFrom } }, select: { amount: true } }),
     db.monthlyPlan.findFirst({ where: { month: monthKey(now), managerId: user.id } }),
+    db.lead.count({ where: { managerId: user.id, consultAt: { gte: monthFrom, lt: nextMonth(now) } } }),
   ]);
-  const f = funnel(monthLeads as Awaited<ReturnType<typeof db.lead.findMany>>);
+  const f = funnel(monthLeads);
 
   return (
     <div className="space-y-6">
       <h1 className="h1">{t("my.title")} — {user.name}</h1>
-      {!isDoctor && (
-        <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Stat label={t("dash.leads")} value={f.total} hint={monthKey(now)} />
-          <Stat label={t("dash.booked")} value={f.booked} />
-          <Stat label={t("dash.conv")} value={`${f.convBooked}%`} />
-          <Stat label={t("dash.revenue")} value={money(monthRev._sum.amount ?? 0)} tone="good" />
-        </section>
-      )}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label={t("dash.leads")} value={f.total} hint={monthKey(now)} />
+        <Stat label={t("status.BOOKED")} value={f.booked} />
+        <Stat label={t("dash.conv")} value={`${f.convBooked}%`} />
+        <Stat label={t("dash.revenue")} value={money(sum(monthPaid))} tone="good" />
+      </section>
       <div className="grid gap-6 lg:grid-cols-2">
-        {!isDoctor && (
-          <section className="card">
-            <h2 className="h2">{t("my.calls")} ({calls.length})</h2>
-            {calls.length === 0 ? <Empty text={t("common.empty")} /> : (
-              <ul className="divide-y divide-slate-100 text-sm">
-                {calls.map((l) => (
-                  <li key={l.id} className="flex items-center justify-between gap-2 py-2">
-                    <div>
-                      <Link href={`/leads/${l.id}`} className="link font-medium">{l.name}</Link>
-                      <div className="text-xs text-slate-500">{l.phone} · {t(`complaint.${l.complaint}`)}</div>
-                    </div>
-                    <div className="text-right text-xs">
-                      <StatusBadge status={l.status} label={t(`status.${l.status}`)} />
-                      <div className={`mt-1 ${l.nextContactAt && l.nextContactAt < now ? "text-red-600" : "text-slate-500"}`}>{dt(l.nextContactAt)}</div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
+        <section className="card">
+          <h2 className="h2">{t("my.calls")} ({calls.length})</h2>
+          {calls.length === 0 ? <Empty text={t("common.empty")} /> : (
+            <ul className="divide-y divide-slate-100 text-sm">
+              {calls.map((l) => (
+                <li key={l.id} className="flex items-center justify-between gap-2 py-2">
+                  <div>
+                    <Link href={`/leads/${l.id}`} className="link font-medium">{l.name}</Link>
+                    <div className="text-xs text-slate-500">{l.phone} · {t(`complaint.${l.complaint}`)}</div>
+                  </div>
+                  <div className="text-right text-xs">
+                    <StatusBadge status={l.status} label={t(`status.${l.status}`)} />
+                    <div className={`mt-1 ${l.nextContactAt && l.nextContactAt < now ? "text-red-600" : "text-slate-500"}`}>{dt(l.nextContactAt)}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
         <section className="card">
           <h2 className="h2">{t("my.tasks")} ({tasks.length})</h2>
           {tasks.length === 0 ? <Empty text={t("common.empty")} /> : (
@@ -332,34 +318,38 @@ async function MyDay() {
               {tasks.map((x) => (
                 <li key={x.id} className="flex items-center justify-between gap-2 py-2">
                   <div>
-                    <div className={x.dueAt < today ? "text-red-600" : ""}>{x.title}</div>
+                    <div className={x.dueAt < today ? "text-red-600" : ""}>{x.leadId ? <Link className="link" href={`/leads/${x.leadId}`}>{x.title}</Link> : x.title}</div>
                     <div className="text-xs text-slate-500">{t(`tasks.kind.${x.kind}`)} · {dt(x.dueAt)}</div>
                   </div>
-                  <form action={toggleTask}><input type="hidden" name="id" value={x.id} /><button className="btn-ghost btn-sm">✓</button></form>
+                  <form action={toggleTask}><input type="hidden" name="id" value={x.id} /><button className="btn-ghost btn-sm" aria-label={t("tasks.done")}>✓</button></form>
                 </li>
               ))}
             </ul>
           )}
         </section>
         <section className="card">
-          <h2 className="h2">{t("dash.todayAppts")} ({appts.length})</h2>
-          {appts.length === 0 ? <Empty text={t("common.empty")} /> : (
+          <h2 className="h2">{t("my.consults")} ({consults.length})</h2>
+          {consults.length === 0 ? <Empty text={t("common.empty")} /> : (
             <ul className="divide-y divide-slate-100 text-sm">
-              {appts.map((a) => (
-                <li key={a.id} className="flex items-center justify-between py-2">
-                  <div><b>{time(a.startAt)}</b> <Link className="link" href={`/patients/${a.patientId}`}>{a.patient.fullName}</Link><div className="text-xs text-slate-500">{a.doctor.name} · {a.service.nameKk}</div></div>
-                  <StatusBadge status={a.status} label={t(`appt.${a.status}`)} />
+              {consults.map((l) => (
+                <li key={l.id} className="flex items-center justify-between py-2">
+                  <div>
+                    <b>{l.consultAt! < tomorrow ? t("common.today") : t("common.tomorrow")} {time(l.consultAt!)}</b>{" "}
+                    <Link className="link" href={`/leads/${l.id}`}>{l.name}</Link>
+                    <div className="text-xs text-slate-500">{l.phone} · {l.consultConfirmedAt ? `✓ ${t("leads.confirmed")}` : t("leads.notConfirmed")}</div>
+                  </div>
+                  <StatusBadge status={l.status} label={t(`status.${l.status}`)} />
                 </li>
               ))}
             </ul>
           )}
         </section>
-        {!isDoctor && plan && (
+        {plan && (
           <section className="card space-y-4">
             <h2 className="h2">{t("my.plan")}</h2>
             <Meter label={t("dash.planLeads")} fact={f.total} plan={plan.leads} />
-            <Meter label={t("dash.planBookings")} fact={f.booked} plan={plan.bookings} />
-            <Meter label={t("dash.planRevenue")} fact={monthRev._sum.amount ?? 0} plan={plan.revenue} format={money} />
+            <Meter label={t("dash.planBookings")} fact={myBooked} plan={plan.bookings} />
+            <Meter label={t("dash.planRevenue")} fact={sum(monthPaid)} plan={plan.revenue} format={money} />
           </section>
         )}
       </div>

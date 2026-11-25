@@ -14,8 +14,6 @@ x-app: &app
   depends_on:
     db:
       condition: service_healthy
-  volumes:
-    - uploads:/app/uploads
   logging:
     driver: json-file
     options: { max-size: "10m", max-file: "5" }
@@ -80,6 +78,5 @@ services:
 
 volumes:
   pgdata:
-  uploads:
   caddy_data:
   caddy_config:

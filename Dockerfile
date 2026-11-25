@@ -18,7 +18,7 @@ FROM base AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000
 # tsx (cron, admin құру) және prisma CLI (схема) үшін толық node_modules
 COPY --from=build /app /app
-RUN mkdir -p /app/uploads && chown -R node:node /app/uploads /app/.next
+RUN chown -R node:node /app/.next
 USER node
 EXPOSE 3000
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/docker/entrypoint.sh"]

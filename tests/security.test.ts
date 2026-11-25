@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createHmac } from "crypto";
-import { safeEqual, verifyMetaSignature, csvSafe, checkUpload, passwordProblem } from "@/lib/security";
+import { safeEqual, verifyMetaSignature, csvSafe, passwordProblem } from "@/lib/security";
 import { authSecret } from "@/lib/session";
 
 describe("security helpers", () => {
@@ -28,19 +28,6 @@ describe("security helpers", () => {
     expect(csvSafe("@SUM")).toBe("'@SUM");
     expect(csvSafe("Серік")).toBe("Серік");
     expect(csvSafe(null)).toBe("");
-  });
-
-  it("upload whitelist + magic bytes", () => {
-    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]);
-    const pdf = Buffer.from("%PDF-1.7 ...");
-    const html = Buffer.from("<script>alert(1)</script>");
-    expect(checkUpload("mri.png", png)?.mime).toBe("image/png");
-    expect(checkUpload("МРТ қорытынды.PDF", pdf)?.mime).toBe("application/pdf");
-    expect(checkUpload("x.html", html)).toBeNull();
-    expect(checkUpload("x.svg", html)).toBeNull();
-    expect(checkUpload("fake.pdf", html)).toBeNull(); // кеңейтімі pdf, іші HTML
-    expect(checkUpload("fake.png", pdf)).toBeNull();
-    expect(checkUpload("big.pdf", Buffer.concat([pdf, Buffer.alloc(21 * 1024 * 1024)]))).toBeNull();
   });
 
   it("password policy", () => {

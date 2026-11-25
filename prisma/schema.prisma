@@ -1,4 +1,4 @@
-// Белес клиникасы CRM — дерекқор схемасы
+// Белес — менеджерлерге арналған өтінімдер (лидтер) жүйесі
 // Статустар мен түрлер String түрінде сақталады (мәндері lib/constants.ts ішінде).
 
 generator client {
@@ -15,91 +15,53 @@ model User {
   name           String
   login          String         @unique
   passwordHash   String
-  role           String // HEAD_MANAGER | MANAGER | DOCTOR
+  role           String // HEAD_MANAGER | MANAGER
   active         Boolean        @default(true)
   lastAssignedAt DateTime?
   sessionVersion Int            @default(0) // құпиясөз ауысса/өшірілсе — ескі сессиялар жарамсыз
   createdAt      DateTime       @default(now())
-  doctor         Doctor?
   leads          Lead[]
   tasks          Task[]
   activities     LeadActivity[]
-  payments       Payment[]
-  appointments   Appointment[]
-  medicalNotes   MedicalNote[]
   plans          MonthlyPlan[]
   auditLogs      AuditLog[]
   messages       Message[]
 }
 
-model Doctor {
-  id           Int               @id @default(autoincrement())
-  name         String
-  specialty    String
-  room         String?
-  active       Boolean           @default(true)
-  userId       Int?              @unique
-  user         User?             @relation(fields: [userId], references: [id])
-  appointments Appointment[]
-  courses      TreatmentCourse[]
-}
-
-model Service {
-  id           Int           @id @default(autoincrement())
-  nameKk       String
-  nameRu       String
-  price        Int
-  durationMin  Int
-  active       Boolean       @default(true)
-  appointments Appointment[]
-}
-
-model Patient {
-  id           Int               @id @default(autoincrement())
-  fullName     String
-  phone        String            @unique
-  iin          String?
-  birthDate    DateTime?
-  gender       String?
-  diagnosis    String? // HERNIA | PROTRUSION | ARTHROSIS | ARTHRITIS | OTHER
-  hasMri       Boolean           @default(false)
-  notes        String?
-  createdAt    DateTime          @default(now())
-  leads        Lead[]
-  appointments Appointment[]
-  courses      TreatmentCourse[]
-  payments     Payment[]
-  medicalNotes MedicalNote[]
-  attachments  Attachment[]
-  tasks        Task[]
-  messages     Message[]
-}
-
 model Lead {
-  id              Int            @id @default(autoincrement())
-  name            String
-  phone           String
-  source          String
-  complaint       String         @default("OTHER")
-  status          String         @default("NEW") // NEW CONTACTED BOOKED ARRIVED PAID LOST
-  comment         String?
-  lostReason      String?
-  nextContactAt   DateTime?
-  firstResponseAt DateTime?
-  escalatedAt     DateTime?
-  managerId       Int?
-  manager         User?          @relation(fields: [managerId], references: [id])
-  patientId       Int?
-  patient         Patient?       @relation(fields: [patientId], references: [id])
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  activities      LeadActivity[]
-  tasks           Task[]
-  messages        Message[]
+  id                 Int            @id @default(autoincrement())
+  name               String
+  phone              String
+  source             String
+  complaint          String         @default("OTHER")
+  // NEW=Лид, CONTACTED=Обработка, NO_ANSWER=Не отвечает, BOOKED=Конс, ARRIVED=Келді,
+  // PAID=Емге төледі, LOST=Отказ, SPAM=Басылып кетті
+  status             String         @default("NEW")
+  comment            String?
+  lostReason         String?
+  nextContactAt      DateTime?
+  firstResponseAt    DateTime?
+  escalatedAt        DateTime?
+  // Консультация (кестенің орнына — тек күні мен уақыты)
+  consultAt          DateTime?
+  consultConfirmedAt DateTime? // клиент WhatsApp-та «1» деп растады
+  remindMainSent     Boolean        @default(false)
+  remindSameDaySent  Boolean        @default(false)
+  // Емге төлегенде — сома (түсім есебі үшін)
+  amount             Int?
+  paidAt             DateTime?
+  managerId          Int?
+  manager            User?          @relation(fields: [managerId], references: [id])
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  activities         LeadActivity[]
+  tasks              Task[]
+  messages           Message[]
 
   @@index([status])
   @@index([managerId])
   @@index([phone])
+  @@index([consultAt])
 }
 
 model LeadActivity {
@@ -113,99 +75,14 @@ model LeadActivity {
   createdAt DateTime @default(now())
 }
 
-model Appointment {
-  id          Int              @id @default(autoincrement())
-  patientId   Int
-  patient     Patient          @relation(fields: [patientId], references: [id])
-  doctorId    Int
-  doctor      Doctor           @relation(fields: [doctorId], references: [id])
-  serviceId   Int
-  service     Service          @relation(fields: [serviceId], references: [id])
-  courseId    Int?
-  course      TreatmentCourse? @relation(fields: [courseId], references: [id])
-  managerId   Int?
-  manager     User?            @relation(fields: [managerId], references: [id])
-  startAt     DateTime
-  endAt       DateTime
-  status      String           @default("BOOKED") // BOOKED CONFIRMED ARRIVED NO_SHOW CANCELLED
-  price       Int              @default(0)
-  comment     String?
-  remind24Sent Boolean         @default(false)
-  remind2Sent  Boolean         @default(false)
-  createdAt   DateTime         @default(now())
-  payments    Payment[]
-
-  @@index([startAt])
-  @@index([doctorId, startAt])
-}
-
-model TreatmentCourse {
-  id            Int           @id @default(autoincrement())
-  patientId     Int
-  patient       Patient       @relation(fields: [patientId], references: [id])
-  doctorId      Int?
-  doctor        Doctor?       @relation(fields: [doctorId], references: [id])
-  title         String
-  totalSessions Int
-  doneSessions  Int           @default(0)
-  price         Int
-  status        String        @default("ACTIVE") // ACTIVE DONE CANCELLED
-  finishedAt    DateTime?
-  createdAt     DateTime      @default(now())
-  appointments  Appointment[]
-  payments      Payment[]
-}
-
-model MedicalNote {
-  id        Int      @id @default(autoincrement())
-  patientId Int
-  patient   Patient  @relation(fields: [patientId], references: [id])
-  authorId  Int
-  author    User     @relation(fields: [authorId], references: [id])
-  diagnosis String?
-  text      String
-  createdAt DateTime @default(now())
-}
-
-model Attachment {
-  id        Int      @id @default(autoincrement())
-  patientId Int
-  patient   Patient  @relation(fields: [patientId], references: [id])
-  fileName  String
-  mime      String   @default("application/octet-stream")
-  size      Int      @default(0)
-  path      String
-  createdAt DateTime @default(now())
-}
-
-model Payment {
-  id            Int              @id @default(autoincrement())
-  patientId     Int
-  patient       Patient          @relation(fields: [patientId], references: [id])
-  amount        Int
-  method        String // KASPI CASH CARD TRANSFER
-  courseId      Int?
-  course        TreatmentCourse? @relation(fields: [courseId], references: [id])
-  appointmentId Int?
-  appointment   Appointment?     @relation(fields: [appointmentId], references: [id])
-  managerId     Int?
-  manager       User?            @relation(fields: [managerId], references: [id])
-  comment       String?
-  createdAt     DateTime         @default(now())
-
-  @@index([createdAt])
-}
-
 model Task {
   id         Int      @id @default(autoincrement())
   title      String
-  kind       String   @default("MANUAL") // MANUAL NO_SHOW COURSE_ENDING FOLLOWUP_30 RESCHEDULE CALLBACK
+  kind       String   @default("MANUAL") // MANUAL CALLBACK RESCHEDULE ESCALATION
   assigneeId Int
   assignee   User     @relation(fields: [assigneeId], references: [id])
   leadId     Int?
   lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  patientId  Int?
-  patient    Patient? @relation(fields: [patientId], references: [id])
   refKey     String?  @unique // автотапсырма қайталанбауы үшін
   dueAt      DateTime
   done       Boolean  @default(false)
@@ -220,7 +97,7 @@ model MonthlyPlan {
   managerId Int?
   manager   User?  @relation(fields: [managerId], references: [id])
   leads     Int    @default(0)
-  bookings  Int    @default(0)
+  bookings  Int    @default(0) // конс саны
   revenue   Int    @default(0)
 }
 
@@ -249,24 +126,22 @@ model LoginAttempt {
 
 /// WhatsApp хабарламалары (кіріс және шығыс)
 model Message {
-  id         Int       @id @default(autoincrement())
-  phone      String // +7XXXXXXXXXX
-  direction  String // IN | OUT
-  kind       String    @default("TEXT") // TEXT | TEMPLATE
-  text       String
+  id        Int       @id @default(autoincrement())
+  phone     String // +7XXXXXXXXXX
+  direction String // IN | OUT
+  kind      String    @default("TEXT") // TEXT | TEMPLATE
+  text      String
   // OUT: queued | sent | delivered | read | failed | offline (WhatsApp қосылмаған)
-  status     String    @default("sent")
-  paid       Boolean   @default(false) // ақылы үлгі хабарлама ма
-  waId       String?   @unique
-  error      String?
-  userId     Int?
-  user       User?     @relation(fields: [userId], references: [id])
-  leadId     Int?
-  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  patientId  Int?
-  patient    Patient?  @relation(fields: [patientId], references: [id])
-  readAt     DateTime? // IN хабарламаны менеджер оқыды
-  createdAt  DateTime  @default(now())
+  status    String    @default("sent")
+  paid      Boolean   @default(false)
+  waId      String?   @unique
+  error     String?
+  userId    Int?
+  user      User?     @relation(fields: [userId], references: [id])
+  leadId    Int?
+  lead      Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([phone, createdAt])
   @@index([direction, readAt])

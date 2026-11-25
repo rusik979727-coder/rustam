@@ -5,7 +5,6 @@ node_modules
 !.env.example
 *.db
 *.db-journal
-uploads
 backups
 test-results
 .git

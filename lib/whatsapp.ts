@@ -65,11 +65,8 @@ export async function lastInboundAt(phone: string) {
 }
 
 async function links(phone: string) {
-  const [lead, patient] = await Promise.all([
-    db.lead.findFirst({ where: { phone }, orderBy: { createdAt: "desc" }, select: { id: true } }),
-    db.patient.findUnique({ where: { phone }, select: { id: true } }),
-  ]);
-  return { leadId: lead?.id ?? null, patientId: patient?.id ?? null };
+  const lead = await db.lead.findFirst({ where: { phone }, orderBy: { createdAt: "desc" }, select: { id: true } });
+  return { leadId: lead?.id ?? null };
 }
 
 /** Кіріс хабарламаны сақтау (webhook). waId бойынша қайталанбайды. */
@@ -132,7 +129,7 @@ export async function isWindowOpenFor(phone: string, now = new Date()) {
 /** Meta-да бекітілген үлгілер атауы (.env арқылы өзгертуге болады) */
 export const TEMPLATES = {
   reminder: () => process.env.WA_TPL_REMINDER || "appointment_reminder",
-  followup: () => process.env.WA_TPL_FOLLOWUP || "patient_followup",
+  followup: () => process.env.WA_TPL_FOLLOWUP || "client_followup",
   lang: () => process.env.WA_TPL_LANG || "kk",
 };
 

@@ -10,21 +10,18 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const { t, locale } = await getT();
   const head = user.role === "HEAD_MANAGER";
-  const doctor = user.role === "DOCTOR";
 
   const phones = await visiblePhones(user);
   const [openTasks, newLeads, unreadWa] = await Promise.all([
     db.task.count({ where: { assigneeId: user.id, done: false, dueAt: { lte: new Date() } } }),
-    doctor ? 0 : db.lead.count({ where: { status: "NEW", ...(head ? {} : { managerId: user.id }) } }),
-    doctor ? 0 : db.message.count({ where: { direction: "IN", readAt: null, ...(phones ? { phone: { in: phones } } : {}) } }),
+    db.lead.count({ where: { status: "NEW", ...(head ? {} : { managerId: user.id }) } }),
+    db.message.count({ where: { direction: "IN", readAt: null, ...(phones ? { phone: { in: phones } } : {}) } }),
   ]);
 
   const items = [
     { href: "/", label: head ? t("nav.dashboard") : t("nav.my") },
-    ...(!doctor ? [{ href: "/leads", label: t("nav.leads"), badge: newLeads }, { href: "/chats", label: "WhatsApp", badge: unreadWa }] : []),
-    { href: "/patients", label: t("nav.patients") },
-    { href: "/schedule", label: t("nav.schedule") },
-    ...(!doctor ? [{ href: "/payments", label: t("nav.payments") }] : []),
+    { href: "/leads", label: t("nav.leads"), badge: newLeads },
+    { href: "/chats", label: "WhatsApp", badge: unreadWa },
     { href: "/tasks", label: t("nav.tasks"), badge: openTasks },
     ...(head ? [{ href: "/settings", label: t("nav.settings") }, { href: "/audit", label: t("nav.audit") }] : []),
   ];

@@ -12,6 +12,5 @@ gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" -d 
 tar -C "$TMP" -xzf "$TMP/beles.tgz"
 docker compose stop app cron
 docker compose exec -T db pg_restore -U beles -d beles --clean --if-exists --no-owner < "$TMP/db.dump"
-docker compose run --rm --no-deps -T --entrypoint sh app -c 'rm -rf /app/uploads/* && tar -C /app -xf -' < "$TMP/uploads.tar"
 docker compose up -d app cron
 echo "✓ Қалпына келтірілді"

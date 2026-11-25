@@ -28,13 +28,11 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
   const list = await Promise.all(
     [...byPhone.entries()].map(async ([phone, msgs]) => {
       const lead = await db.lead.findFirst({ where: { phone }, orderBy: { createdAt: "desc" }, include: { manager: true } });
-      const patient = await db.patient.findUnique({ where: { phone } });
       const lastIn = msgs.find((m) => m.direction === "IN")?.createdAt ?? null;
       return {
         phone,
-        name: patient?.fullName ?? lead?.name ?? phone,
+        name: lead?.name ?? phone,
         lead,
-        patient,
         last: msgs[0],
         unread: msgs.filter((m) => m.direction === "IN" && !m.readAt).length,
         awaiting: msgs[0].direction === "IN", // соңғы хабар клиенттен — жауап күтуде
@@ -96,7 +94,6 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
                 {sel?.lead && <StatusBadge status={sel.lead.status} label={t(`status.${sel.lead.status}`)} />}
                 <span className="ml-auto flex gap-2">
                   {sel?.lead && <Link className="btn-ghost btn-sm" href={`/leads/${sel.lead.id}`}>{t("nav.leads")}</Link>}
-                  {sel?.patient && <Link className="btn-ghost btn-sm" href={`/patients/${sel.patient.id}`}>{t("patients.card")}</Link>}
                 </span>
               </div>
               <Chat phone={selected} t={t} back={back} notice={sp.wa} />

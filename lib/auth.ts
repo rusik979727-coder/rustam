@@ -23,7 +23,7 @@ export async function destroySession() {
 export async function currentUser() {
   const s = await verifySession((await cookies()).get(SESSION_COOKIE)?.value);
   if (!s) return null;
-  const user = await db.user.findUnique({ where: { id: s.uid }, include: { doctor: true } });
+  const user = await db.user.findUnique({ where: { id: s.uid } });
   // Құпиясөз ауысса не қызметкер өшірілсе — ескі сессия жарамсыз
   if (!user || !user.active || user.sessionVersion !== s.ver) return null;
   return user;

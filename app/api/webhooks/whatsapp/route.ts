@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createIncomingLead } from "@/lib/leads";
 import { safeEqual, verifyMetaSignature } from "@/lib/security";
-import { handlePatientReply } from "@/lib/automations";
+import { handleClientReply } from "@/lib/automations";
 import { normalizePhone } from "@/lib/phone";
 import { saveInbound, updateStatus } from "@/lib/whatsapp";
 import { db } from "@/lib/db";
@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
       const text: string = String(m.text?.body ?? m.button?.text ?? m.interactive?.button_reply?.title ?? (m.type ? `[${m.type}]` : "")).slice(0, 4000);
       const saved = await saveInbound(phone, text, m.id);
       if (!saved) continue; // Meta бір хабарды қайта жіберсе
-      if (await handlePatientReply(phone, text)) continue;
+      if (await handleClientReply(phone, text)) continue;
       const { lead } = await createIncomingLead({ name: names[m.from], phone, source: "WHATSAPP", comment: text });
-      await db.message.update({ where: { id: saved.id }, data: { leadId: lead.id, patientId: lead.patientId } });
+      await db.message.update({ where: { id: saved.id }, data: { leadId: lead.id } });
     }
   }
   return NextResponse.json({ ok: true });

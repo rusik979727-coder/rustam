@@ -4,7 +4,7 @@ import { requireUser, isHead } from "@/lib/auth";
 import { getT } from "@/lib/i18n-server";
 import { db } from "@/lib/db";
 import { LEAD_STATUSES, LEAD_SOURCES, COMPLAINTS, LOST_REASONS, CLOSED_LEAD_STATUSES } from "@/lib/constants";
-import { dt, addDays, startOfDay } from "@/lib/format";
+import { dt, addDays, startOfDay, money } from "@/lib/format";
 import { Field, Select } from "@/components/ui";
 import { createLead, moveLead } from "../actions";
 
@@ -13,7 +13,7 @@ const NEXT: Record<string, string[]> = {
   NEW: ["CONTACTED", "NO_ANSWER", "BOOKED", "SPAM"],
   CONTACTED: ["NO_ANSWER", "BOOKED"],
   NO_ANSWER: ["CONTACTED", "BOOKED"],
-  BOOKED: ["ARRIVED"],
+  BOOKED: ["ARRIVED", "CONTACTED"], // келмесе — қайта «Обработка»
   ARRIVED: ["PAID"],
   PAID: [],
   LOST: ["NEW"],
@@ -104,16 +104,34 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                         <div className="mt-1 text-xs">{t(`complaint.${l.complaint}`)}</div>
                         {late && <div className="mt-1 text-xs font-semibold text-red-600">⚠ {t("leads.escalated")}</div>}
                         {callDue && <div className="mt-1 text-xs text-amber-700">☎ {dt(l.nextContactAt)}</div>}
+                        {l.consultAt && ["BOOKED", "ARRIVED"].includes(l.status) && (
+                          <div className={`mt-1 text-xs ${l.status === "BOOKED" && l.consultAt < now ? "font-semibold text-red-600" : "text-indigo-700"}`}>
+                            🗓 {dt(l.consultAt)} {l.consultConfirmedAt ? "✓" : ""}
+                          </div>
+                        )}
+                        {l.status === "PAID" && l.amount ? <div className="mt-1 text-xs font-medium text-emerald-700">{money(l.amount)}</div> : null}
                         {head && <div className="mt-1 text-[11px] text-slate-400">{l.manager?.name ?? t("common.unassigned")}</div>}
                       </Link>
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {NEXT[st].map((ns) => (
-                          <form key={ns} action={moveLead}>
-                            <input type="hidden" name="id" value={l.id} />
-                            <input type="hidden" name="status" value={ns} />
-                            <button className="btn-ghost btn-sm">→ {t(`status.${ns}`)}</button>
-                          </form>
-                        ))}
+                        {NEXT[st].map((ns) =>
+                          // «Конс»-қа ауыстыру — конс күнін қою керек, сондықтан өтінім бетіне апарады
+                          ns === "BOOKED" ? (
+                            <Link key={ns} href={`/leads/${l.id}?consult=1#consult`} className="btn-ghost btn-sm">→ {t(`status.${ns}`)}</Link>
+                          ) : ns === "PAID" ? (
+                            <form key={ns} action={moveLead} className="flex gap-1">
+                              <input type="hidden" name="id" value={l.id} />
+                              <input type="hidden" name="status" value={ns} />
+                              <input type="number" name="amount" min={0} step="any" placeholder={t("leads.amount")} aria-label={t("leads.amount")} className="w-24 rounded border border-slate-200 px-1 text-[11px]" />
+                              <button className="btn-ghost btn-sm">→ {t(`status.${ns}`)}</button>
+                            </form>
+                          ) : (
+                            <form key={ns} action={moveLead}>
+                              <input type="hidden" name="id" value={l.id} />
+                              <input type="hidden" name="status" value={ns} />
+                              <button className="btn-ghost btn-sm">→ {t(`status.${ns}`)}</button>
+                            </form>
+                          ),
+                        )}
                         {!CLOSED_LEAD_STATUSES.includes(st) && (
                           <form action={moveLead} className="flex gap-1">
                             <input type="hidden" name="id" value={l.id} />

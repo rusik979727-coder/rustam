@@ -6,20 +6,17 @@ import { ROLES } from "@/lib/constants";
 import { money, monthKey } from "@/lib/format";
 import { integrations } from "@/lib/notify";
 import { Select } from "@/components/ui";
-import { saveUser, saveDoctor, saveService, savePlan } from "../actions";
+import { saveUser, savePlan } from "../actions";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ pw?: string }> }) {
   await requireUser(["HEAD_MANAGER"]);
   const sp = await searchParams;
   const { t } = await getT();
-  const [users, doctors, services, plans] = await Promise.all([
+  const [users, plans] = await Promise.all([
     db.user.findMany({ orderBy: [{ role: "asc" }, { name: "asc" }] }),
-    db.doctor.findMany({ include: { user: true }, orderBy: { name: "asc" } }),
-    db.service.findMany({ orderBy: { id: "asc" } }),
     db.monthlyPlan.findMany({ include: { manager: true }, orderBy: [{ month: "desc" }] }),
   ]);
   const managers = users.filter((u) => u.role === "MANAGER" && u.active);
-  const doctorUsers = users.filter((u) => u.role === "DOCTOR");
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
   const integ = integrations();
@@ -87,44 +84,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </tbody>
         </table>
       </section>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        {/* Дәрігерлер */}
-        <section className="card overflow-x-auto">
-          <h2 className="h2">{t("settings.doctors")}</h2>
-          {[...doctors, null].map((d) => (
-            <form key={d?.id ?? "new"} action={saveDoctor} className={`mb-2 grid grid-cols-6 items-center gap-2 ${d ? "" : "rounded-lg bg-brand-50 p-2"}`}>
-              {d && <input type="hidden" name="id" value={d.id} />}
-              <input name="name" defaultValue={d?.name} placeholder={t("common.name")} className="input col-span-2" required />
-              <input name="specialty" defaultValue={d?.specialty} placeholder={t("settings.specialty")} className="input" required />
-              <input name="room" defaultValue={d?.room ?? ""} placeholder={t("settings.room")} className="input" />
-              <Select name="userId" defaultValue={d?.userId} label={t("settings.linkUser")} options={[{ value: "", label: "—" }, ...doctorUsers.map((u) => ({ value: u.id, label: u.login }))]} />
-              <div className="flex items-center gap-2">
-                {d && <input type="checkbox" name="active" defaultChecked={d.active} aria-label={t("settings.active")} />}
-                <button className={d ? "btn-ghost btn-sm" : "btn btn-sm"}>{d ? t("common.save") : t("common.add")}</button>
-              </div>
-            </form>
-          ))}
-        </section>
-
-        {/* Қызметтер */}
-        <section className="card overflow-x-auto">
-          <h2 className="h2">{t("settings.services")}</h2>
-          {[...services, null].map((s) => (
-            <form key={s?.id ?? "new"} action={saveService} className={`mb-2 grid grid-cols-6 items-center gap-2 ${s ? "" : "rounded-lg bg-brand-50 p-2"}`}>
-              {s && <input type="hidden" name="id" value={s.id} />}
-              <input name="nameKk" defaultValue={s?.nameKk} placeholder={t("settings.nameKk")} className="input col-span-2" required />
-              <input name="nameRu" defaultValue={s?.nameRu} placeholder={t("settings.nameRu")} className="input" />
-              <input type="number" name="price" defaultValue={s?.price} placeholder={t("common.price")} className="input" min={0} />
-              <input type="number" name="durationMin" defaultValue={s?.durationMin ?? 30} className="input" min={5} step={5} aria-label={t("settings.duration")} />
-              <div className="flex items-center gap-2">
-                {s && <input type="checkbox" name="active" defaultChecked={s.active} aria-label={t("settings.active")} />}
-                <button className={s ? "btn-ghost btn-sm" : "btn btn-sm"}>{s ? t("common.save") : t("common.add")}</button>
-              </div>
-            </form>
-          ))}
-        </section>
-      </div>
 
       {/* Интеграциялар */}
       <section className="card space-y-2 text-sm">
