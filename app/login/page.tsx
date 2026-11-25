@@ -14,7 +14,7 @@ export default async function LoginPage() {
           </div>
           <LangSwitch locale={locale} back="/login" />
         </div>
-        <LoginForm labels={{ login: t("login.login"), password: t("login.password"), submit: t("login.submit"), error: t("login.error") }} />
+        <LoginForm labels={{ login: t("login.login"), password: t("login.password"), submit: t("login.submit"), error: t("login.error"), locked: t("login.locked") }} />
       </div>
     </main>
   );

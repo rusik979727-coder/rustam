@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { csvSafe } from "@/lib/security";
+import { audit } from "@/lib/audit";
 
 function csv(rows: (string | number | null | undefined)[][]) {
   const esc = (v: unknown) => {
-    const s = v == null ? "" : String(v);
+    const s = csvSafe(v);
     return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   // BOM + «;» — Excel кириллицаны дұрыс ашады
@@ -31,7 +33,8 @@ export async function GET(req: NextRequest) {
     const xs = await db.lead.findMany({ where: { createdAt: { gte: from, lt: to } }, include: { manager: true }, orderBy: { createdAt: "asc" } });
     rows = [["ID", "Күні", "Аты", "Телефон", "Дереккөз", "Шағым", "Статус", "Менеджер", "Бас тарту себебі"], ...xs.map((x) => [x.id, x.createdAt.toLocaleString("ru-RU"), x.name, x.phone, x.source, x.complaint, x.status, x.manager?.name ?? "", x.lostReason])];
   }
+  await audit(u.id, "Export", null, type, { from: p.get("from"), to: p.get("to"), rows: rows.length - 1 });
   return new NextResponse(csv(rows), {
-    headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="beles-${type}.csv"` },
+    headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="beles-${type}.csv"`, "cache-control": "private, no-store" },
   });
 }

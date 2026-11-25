@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { canAccessPatient } from "@/lib/access";
 import { getT } from "@/lib/i18n-server";
 import { db } from "@/lib/db";
 import { addDays, startOfDay, ymd, time, toLocalInput } from "@/lib/format";
@@ -30,9 +31,16 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const [doctors, services, appts, patient, recentPatients] = await Promise.all([
     db.doctor.findMany({ where: { active: true, ...(isDoctor ? { id: user.doctor?.id ?? -1 } : {}) }, orderBy: { name: "asc" } }),
     db.service.findMany({ where: { active: true }, orderBy: { id: "asc" } }),
-    db.appointment.findMany({ where: { startAt: { gte: day, lt: next } }, include: { patient: true, service: true }, orderBy: { startAt: "asc" } }),
-    sp.patient ? db.patient.findUnique({ where: { id: Number(sp.patient) }, include: { courses: { where: { status: "ACTIVE" } } } }) : null,
-    db.patient.findMany({ orderBy: { createdAt: "desc" }, take: 300, select: { id: true, fullName: true, phone: true } }),
+    db.appointment.findMany({ where: { startAt: { gte: day, lt: next }, ...(isDoctor ? { doctorId: user.doctor?.id ?? -1 } : {}) }, include: { patient: true, service: true }, orderBy: { startAt: "asc" } }),
+    sp.patient && (await canAccessPatient(user, Number(sp.patient)))
+      ? db.patient.findUnique({ where: { id: Number(sp.patient) }, include: { courses: { where: { status: "ACTIVE" } } } })
+      : null,
+    db.patient.findMany({
+      where: isDoctor ? { OR: [{ appointments: { some: { doctorId: user.doctor?.id ?? -1 } } }, { courses: { some: { doctorId: user.doctor?.id ?? -1 } } }] } : {},
+      orderBy: { createdAt: "desc" },
+      take: 300,
+      select: { id: true, fullName: true, phone: true },
+    }),
   ]);
   const svcName = (s: { nameKk: string; nameRu: string }) => (locale === "ru" ? s.nameRu : s.nameKk);
   const hours = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i);

@@ -5,8 +5,8 @@ import { db } from "./db";
 import { SESSION_COOKIE, signSession, verifySession } from "./session";
 import type { Role } from "./constants";
 
-export async function createSession(userId: number, role: string) {
-  const token = await signSession(userId, role);
+export async function createSession(userId: number, role: string, ver: number) {
+  const token = await signSession(userId, role, ver);
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -24,7 +24,8 @@ export async function currentUser() {
   const s = await verifySession((await cookies()).get(SESSION_COOKIE)?.value);
   if (!s) return null;
   const user = await db.user.findUnique({ where: { id: s.uid }, include: { doctor: true } });
-  if (!user || !user.active) return null;
+  // Құпиясөз ауысса не қызметкер өшірілсе — ескі сессия жарамсыз
+  if (!user || !user.active || user.sessionVersion !== s.ver) return null;
   return user;
 }
 

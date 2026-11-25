@@ -14,7 +14,7 @@ export function LoginForm({ labels }: { labels: Record<string, string> }) {
         <label className="label" htmlFor="password">{labels.password}</label>
         <input id="password" name="password" type="password" className="input" autoComplete="current-password" required />
       </div>
-      {state?.error && <p className="text-sm text-red-600">{labels.error}</p>}
+      {state?.error && <p className="text-sm text-red-600" role="alert">{state.error === "locked" ? labels.locked : labels.error}</p>}
       <button className="btn w-full" disabled={pending}>{labels.submit}</button>
     </form>
   );

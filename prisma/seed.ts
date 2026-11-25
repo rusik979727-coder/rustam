@@ -15,6 +15,10 @@ const daysAgo = (n: number, h = 10, m = 0) => {
 };
 
 async function main() {
+  // Продакшнда демо-деректер барлық нақты деректерді өшіреді — қорғаныс
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "yes") {
+    throw new Error("Продакшнда seed тыйым салынған (барлық деректерді өшіреді). Қажет болса ALLOW_DEMO_SEED=yes");
+  }
   // тазалау (тәуелділік ретімен)
   for (const m of ["auditLog", "task", "payment", "appointment", "medicalNote", "attachment", "treatmentCourse", "leadActivity", "lead", "patient", "monthlyPlan", "service", "doctor", "user"] as const) {
     // @ts-expect-error dynamic model access

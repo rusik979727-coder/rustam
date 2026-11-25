@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createIncomingLead } from "@/lib/leads";
+import { safeEqual, verifyMetaSignature } from "@/lib/security";
 
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
-  if (p.get("hub.mode") === "subscribe" && p.get("hub.verify_token") === process.env.IG_VERIFY_TOKEN && process.env.IG_VERIFY_TOKEN)
+  if (p.get("hub.mode") === "subscribe" && safeEqual(p.get("hub.verify_token"), process.env.IG_VERIFY_TOKEN))
     return new NextResponse(p.get("hub.challenge") ?? "", { status: 200 });
   return new NextResponse("forbidden", { status: 403 });
 }
@@ -14,7 +15,17 @@ export async function GET(req: NextRequest) {
  * менеджер нөмірді сұрап, карточкада жаңартады.
  */
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
+  // Meta қолтаңбасын тексеру: тек Meta-дан келген сұраулар қабылданады
+  const raw = await req.text();
+  if (!verifyMetaSignature(raw, req.headers.get("x-hub-signature-256"), process.env.META_APP_SECRET)) {
+    return NextResponse.json({ error: "invalid signature" }, { status: 401 });
+  }
+  let body: any = {};
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return NextResponse.json({ error: "bad json" }, { status: 400 });
+  }
   for (const e of body?.entry ?? []) {
     for (const m of e.messaging ?? []) {
       if (!m.message || m.message.is_echo) continue;

@@ -18,6 +18,7 @@ model User {
   role           String // HEAD_MANAGER | MANAGER | DOCTOR
   active         Boolean        @default(true)
   lastAssignedAt DateTime?
+  sessionVersion Int            @default(0) // құпиясөз ауысса/өшірілсе — ескі сессиялар жарамсыз
   createdAt      DateTime       @default(now())
   doctor         Doctor?
   leads          Lead[]
@@ -168,6 +169,8 @@ model Attachment {
   patientId Int
   patient   Patient  @relation(fields: [patientId], references: [id])
   fileName  String
+  mime      String   @default("application/octet-stream")
+  size      Int      @default(0)
   path      String
   createdAt DateTime @default(now())
 }
@@ -229,4 +232,14 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+/// Логин әрекеттері (құпиясөзді таңдаудан қорғау)
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  key       String // login + IP
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
 }

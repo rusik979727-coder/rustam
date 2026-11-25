@@ -4,13 +4,16 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
-import { requireUser, isHead, type CurrentUser } from "@/lib/auth";
+import { requireUser, isHead, createSession, type CurrentUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { createIncomingLead, autoAssignManager } from "@/lib/leads";
 import { normalizePhone } from "@/lib/phone";
 import { findConflict } from "@/lib/schedule";
 import { onAppointmentStatus, runFrequent, sendDailyReport } from "@/lib/automations";
+import { assertPatientAccess } from "@/lib/access";
+import { checkUpload, passwordProblem } from "@/lib/security";
 import { LEAD_STATUSES, APPT_STATUSES, PAYMENT_METHODS, ROLES, CLOSED_LEAD_STATUSES, NO_ANSWER_RETRY_HOURS } from "@/lib/constants";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -183,6 +186,8 @@ export async function savePatient(fd: FormData) {
     hasMri: fd.get("hasMri") === "on",
     notes: str(fd, "notes") || null,
   };
+  if (id) await assertPatientAccess(u, id);
+  else if (u.role === "DOCTOR") throw new Error("Forbidden");
   const dup = await db.patient.findUnique({ where: { phone: data.phone } });
   if (dup && dup.id !== id) redirect(`/patients/${dup.id}?dup=1`);
   const p = id ? await db.patient.update({ where: { id }, data }) : await db.patient.create({ data });
@@ -194,6 +199,7 @@ export async function savePatient(fd: FormData) {
 export async function createCourse(fd: FormData) {
   const u = await requireUser();
   const patientId = Number(str(fd, "patientId"));
+  await assertPatientAccess(u, patientId);
   const c = await db.treatmentCourse.create({
     data: {
       patientId,
@@ -211,6 +217,9 @@ export async function setCourseStatus(fd: FormData) {
   const u = await requireUser();
   const id = Number(str(fd, "id"));
   const status = str(fd, "status");
+  if (!["ACTIVE", "DONE", "CANCELLED"].includes(status)) return;
+  const existing = await db.treatmentCourse.findUniqueOrThrow({ where: { id } });
+  await assertPatientAccess(u, existing.patientId);
   const c = await db.treatmentCourse.update({
     where: { id },
     data: { status, finishedAt: status === "DONE" ? new Date() : null },
@@ -222,8 +231,9 @@ export async function setCourseStatus(fd: FormData) {
 export async function addMedicalNote(fd: FormData) {
   const u = await requireUser();
   const patientId = Number(str(fd, "patientId"));
-  const text = str(fd, "text");
+  const text = str(fd, "text").slice(0, 10000);
   if (!text) return;
+  await assertPatientAccess(u, patientId);
   await db.medicalNote.create({ data: { patientId, authorId: u.id, text, diagnosis: str(fd, "diagnosis") || null } });
   if (str(fd, "diagnosis")) await db.patient.update({ where: { id: patientId }, data: { diagnosis: str(fd, "diagnosis") } });
   revalidatePath(`/patients/${patientId}`);
@@ -232,13 +242,24 @@ export async function addMedicalNote(fd: FormData) {
 export async function uploadFile(fd: FormData) {
   const u = await requireUser();
   const patientId = Number(str(fd, "patientId"));
+  await assertPatientAccess(u, patientId);
   const file = fd.get("file");
   if (!(file instanceof File) || file.size === 0) return;
+  const data = Buffer.from(await file.arrayBuffer());
+  const ok = checkUpload(file.name, data);
+  if (!ok) {
+    await audit(u.id, "Attachment", patientId, "upload_rejected", file.name);
+    redirect(`/patients/${patientId}?badfile=1`);
+  }
   const dir = path.join(process.cwd(), "uploads", String(patientId));
   await mkdir(dir, { recursive: true });
-  const safe = `${Date.now()}-${file.name.replace(/[^\p{L}\p{N}._-]/gu, "_")}`;
-  await writeFile(path.join(dir, safe), Buffer.from(await file.arrayBuffer()));
-  await db.attachment.create({ data: { patientId, fileName: file.name, path: `${patientId}/${safe}` } });
+  // Дискідегі атау — кездейсоқ, пайдаланушы берген атау тек көрсету үшін
+  const ext = file.name.split(".").pop()!.toLowerCase();
+  const stored = `${randomUUID()}.${ext}`;
+  await writeFile(path.join(dir, stored), data, { mode: 0o600 });
+  await db.attachment.create({
+    data: { patientId, fileName: file.name.slice(0, 200), path: `${patientId}/${stored}`, mime: ok.mime, size: data.length },
+  });
   await audit(u.id, "Attachment", patientId, "upload", file.name);
   revalidatePath(`/patients/${patientId}`);
 }
@@ -252,6 +273,16 @@ export async function createAppointment(fd: FormData) {
   const serviceId = Number(str(fd, "serviceId"));
   const startAt = date(fd, "startAt")!;
   const courseId = num(fd, "courseId");
+  if (u.role === "DOCTOR") {
+    // Дәрігер тек өзіне және тек өз пациентіне жаза алады (басқа пациентке қол жеткізу үшін жазбау)
+    if (doctorId !== u.doctor?.id) throw new Error("Forbidden");
+    await assertPatientAccess(u, patientId);
+  }
+  if (courseId) {
+    const course = await db.treatmentCourse.findUnique({ where: { id: courseId } });
+    if (!course || course.patientId !== patientId) throw new Error("Bad course");
+  }
+  if (!startAt || isNaN(startAt.getTime())) throw new Error("Bad date");
   const service = await db.service.findUniqueOrThrow({ where: { id: serviceId } });
   const endAt = new Date(startAt.getTime() + service.durationMin * 60000);
   const backUrl = back(fd, "/schedule");
@@ -298,6 +329,10 @@ export async function setAppointmentStatus(fd: FormData) {
   const id = Number(str(fd, "id"));
   const status = str(fd, "status");
   if (!(APPT_STATUSES as readonly string[]).includes(status)) return;
+  if (u.role === "DOCTOR") {
+    const own = await db.appointment.findUniqueOrThrow({ where: { id } });
+    if (own.doctorId !== u.doctor?.id) throw new Error("Forbidden");
+  }
   const a = await db.appointment.update({ where: { id }, data: { status } });
   await audit(u.id, "Appointment", id, "status", status);
   await onAppointmentStatus(id, status);
@@ -337,11 +372,11 @@ export async function createTask(fd: FormData) {
   const assigneeId = isHead(u) ? Number(str(fd, "assigneeId") || u.id) : u.id;
   await db.task.create({
     data: {
-      title: str(fd, "title"),
+      title: str(fd, "title").slice(0, 500),
       assigneeId,
       dueAt: date(fd, "dueAt") ?? new Date(),
-      leadId: num(fd, "leadId"),
-      patientId: num(fd, "patientId"),
+      leadId: isHead(u) ? num(fd, "leadId") : null,
+      patientId: isHead(u) ? num(fd, "patientId") : null,
     },
   });
   revalidatePath("/tasks");
@@ -365,16 +400,30 @@ export async function saveUser(fd: FormData) {
   const id = num(fd, "id");
   const role = str(fd, "role");
   if (!(ROLES as readonly string[]).includes(role)) return;
-  const password = str(fd, "password");
+  const password = String(fd.get("password") ?? "");
+  if ((password || !id) && passwordProblem(password)) redirect("/settings?pw=weak");
   const data: { name: string; login: string; role: string; active: boolean; passwordHash?: string } = {
     name: str(fd, "name"),
     login: str(fd, "login"),
     role,
     active: id ? fd.get("active") === "on" : true,
   };
-  if (password) data.passwordHash = await bcrypt.hash(password, 10);
-  if (id) await db.user.update({ where: { id }, data });
-  else if (data.passwordHash) await db.user.create({ data: { ...data, passwordHash: data.passwordHash } });
+  // Бас менеджер өзін өшіріп не рөлін түсіріп, жүйеден құлыпталып қалмауы үшін
+  if (id === u.id) {
+    data.active = true;
+    data.role = "HEAD_MANAGER";
+  }
+  if (password) data.passwordHash = await bcrypt.hash(password, 12);
+  if (id) {
+    const before = await db.user.findUniqueOrThrow({ where: { id } });
+    // Құпиясөз, рөл не белсенділік өзгерсе — барлық ашық сессиялар жабылады
+    const revoke = !!password || before.role !== data.role || before.active !== data.active;
+    await db.user.update({ where: { id }, data: { ...data, ...(revoke ? { sessionVersion: { increment: 1 } } : {}) } });
+    if (id === u.id && password) {
+      const me = await db.user.findUniqueOrThrow({ where: { id } });
+      await createSession(me.id, me.role, me.sessionVersion);
+    }
+  } else if (data.passwordHash) await db.user.create({ data: { ...data, passwordHash: data.passwordHash } });
   await audit(u.id, "User", id, id ? "update" : "create", { login: data.login, role });
   revalidatePath("/settings");
 }

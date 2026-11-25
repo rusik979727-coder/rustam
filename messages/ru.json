@@ -211,5 +211,8 @@
   "audit.action": "Действие",
   "status.NO_ANSWER": "Не отвечает",
   "status.SPAM": "Басылып кетті (ошибка/спам)",
-  "leads.today": "Сегодняшние лиды"
+  "leads.today": "Сегодняшние лиды",
+  "login.locked": "Слишком много неудачных попыток. Повторите через 15 минут.",
+  "settings.pwWeak": "Пароль — минимум 8 символов и не слишком простой",
+  "patients.badFile": "Недопустимый тип файла (JPG, PNG, WEBP, HEIC, PDF, DOC, DOCX, DICOM, до 20 МБ)"
 }

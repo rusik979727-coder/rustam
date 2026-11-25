@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { canAccessPatient } from "@/lib/access";
+import { audit } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
 import { getT } from "@/lib/i18n-server";
 import { db } from "@/lib/db";
@@ -10,7 +12,7 @@ import { Field, Select, StatusBadge, Empty, Stat } from "@/components/ui";
 import { PatientForm } from "@/components/PatientForm";
 import { createCourse, setCourseStatus, addMedicalNote, uploadFile, createPayment, setAppointmentStatus } from "../../actions";
 
-export default async function PatientPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string }> }) {
+export default async function PatientPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; badfile?: string }> }) {
   const user = await requireUser();
   const { t, locale } = await getT();
   const id = Number((await params).id);
@@ -26,7 +28,9 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
       leads: { include: { manager: true }, orderBy: { createdAt: "desc" } },
     },
   });
-  if (!p) notFound();
+  if (!p || !(await canAccessPatient(user, id))) notFound();
+  // Медициналық картаны кім ашқаны журналға жазылады
+  await audit(user.id, "Patient", id, "view");
   const doctors = await db.doctor.findMany({ where: { active: true } });
   const bal = patientBalance(p);
   const staff = user.role !== "DOCTOR";
@@ -42,6 +46,7 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
         <Link href={`/schedule?patient=${p.id}`} className="btn ml-auto">{t("sched.new")}</Link>
       </div>
       {sp.dup && <div className="card border-amber-300 bg-amber-50 text-sm">{t("leads.duplicate")}</div>}
+      {sp.badfile && <div className="card border-red-300 bg-red-50 text-sm text-red-700" role="alert">{t("patients.badFile")}</div>}
 
       {staff && (
         <section className="grid grid-cols-3 gap-3">
@@ -118,7 +123,7 @@ export default async function PatientPage({ params, searchParams }: { params: Pr
           <h2 className="h2 mt-4">{t("patients.files")}</h2>
           <form action={uploadFile} className="mb-2 flex gap-2">
             <input type="hidden" name="patientId" value={p.id} />
-            <input type="file" name="file" className="text-sm" accept="image/*,.pdf,.doc,.docx" required />
+            <input type="file" name="file" className="text-sm" accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,.doc,.docx,.dcm" required />
             <button className="btn-ghost btn-sm">{t("patients.upload")}</button>
           </form>
           <ul className="text-sm">

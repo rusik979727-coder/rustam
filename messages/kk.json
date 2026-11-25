@@ -211,5 +211,8 @@
   "audit.action": "Әрекет",
   "status.NO_ANSWER": "Не отвечает",
   "status.SPAM": "Басылып кетті",
-  "leads.today": "Бүгінгі лид"
+  "leads.today": "Бүгінгі лид",
+  "login.locked": "Тым көп сәтсіз әрекет. 15 минуттан кейін қайталаңыз.",
+  "settings.pwWeak": "Құпиясөз кемінде 8 таңба және оңай болмауы керек",
+  "patients.badFile": "Файл түріне рұқсат жоқ (JPG, PNG, WEBP, HEIC, PDF, DOC, DOCX, DICOM, 20 МБ дейін)"
 }

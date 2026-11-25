@@ -15,7 +15,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
   const and: Prisma.PatientWhereInput[] = [];
   if (sp.q) and.push({ OR: [{ fullName: { contains: sp.q } }, { phone: { contains: sp.q.replace(/\D/g, "") || sp.q } }, { iin: { contains: sp.q } }] });
   if (sp.dx) and.push({ diagnosis: sp.dx });
-  if (user.role === "DOCTOR") and.push({ appointments: { some: { doctorId: user.doctor?.id ?? -1 } } });
+  if (user.role === "DOCTOR") and.push({ OR: [{ appointments: { some: { doctorId: user.doctor?.id ?? -1 } } }, { courses: { some: { doctorId: user.doctor?.id ?? -1 } } }] });
 
   const patients = await db.patient.findMany({
     where: { AND: and },

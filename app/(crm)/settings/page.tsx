@@ -8,8 +8,9 @@ import { integrations } from "@/lib/notify";
 import { Select } from "@/components/ui";
 import { saveUser, saveDoctor, saveService, savePlan } from "../actions";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ pw?: string }> }) {
   await requireUser(["HEAD_MANAGER"]);
+  const sp = await searchParams;
   const { t } = await getT();
   const [users, doctors, services, plans] = await Promise.all([
     db.user.findMany({ orderBy: [{ role: "asc" }, { name: "asc" }] }),
@@ -27,6 +28,7 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <h1 className="h1">{t("settings.title")}</h1>
+      {sp.pw && <div className="card border-red-300 bg-red-50 text-sm text-red-700" role="alert">{t("settings.pwWeak")}</div>}
 
       {/* Жоспар */}
       <section className="card overflow-x-auto">
@@ -63,7 +65,7 @@ export default async function SettingsPage() {
                     <input name="name" defaultValue={u.name} className="input" aria-label={t("common.name")} />
                     <input name="login" defaultValue={u.login} className="input" aria-label={t("settings.login")} />
                     <Select name="role" defaultValue={u.role} options={roleOpts} label={t("settings.role")} />
-                    <input name="password" type="password" placeholder="••••••" className="input" aria-label={t("settings.password")} autoComplete="new-password" />
+                    <input name="password" type="password" placeholder="••••••" minLength={8} className="input" aria-label={t("settings.password")} autoComplete="new-password" />
                     <input type="checkbox" name="active" defaultChecked={u.active} aria-label={t("settings.active")} />
                     <button className="btn-ghost btn-sm">{t("common.save")}</button>
                   </form>
@@ -76,7 +78,7 @@ export default async function SettingsPage() {
                   <input name="name" placeholder={t("common.name")} className="input" required />
                   <input name="login" placeholder={t("settings.login")} className="input" required />
                   <Select name="role" defaultValue="MANAGER" options={roleOpts} label={t("settings.role")} />
-                  <input name="password" type="password" placeholder={t("settings.password")} className="input" required autoComplete="new-password" />
+                  <input name="password" type="password" placeholder={t("settings.password")} minLength={8} className="input" required autoComplete="new-password" />
                   <span />
                   <button className="btn btn-sm">{t("common.add")}</button>
                 </form>
