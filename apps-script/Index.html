@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Белес — Өтінімдер</title>
+<style>
+  :root {
+    --brand: #0E4B45;
+    --brand-2: #157A70;
+    --bg: #F2F5F4;
+    --surface: #FFFFFF;
+    --text: #15201F;
+    --muted: #5B6B69;
+    --line: #DCE3E1;
+    --danger: #B42318;
+    --danger-bg: #FDECEA;
+    --today: #1D4ED8;
+    --wa: #128C4A;
+    --radius: 12px;
+    --pad: 16px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid #F59E0B; outline-offset: 2px; }
+
+  /* Жоғарғы бөлік */
+  header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--brand); color: #fff;
+    padding: calc(10px + env(safe-area-inset-top)) var(--pad) 0;
+  }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .who { font-size: 13px; opacity: .8; }
+  .title { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+  .icon-btn {
+    border: 0; background: rgba(255,255,255,.14); color: #fff;
+    width: 40px; height: 40px; border-radius: 50%; font-size: 18px;
+  }
+  .tabs { display: flex; gap: 4px; margin-top: 10px; }
+  .tab {
+    flex: 1; border: 0; background: transparent; color: rgba(255,255,255,.75);
+    padding: 10px 4px 12px; font-weight: 600; font-size: 15px;
+    border-bottom: 3px solid transparent;
+  }
+  .tab[aria-selected="true"] { color: #fff; border-bottom-color: #fff; }
+  .tab .n { font-weight: 700; margin-left: 4px; }
+
+  /* Сүзгілер */
+  .filters { padding: 12px var(--pad) 4px; display: grid; gap: 10px; }
+  .search {
+    width: 100%; border: 1px solid var(--line); background: var(--surface);
+    border-radius: 10px; padding: 10px 12px;
+  }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: none; border: 1px solid var(--line); background: var(--surface);
+    border-radius: 999px; padding: 6px 12px; font-size: 14px; white-space: nowrap;
+  }
+  .chip[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .chip .n { opacity: .7; margin-left: 4px; }
+  select.mgr { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 10px; width: 100%; }
+
+  /* Тізім */
+  .section-label { padding: 14px var(--pad) 6px; font-size: 14px; font-weight: 700; color: var(--muted); }
+  .list { margin: 0; padding: 0; list-style: none; background: var(--surface); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .lead {
+    position: relative; padding: 12px var(--pad) 12px calc(var(--pad) + 6px);
+    border-bottom: 1px solid var(--line);
+  }
+  .lead:last-child { border-bottom: 0; }
+  .lead::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--st, #CBD5E1); }
+  .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .name { font-weight: 650; font-size: 17px; overflow-wrap: anywhere; }
+  .status { flex: none; font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--st-bg, #EEF2F1); }
+  .meta { color: var(--muted); font-size: 14px; margin-top: 2px; overflow-wrap: anywhere; }
+  .when { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px; }
+  .tag { padding: 2px 8px; border-radius: 6px; background: #EEF2F1; }
+  .tag.late { background: var(--danger-bg); color: var(--danger); font-weight: 700; }
+  .tag.today { background: #DBE7FF; color: var(--today); font-weight: 700; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .act {
+    border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
+    padding: 10px 6px; font-weight: 600; font-size: 15px; text-align: center; text-decoration: none; color: var(--text);
+    min-height: 44px; display: flex; align-items: center; justify-content: center;
+  }
+  .act.wa { color: var(--wa); border-color: #B7DEC8; }
+  .act.st { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+  .empty { padding: 40px var(--pad); text-align: center; color: var(--muted); }
+  .empty b { display: block; color: var(--text); font-size: 17px; margin-bottom: 6px; }
+
+  /* Төменгі батырма */
+  .bottom {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+    padding: 10px var(--pad) calc(10px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--bg) 70%, rgba(242,245,244,0));
+  }
+  .primary {
+    width: 100%; border: 0; border-radius: 12px; background: var(--brand); color: #fff;
+    font-weight: 700; font-size: 17px; padding: 15px;
+  }
+  .primary:disabled { opacity: .6; }
+
+  /* Төменнен шығатын панель */
+  .scrim { position: fixed; inset: 0; background: rgba(10, 25, 23, .45); z-index: 10; display: none; }
+  .scrim.open { display: block; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 11;
+    background: var(--surface); border-radius: 16px 16px 0 0;
+    max-height: 88vh; overflow-y: auto;
+    padding: 8px var(--pad) calc(16px + env(safe-area-inset-bottom));
+    transform: translateY(105%); transition: transform .22s ease-out;
+  }
+  .sheet.open { transform: none; }
+  @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+  .grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 10px; }
+  .sheet h2 { margin: 0 0 2px; font-size: 19px; }
+  .sheet .sub { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .opt {
+    border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
+    padding: 12px 10px; text-align: left; font-weight: 600; min-height: 48px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .opt .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--st); flex: none; }
+  .opt[aria-pressed="true"] { border-color: var(--brand); box-shadow: inset 0 0 0 2px var(--brand); }
+  .field { display: grid; gap: 6px; margin-top: 14px; }
+  .field > span { font-size: 14px; font-weight: 600; color: var(--muted); }
+  .field input, .field select, .field textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; background: #fff;
+  }
+  .quick { display: flex; flex-wrap: wrap; gap: 6px; }
+  .quick button { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 7px 12px; font-size: 14px; }
+  .history { white-space: pre-wrap; font-size: 14px; color: var(--muted); background: var(--bg); border-radius: 10px; padding: 10px 12px; margin-top: 14px; max-height: 140px; overflow-y: auto; }
+  .sheet .primary { margin-top: 18px; }
+  .ghost { width: 100%; border: 0; background: transparent; color: var(--muted); padding: 12px; margin-top: 4px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: #15201F; color: #fff; border-radius: 10px; padding: 10px 14px; font-size: 15px;
+    z-index: 20; max-width: calc(100% - 32px); display: none;
+  }
+  .toast.show { display: block; }
+  .toast.err { background: var(--danger); }
+  .loading { padding: 60px var(--pad); text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div>
+      <div class="title">Белес</div>
+      <div class="who" id="who">Жүктелуде…</div>
+    </div>
+    <button class="icon-btn" id="refresh" aria-label="Жаңарту" title="Жаңарту">⟳</button>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-today" aria-selected="true">Бүгін<span class="n" id="n-today"></span></button>
+    <button class="tab" role="tab" id="tab-all" aria-selected="false">Барлығы<span class="n" id="n-all"></span></button>
+  </div>
+</header>
+
+<div class="filters" id="filters" hidden>
+  <input class="search" id="search" type="search" placeholder="Аты не телефон бойынша іздеу" aria-label="Іздеу">
+  <select class="mgr" id="mgr" hidden aria-label="Менеджер"></select>
+  <div class="chips" id="chips" role="group" aria-label="Статус"></div>
+</div>
+
+<main id="main"><div class="loading">Жүктелуде…</div></main>
+
+<div class="bottom"><button class="primary" id="add">Жаңа өтінім</button></div>
+
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></section>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* Статус түстері — кестедегі шартты пішімдеумен бірдей */
+const ST = {
+  'Лид':           ['#3B82F6', '#DBEAFE'],
+  'Обработка':     ['#6366F1', '#E0E7FF'],
+  'Не отвечает':   ['#F97316', '#FFEDD5'],
+  'Конс':          ['#CA8A04', '#FEF3C7'],
+  'Келді':         ['#0D9488', '#CCFBF1'],
+  'Емге төледі':   ['#16A34A', '#D1FAE5'],
+  'Отказ':         ['#9CA3AF', '#E5E7EB'],
+  'Басылып кетті': ['#D6D3D1', '#F5F5F4'],
+};
+const CLOSED = ['Емге төледі', 'Отказ', 'Басылып кетті'];
+
+let D = null;                 // сервердегі деректер
+let tab = 'today', chip = '', q = '', mgr = '';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* google.script.run → Promise */
+function call(fn, ...args) {
+  return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler((e) => rej(e && e.message ? e : new Error(String(e))))[fn](...args));
+}
+
+function toast(msg, err) {
+  const t = $('toast');
+  t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toast.t); toast.t = setTimeout(() => (t.className = 'toast'), err ? 5000 : 2500);
+}
+
+/* Уақыт: сервер «2026-11-26T15:00» түрінде, кесте уақыт белдеуінде береді */
+const dayOf = (s) => (s || '').slice(0, 10);
+function human(s) {
+  if (!s) return '';
+  const [d, t] = s.split('T'); const [y, m, dd] = d.split('-');
+  const today = dayOf(D.now);
+  const tm = new Date(today); tm.setDate(tm.getDate() + 1);
+  const tomorrow = tm.toISOString().slice(0, 10);
+  const day = d === today ? 'бүгін' : d === tomorrow ? 'ертең' : `${dd}.${m}`;
+  return `${day} ${t}`;
+}
+function addHours(base, h) {
+  const d = new Date(base.replace('T', ' ').replace(/-/g, '/')); d.setHours(d.getHours() + h);
+  return local(d);
+}
+function local(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function tomorrowAt(h) {
+  const d = new Date(dayOf(D.now).replace(/-/g, '/')); d.setDate(d.getDate() + 1); d.setHours(h, 0, 0, 0);
+  return local(d);
+}
+function waNumber(p) {
+  let d = String(p || '').replace(/\D/g, '');
+  if (d.length === 11 && d[0] === '8') d = '7' + d.slice(1);
+  if (d.length === 10) d = '7' + d;
+  return d;
+}
+
+const isOpen = (l) => CLOSED.indexOf(l.status) < 0;
+const isLate = (l) => isOpen(l) && l.next && l.next < D.now;
+const isTodayConsult = (l) => l.consult && dayOf(l.consult) === dayOf(D.now);
+
+/* «Бүгін»: жаңа лидтер, хабарласу уақыты келгендер және бүгінгі конс */
+function todayList() {
+  const end = dayOf(D.now) + 'T23:59';
+  return scoped().filter((l) => isOpen(l) && (l.status === 'Лид' || (l.next && l.next <= end) || isTodayConsult(l)))
+    .sort((a, b) => (isLate(b) - isLate(a)) || (a.next || a.consult || 'z').localeCompare(b.next || b.consult || 'z'));
+}
+function scoped() { return D.leads.filter((l) => !mgr || l.manager === mgr); }
+function allList() {
+  const qq = q.trim().toLowerCase(); const qd = q.replace(/\D/g, '');
+  return scoped().filter((l) =>
+    (!chip || l.status === chip) &&
+    (!qq || l.name.toLowerCase().includes(qq) || (qd.length >= 3 && waNumber(l.phone).includes(qd)))
+  ).sort((a, b) => b.row - a.row);
+}
+
+function card(l) {
+  const [c, bg] = ST[l.status] || ['#CBD5E1', '#EEF2F1'];
+  const tags = [];
+  if (l.next && isOpen(l)) tags.push(`<span class="tag ${isLate(l) ? 'late' : ''}">Қоңырау: ${esc(human(l.next))}</span>`);
+  if (l.consult && isOpen(l)) tags.push(`<span class="tag ${isTodayConsult(l) ? 'today' : ''}">Конс: ${esc(human(l.consult))}</span>`);
+  if (l.status === 'Емге төледі' && l.amount !== '') tags.push(`<span class="tag">${Number(l.amount).toLocaleString('ru-RU')} ₸</span>`);
+  const meta = [l.complaint, l.source, D.me.isHead ? l.manager : ''].filter(Boolean).map(esc).join(', ');
+  return `<li class="lead" style="--st:${c};--st-bg:${bg}">
+    <div class="row1"><span class="name">${esc(l.name)}</span><span class="status">${esc(l.status)}</span></div>
+    <div class="meta">${esc(l.phone)}${meta ? ' · ' + meta : ''}</div>
+    ${tags.length ? `<div class="when">${tags.join('')}</div>` : ''}
+    <div class="actions">
+      <a class="act" href="tel:+${waNumber(l.phone)}">Қоңырау</a>
+      <a class="act wa" href="https://wa.me/${waNumber(l.phone)}" target="_blank" rel="noopener">WhatsApp</a>
+      <button class="act st" data-row="${l.row}">Статус</button>
+    </div>
+  </li>`;
+}
+
+function render() {
+  if (!D) return;
+  $('who').textContent = D.me.isHead ? 'Бас менеджер: барлық өтінімдер' : D.me.name;
+  if (D.denied) {
+    $('filters').hidden = true; $('add').disabled = true;
+    $('main').innerHTML = `<div class="empty"><b>Кіруге рұқсат жоқ</b>${esc(D.me.email || 'Google аккаунт')} менеджерлер тізімінде жоқ. Бас менеджерден «Баптаулар» парағына email-ыңызды қосуды сұраңыз.</div>`;
+    return;
+  }
+  const today = todayList();
+  $('n-today').textContent = today.length;
+  $('n-all').textContent = scoped().length;
+  $('tab-today').setAttribute('aria-selected', tab === 'today');
+  $('tab-all').setAttribute('aria-selected', tab === 'all');
+  $('filters').hidden = tab !== 'all';
+
+  if (tab === 'today') {
+    const late = today.filter(isLate);
+    const rest = today.filter((l) => !isLate(l));
+    let html = '';
+    if (late.length) html += `<div class="section-label">Уақыты өтіп кетті (${late.length})</div><ul class="list">${late.map(card).join('')}</ul>`;
+    if (rest.length) html += `<div class="section-label">Бүгін (${rest.length})</div><ul class="list">${rest.map(card).join('')}</ul>`;
+    $('main').innerHTML = html || `<div class="empty"><b>Бүгінге бәрі орындалды</b>Жаңа өтінім түссе немесе қоңырау уақыты келсе, осында шығады.</div>`;
+  } else {
+    const counts = {}; scoped().forEach((l) => (counts[l.status] = (counts[l.status] || 0) + 1));
+    $('chips').innerHTML = [['', 'Барлығы', scoped().length]].concat(D.lists.statuses.map((s) => [s, s, counts[s] || 0]))
+      .map(([v, label, n]) => `<button class="chip" data-chip="${esc(v)}" aria-pressed="${chip === v}">${esc(label)}<span class="n">${n}</span></button>`).join('');
+    const list = allList();
+    $('main').innerHTML = list.length ? `<ul class="list">${list.map(card).join('')}</ul>`
+      : `<div class="empty"><b>Ештеңе табылмады</b>Сүзгіні не іздеуді өзгертіп көріңіз.</div>`;
+  }
+}
+
+async function load(silent) {
+  try {
+    D = await call('getData');
+    if (D.me.isHead) {
+      const m = $('mgr'); m.hidden = false;
+      m.innerHTML = `<option value="">Барлық менеджерлер</option>` + D.lists.managers.map((x) => `<option ${x === mgr ? 'selected' : ''}>${esc(x)}</option>`).join('');
+    }
+    render();
+    if (!silent) toast('Жаңартылды');
+  } catch (e) {
+    $('main').innerHTML = `<div class="empty"><b>Деректер жүктелмеді</b>${esc(e.message)}. Интернетті тексеріп, «Жаңарту» батырмасын басыңыз.</div>`;
+  }
+}
+
+/* ---------- Панельдер ---------- */
+function openSheet(html) {
+  $('sheet').innerHTML = `<div class="grip"></div>` + html;
+  $('scrim').classList.add('open'); $('sheet').classList.add('open');
+  const f = $('sheet').querySelector('input,select,textarea,button.opt'); if (f) setTimeout(() => f.focus({ preventScroll: true }), 50);
+}
+function closeSheet() { $('scrim').classList.remove('open'); $('sheet').classList.remove('open'); }
+
+function openLead(row) {
+  const l = D.leads.find((x) => x.row === row); if (!l) return;
+  let pick = l.status;
+  const opts = D.lists.statuses.map((s) => `<button class="opt" data-st="${esc(s)}" aria-pressed="${s === pick}" style="--st:${(ST[s] || ['#CBD5E1'])[0]}"><span class="dot"></span>${esc(s)}</button>`).join('');
+  openSheet(`
+    <h2 id="sheet-title">${esc(l.name)}</h2>
+    <div class="sub">${esc(l.phone)}${l.complaint ? ' · ' + esc(l.complaint) : ''}</div>
+    <div class="grid" id="opts">${opts}</div>
+    <div id="extra"></div>
+    <label class="field"><span>Келесі хабарласу</span>
+      <div class="quick">
+        <button type="button" data-q="2h">2 сағаттан кейін</button>
+        <button type="button" data-q="t10">Ертең 10:00</button>
+        <button type="button" data-q="t15">Ертең 15:00</button>
+        <button type="button" data-q="clear">Алып тастау</button>
+      </div>
+      <input type="datetime-local" id="f-next" value="${esc(l.next)}" step="900">
+    </label>
+    ${D.me.isHead ? `<label class="field"><span>Менеджер</span><select id="f-mgr">${D.lists.managers.map((m) => `<option ${m === l.manager ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></label>` : ''}
+    <label class="field"><span>Жазба қосу</span><textarea id="f-note" rows="2" placeholder="Мысалы: МРТ бар, бағасын сұрады"></textarea></label>
+    ${l.comment ? `<div class="history">${esc(l.comment)}</div>` : ''}
+    <button class="primary" id="save">Өзгерістерді сақтау</button>
+    <button class="ghost" id="cancel">Жабу</button>`);
+
+  const extra = () => {
+    let h = '';
+    if (pick === 'Конс') h = `<label class="field"><span>Конс күні мен уақыты</span><input type="datetime-local" id="f-consult" value="${esc(l.consult)}" step="900"></label>`;
+    if (pick === 'Емге төледі') h = `<label class="field"><span>Төлем сомасы, ₸</span><input type="number" id="f-amount" inputmode="numeric" min="0" value="${esc(l.amount)}" placeholder="150000"></label>`;
+    if (pick === 'Отказ') h = `<label class="field"><span>Бас тарту себебі</span><select id="f-lost"><option value="">Таңдаңыз</option>${D.lists.lostReasons.map((r) => `<option ${r === l.lost ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></label>`;
+    $('extra').innerHTML = h;
+  };
+  extra();
+  $('opts').onclick = (e) => {
+    const b = e.target.closest('[data-st]'); if (!b) return;
+    pick = b.dataset.st;
+    $('opts').querySelectorAll('[data-st]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.st === pick));
+    extra();
+  };
+  $('sheet').querySelector('.quick').onclick = (e) => {
+    const k = e.target.dataset.q; if (!k) return;
+    $('f-next').value = k === '2h' ? addHours(D.now, 2) : k === 't10' ? tomorrowAt(10) : k === 't15' ? tomorrowAt(15) : '';
+  };
+  $('cancel').onclick = closeSheet;
+  $('save').onclick = async () => {
+    const patch = {};
+    if (pick !== l.status) patch.status = pick;
+    const next = $('f-next').value; if (next !== l.next) patch.next = next;
+    if ($('f-consult') && $('f-consult').value !== l.consult) patch.consult = $('f-consult').value;
+    if ($('f-amount') && String($('f-amount').value) !== String(l.amount)) patch.amount = $('f-amount').value;
+    if ($('f-lost') && $('f-lost').value !== l.lost) patch.lost = $('f-lost').value;
+    if ($('f-mgr') && $('f-mgr').value !== l.manager) patch.manager = $('f-mgr').value;
+    const note = $('f-note').value.trim(); if (note) patch.note = note;
+    if (pick === 'Отказ' && !(patch.lost || l.lost)) return toast('Бас тарту себебін таңдаңыз', true);
+    if (pick === 'Конс' && !($('f-consult').value)) return toast('Конс күні мен уақытын жазыңыз', true);
+    if (!Object.keys(patch).length) return closeSheet();
+    $('save').disabled = true; $('save').textContent = 'Сақталуда…';
+    try {
+      const upd = await call('updateLead', l.row, { name: l.name, phone: l.phone }, patch);
+      const i = D.leads.findIndex((x) => x.row === l.row); if (i >= 0) D.leads[i] = upd;
+      closeSheet(); render(); toast('Сақталды');
+    } catch (e) {
+      $('save').disabled = false; $('save').textContent = 'Өзгерістерді сақтау';
+      toast(e.message, true);
+    }
+  };
+}
+
+function openNew() {
+  const sel = (id, list, ph) => `<select id="${id}"><option value="">${ph}</option>${list.map((x) => `<option>${esc(x)}</option>`).join('')}</select>`;
+  openSheet(`
+    <h2 id="sheet-title">Жаңа өтінім</h2>
+    <div class="sub">Статусы «Лид» болып қосылады</div>
+    <label class="field"><span>Аты-жөні</span><input id="n-name" autocomplete="off" required></label>
+    <label class="field"><span>Телефон</span><input id="n-phone" type="tel" inputmode="tel" placeholder="8 701 123 45 67" required></label>
+    <label class="field"><span>Дереккөз</span>${sel('n-source', D.lists.sources, 'Таңдаңыз')}</label>
+    <label class="field"><span>Шағымы</span>${sel('n-complaint', D.lists.complaints, 'Таңдаңыз')}</label>
+    ${D.me.isHead ? `<label class="field"><span>Менеджер</span>${sel('n-mgr', D.lists.managers, 'Тағайындалмаған')}</label>` : ''}
+    <label class="field"><span>Пікір</span><textarea id="n-comment" rows="2"></textarea></label>
+    <button class="primary" id="n-save">Өтінімді қосу</button>
+    <button class="ghost" id="cancel">Жабу</button>`);
+  $('cancel').onclick = closeSheet;
+  $('n-save').onclick = async () => {
+    const d = {
+      name: $('n-name').value.trim(), phone: $('n-phone').value.trim(),
+      source: $('n-source').value, complaint: $('n-complaint').value,
+      manager: $('n-mgr') ? $('n-mgr').value : '', comment: $('n-comment').value.trim(),
+    };
+    if (!d.name || !d.phone) return toast('Аты мен телефонын жазыңыз', true);
+    if (waNumber(d.phone).length < 11) return toast('Телефон нөмірі толық емес', true);
+    $('n-save').disabled = true; $('n-save').textContent = 'Қосылуда…';
+    try {
+      const r = await call('addLead', d);
+      if (!r.ok) {
+        $('n-save').disabled = false; $('n-save').textContent = 'Өтінімді қосу';
+        return toast(`Бұл нөмірден ашық өтінім бар: ${r.duplicate.name} (${r.duplicate.status}, ${r.duplicate.manager || 'менеджерсіз'})`, true);
+      }
+      if (D.me.isHead || r.lead.manager === D.me.name) D.leads.push(r.lead);
+      closeSheet(); tab = 'today'; render(); toast('Өтінім қосылды');
+    } catch (e) {
+      $('n-save').disabled = false; $('n-save').textContent = 'Өтінімді қосу';
+      toast(e.message, true);
+    }
+  };
+}
+
+/* ---------- Оқиғалар ---------- */
+$('tab-today').onclick = () => { tab = 'today'; render(); };
+$('tab-all').onclick = () => { tab = 'all'; render(); };
+$('refresh').onclick = () => load(false);
+$('add').onclick = () => D && !D.denied && openNew();
+$('scrim').onclick = closeSheet;
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+$('main').onclick = (e) => { const b = e.target.closest('[data-row]'); if (b) openLead(Number(b.dataset.row)); };
+$('chips').onclick = (e) => { const b = e.target.closest('[data-chip]'); if (b) { chip = b.dataset.chip; render(); } };
+$('search').oninput = (e) => { q = e.target.value; render(); };
+$('mgr').onchange = (e) => { mgr = e.target.value; render(); };
+/* Қосымшаға қайта оралғанда деректерді жаңарту */
+document.addEventListener('visibilitychange', () => { if (!document.hidden && D) load(true); });
+
+load(true);
+</script>
+</body>
+</html>
