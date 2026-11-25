@@ -81,22 +81,29 @@
   .lead:last-child { border-bottom: 0; }
   .lead::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--st, #CBD5E1); }
   .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .name { font-weight: 650; font-size: 17px; overflow-wrap: anywhere; }
+  .name { font-weight: 700; font-size: 18px; letter-spacing: .01em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .status { flex: none; font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--st-bg, #EEF2F1); }
   .meta { color: var(--muted); font-size: 14px; margin-top: 2px; overflow-wrap: anywhere; }
   .when { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px; }
   .tag { padding: 2px 8px; border-radius: 6px; background: #EEF2F1; }
   .tag.late { background: var(--danger-bg); color: var(--danger); font-weight: 700; }
   .tag.today { background: #DBE7FF; color: var(--today); font-weight: 700; }
-  .actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
   .act {
     border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
-    padding: 10px 6px; font-weight: 600; font-size: 15px; text-align: center; text-decoration: none; color: var(--text);
+    padding: 10px 2px; font-weight: 600; font-size: 14px; text-align: center; text-decoration: none; color: var(--text);
     min-height: 44px; display: flex; align-items: center; justify-content: center;
   }
   .act.wa { color: var(--wa); border-color: #B7DEC8; }
   .act.st { background: var(--brand); border-color: var(--brand); color: #fff; }
 
+  .came { margin-top: 2px; font-size: 14px; color: var(--muted); }
+  .came b { color: var(--text); font-weight: 600; }
+  .last-note { margin-top: 6px; font-size: 14px; color: var(--muted); font-style: italic; overflow-wrap: anywhere; }
+  .searchbar { position: sticky; top: var(--hdr, 0px); z-index: 4; background: var(--bg); padding: 12px var(--pad) 4px; display: flex; gap: 8px; }
+  .searchbar input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 10px 12px; font-size: 17px; }
+  .searchbar button { flex: none; border: 0; border-radius: 10px; background: var(--brand); color: #fff; font-weight: 700; padding: 0 16px; }
+  .searchbar button.clear { background: var(--surface); color: var(--muted); border: 1px solid var(--line); padding: 0 12px; }
   .empty { padding: 40px var(--pad); text-align: center; color: var(--muted); }
   .empty b { display: block; color: var(--text); font-size: 17px; margin-bottom: 6px; }
 
@@ -171,8 +178,13 @@
   </div>
 </header>
 
+<form class="searchbar" id="searchbar" role="search" autocomplete="off">
+  <input id="search" type="search" inputmode="tel" placeholder="Нөмір бойынша іздеу" aria-label="Нөмір бойынша іздеу">
+  <button type="button" class="clear" id="search-clear" hidden aria-label="Іздеуді тазалау">✕</button>
+  <button type="submit">Іздеу</button>
+</form>
+
 <div class="filters" id="filters" hidden>
-  <input class="search" id="search" type="search" placeholder="Аты не телефон бойынша іздеу" aria-label="Іздеу">
   <select class="mgr" id="mgr" hidden aria-label="Менеджер"></select>
   <div class="chips" id="chips" role="group" aria-label="Статус"></div>
 </div>
@@ -255,6 +267,25 @@ function waNumber(p) {
   return d;
 }
 
+/* +7 701 123 45 67 түрінде көрсету */
+function prettyPhone(p) {
+  const d = waNumber(p);
+  return d.length === 11 ? `+${d[0]} ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7, 9)} ${d.slice(9)}` : String(p || '');
+}
+/* Іздеудегі нөмір: тек цифрлар, басындағы 8 → 7 */
+function queryDigits(s) {
+  let d = String(s || '').replace(/\D/g, '');
+  if (d.length > 1 && d[0] === '8') d = '7' + d.slice(1);
+  return d;
+}
+/* Лид келген уақыты: «бүгін 14:32», «кеше 09:10», «24.11 18:05» (уақыты жоқ ескі жазбаларда тек күн) */
+function cameAt(s) {
+  if (!s) return '';
+  const [d, t] = s.split('T'); const [, m, dd] = d.split('-');
+  const today = dayOf(D.now);
+  const day = d === today ? 'бүгін' : d === shiftDay(today, -1) ? 'кеше' : `${dd}.${m}`;
+  return t && t !== '00:00' ? `${day} ${t}` : day;
+}
 const isOpen = (l) => CLOSED.indexOf(l.status) < 0;
 const isLate = (l) => isOpen(l) && l.next && l.next < D.now;
 const isTodayConsult = (l) => l.consult && dayOf(l.consult) === dayOf(D.now);
@@ -266,13 +297,16 @@ function todayList() {
     .sort((a, b) => (isLate(b) - isLate(a)) || (a.next || a.consult || 'z').localeCompare(b.next || b.consult || 'z'));
 }
 function scoped() { return D.leads.filter((l) => !mgr || l.manager === mgr); }
+const newestFirst = (a, b) => (b.date || '').localeCompare(a.date || '') || b.row - a.row;
 function allList() {
-  const qq = q.trim().toLowerCase(); const qd = q.replace(/\D/g, '');
   const today = dayOf(D.now);
-  return scoped().filter((l) =>
-    (!chip || (chip === TODAY_CHIP ? dayOf(l.date) === today : l.status === chip)) &&
-    (!qq || l.name.toLowerCase().includes(qq) || (qd.length >= 3 && waNumber(l.phone).includes(qd)))
-  ).sort((a, b) => (dayOf(b.date) || '').localeCompare(dayOf(a.date) || '') || b.row - a.row);
+  return scoped().filter((l) => !chip || (chip === TODAY_CHIP ? dayOf(l.date) === today : l.status === chip)).sort(newestFirst);
+}
+/* Іздеу: барлық өтінімдер ішінен (бет пен сүзгіге қарамай). Нөмірдің кез келген бөлігі бойынша, аты болса — аты бойынша да */
+function searchList() {
+  const qd = queryDigits(q); const qq = q.trim().toLowerCase();
+  if (qd.length < 3 && !/[a-zа-яәғқңөұүһі]/i.test(qq)) return null;
+  return D.leads.filter((l) => (qd.length >= 3 && waNumber(l.phone).includes(qd)) || (qq && !qd && l.name.toLowerCase().includes(qq))).sort(newestFirst);
 }
 const TODAY_CHIP = '__today';
 
@@ -293,14 +327,18 @@ function card(l) {
   if (l.next && isOpen(l)) tags.push(`<span class="tag ${isLate(l) ? 'late' : ''}">Қоңырау: ${esc(human(l.next))}</span>`);
   if (l.consult && isOpen(l)) tags.push(`<span class="tag ${isTodayConsult(l) ? 'today' : ''}">Конс: ${esc(human(l.consult))}</span>`);
   if (l.status === 'Емге төледі' && l.amount !== '') tags.push(`<span class="tag">${Number(l.amount).toLocaleString('ru-RU')} ₸</span>`);
-  const meta = [l.complaint, l.source, D.me.isHead ? l.manager : ''].filter(Boolean).map(esc).join(', ');
+  const meta = [l.name, l.complaint, l.source, D.me.isHead ? l.manager : ''].filter(Boolean).map(esc).join(', ');
+  const lastNote = (l.comment || '').trim().split('\n').pop();
   return `<li class="lead" style="--st:${c};--st-bg:${bg}">
-    <div class="row1"><span class="name">${esc(l.name)}</span><span class="status">${esc(l.status)}</span></div>
-    <div class="meta">${esc(l.phone)}${meta ? ' · ' + meta : ''}</div>
+    <div class="row1"><span class="name">${esc(prettyPhone(l.phone))}</span><span class="status">${esc(l.status)}</span></div>
+    ${l.date ? `<div class="came">Келді: <b>${esc(cameAt(l.date))}</b></div>` : ''}
+    ${meta ? `<div class="meta">${meta}</div>` : ''}
     ${tags.length ? `<div class="when">${tags.join('')}</div>` : ''}
+    ${lastNote ? `<div class="last-note">${esc(lastNote)}</div>` : ''}
     <div class="actions">
       <a class="act" href="tel:+${waNumber(l.phone)}">Қоңырау</a>
       <a class="act wa" href="https://wa.me/${waNumber(l.phone)}" target="_blank" rel="noopener">WhatsApp</a>
+      <button class="act" data-note="${l.row}">Пікір</button>
       <button class="act st" data-row="${l.row}">Статус</button>
     </div>
   </li>`;
@@ -310,7 +348,7 @@ function render() {
   if (!D) return;
   $('who').textContent = D.me.isHead ? 'Бас менеджер: барлық өтінімдер' : D.me.name;
   if (D.denied) {
-    $('filters').hidden = true; $('add').disabled = true;
+    $('filters').hidden = true; $('searchbar').hidden = true; $('add').disabled = true;
     $('main').innerHTML = `<div class="empty"><b>Кіруге рұқсат жоқ</b>${esc(D.me.email || 'Google аккаунт')} менеджерлер тізімінде жоқ. Бас менеджерден «Баптаулар» парағына email-ыңызды қосуды сұраңыз.</div>`;
     return;
   }
@@ -319,8 +357,16 @@ function render() {
   $('n-all').textContent = scoped().length;
   $('tab-today').setAttribute('aria-selected', tab === 'today');
   $('tab-all').setAttribute('aria-selected', tab === 'all');
-  $('filters').hidden = tab !== 'all';
+  $('search-clear').hidden = !q;
+  const found = q ? searchList() : null;
+  $('filters').hidden = tab !== 'all' || !!found;
 
+  if (found) {
+    $('main').innerHTML = found.length
+      ? `<div class="section-label">Табылды: ${found.length}</div>` + byDay(found)
+      : `<div class="empty"><b>Бұл нөмір табылмады</b>Нөмірді тексеріңіз немесе «Жаңа өтінім» арқылы қосыңыз.</div>`;
+    return;
+  }
   if (tab === 'today') {
     const late = today.filter(isLate);
     const rest = today.filter((l) => !isLate(l));
@@ -367,8 +413,8 @@ function openLead(row) {
   let pick = l.status;
   const opts = D.lists.statuses.map((s) => `<button class="opt" data-st="${esc(s)}" aria-pressed="${s === pick}" style="--st:${(ST[s] || ['#CBD5E1'])[0]}"><span class="dot"></span>${esc(s)}</button>`).join('');
   openSheet(`
-    <h2 id="sheet-title">${esc(l.name)}</h2>
-    <div class="sub">${esc(l.phone)}${l.complaint ? ' · ' + esc(l.complaint) : ''}</div>
+    <h2 id="sheet-title">${esc(prettyPhone(l.phone))}</h2>
+    <div class="sub">${[l.name, l.complaint, l.date ? 'келді ' + cameAt(l.date) : ''].filter(Boolean).map(esc).join(' · ')}</div>
     <div class="grid" id="opts">${opts}</div>
     <div id="extra"></div>
     <label class="field"><span>Келесі хабарласу</span>
@@ -381,7 +427,7 @@ function openLead(row) {
       <input type="datetime-local" id="f-next" value="${esc(l.next)}" step="900">
     </label>
     ${D.me.isHead ? `<label class="field"><span>Менеджер</span><select id="f-mgr">${D.lists.managers.map((m) => `<option ${m === l.manager ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></label>` : ''}
-    <label class="field"><span>Жазба қосу</span><textarea id="f-note" rows="2" placeholder="Мысалы: МРТ бар, бағасын сұрады"></textarea></label>
+    <label class="field"><span>Пікір қосу</span><textarea id="f-note" rows="2" placeholder="Мысалы: МРТ бар, бағасын сұрады"></textarea></label>
     ${l.comment ? `<div class="history">${esc(l.comment)}</div>` : ''}
     <button class="primary" id="save">Өзгерістерді сақтау</button>
     <button class="ghost" id="cancel">Жабу</button>`);
@@ -419,11 +465,37 @@ function openLead(row) {
     if (!Object.keys(patch).length) return closeSheet();
     $('save').disabled = true; $('save').textContent = 'Сақталуда…';
     try {
-      const upd = await call('updateLead', l.row, { name: l.name, phone: l.phone }, patch);
+      const upd = await call('updateLead', l.row, { phone: l.phone }, patch);
       const i = D.leads.findIndex((x) => x.row === l.row); if (i >= 0) D.leads[i] = upd;
       closeSheet(); render(); toast('Сақталды');
     } catch (e) {
       $('save').disabled = false; $('save').textContent = 'Өзгерістерді сақтау';
+      toast(e.message, true);
+    }
+  };
+}
+
+/* Нөмірге пікір жазу: бұрынғы пікірлер және жаңасы (күні мен авторы өзі жазылады) */
+function openNote(row) {
+  const l = D.leads.find((x) => x.row === row); if (!l) return;
+  openSheet(`
+    <h2 id="sheet-title">${esc(prettyPhone(l.phone))}</h2>
+    <div class="sub">${[l.status, l.date ? 'келді ' + cameAt(l.date) : ''].filter(Boolean).map(esc).join(' · ')}</div>
+    ${l.comment ? `<div class="history" style="margin-top:0">${esc(l.comment)}</div>` : '<div class="sub">Пікір әлі жоқ</div>'}
+    <label class="field"><span>Жаңа пікір</span><textarea id="c-text" rows="3" placeholder="Мысалы: Белі ауырады, МРТ бар, бағасын сұрады"></textarea></label>
+    <button class="primary" id="c-save">Пікірді сақтау</button>
+    <button class="ghost" id="cancel">Жабу</button>`);
+  $('cancel').onclick = closeSheet;
+  $('c-save').onclick = async () => {
+    const note = $('c-text').value.trim();
+    if (!note) return toast('Пікірді жазыңыз', true);
+    $('c-save').disabled = true; $('c-save').textContent = 'Сақталуда…';
+    try {
+      const upd = await call('updateLead', l.row, { phone: l.phone }, { note });
+      const i = D.leads.findIndex((x) => x.row === l.row); if (i >= 0) D.leads[i] = upd;
+      closeSheet(); render(); toast('Пікір сақталды');
+    } catch (e) {
+      $('c-save').disabled = false; $('c-save').textContent = 'Пікірді сақтау';
       toast(e.message, true);
     }
   };
@@ -434,8 +506,8 @@ function openNew() {
   openSheet(`
     <h2 id="sheet-title">Жаңа өтінім</h2>
     <div class="sub">Статусы «Лид» болып қосылады</div>
-    <label class="field"><span>Аты-жөні</span><input id="n-name" autocomplete="off" required></label>
     <label class="field"><span>Телефон</span><input id="n-phone" type="tel" inputmode="tel" placeholder="8 701 123 45 67" required></label>
+    <label class="field"><span>Аты (міндетті емес)</span><input id="n-name" autocomplete="off"></label>
     <label class="field"><span>Дереккөз</span>${sel('n-source', D.lists.sources, 'Таңдаңыз')}</label>
     <label class="field"><span>Шағымы</span>${sel('n-complaint', D.lists.complaints, 'Таңдаңыз')}</label>
     ${D.me.isHead ? `<label class="field"><span>Менеджер</span>${sel('n-mgr', D.lists.managers, 'Тағайындалмаған')}</label>` : ''}
@@ -449,14 +521,15 @@ function openNew() {
       source: $('n-source').value, complaint: $('n-complaint').value,
       manager: $('n-mgr') ? $('n-mgr').value : '', comment: $('n-comment').value.trim(),
     };
-    if (!d.name || !d.phone) return toast('Аты мен телефонын жазыңыз', true);
+    if (!d.phone) return toast('Телефон нөмірін жазыңыз', true);
     if (waNumber(d.phone).length < 11) return toast('Телефон нөмірі толық емес', true);
     $('n-save').disabled = true; $('n-save').textContent = 'Қосылуда…';
     try {
       const r = await call('addLead', d);
       if (!r.ok) {
         $('n-save').disabled = false; $('n-save').textContent = 'Өтінімді қосу';
-        return toast(`Бұл нөмірден ашық өтінім бар: ${r.duplicate.name} (${r.duplicate.status}, ${r.duplicate.manager || 'менеджерсіз'})`, true);
+        closeSheet(); q = r.duplicate.phone; $('search').value = prettyPhone(q); render();
+        return toast(`Бұл нөмір бұрыннан бар: ${r.duplicate.status}, ${r.duplicate.manager || 'менеджерсіз'}`, true);
       }
       if (D.me.isHead || r.lead.manager === D.me.name) D.leads.push(r.lead);
       closeSheet(); tab = 'today'; render(); toast('Өтінім қосылды');
@@ -474,10 +547,18 @@ $('refresh').onclick = () => load(false);
 $('add').onclick = () => D && !D.denied && openNew();
 $('scrim').onclick = closeSheet;
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
-$('main').onclick = (e) => { const b = e.target.closest('[data-row]'); if (b) openLead(Number(b.dataset.row)); };
+$('main').onclick = (e) => {
+  const n = e.target.closest('[data-note]'); if (n) return openNote(Number(n.dataset.note));
+  const b = e.target.closest('[data-row]'); if (b) openLead(Number(b.dataset.row));
+};
 $('chips').onclick = (e) => { const b = e.target.closest('[data-chip]'); if (b) { chip = b.dataset.chip; render(); } };
 $('search').oninput = (e) => { q = e.target.value; render(); };
+$('searchbar').onsubmit = (e) => { e.preventDefault(); q = $('search').value; render(); $('search').blur(); };
+$('search-clear').onclick = () => { q = ''; $('search').value = ''; render(); $('search').focus(); };
 $('mgr').onchange = (e) => { mgr = e.target.value; render(); };
+/* Іздеу жолы жоғарғы жолақтың астында тұруы үшін оның биіктігін өлшейміз */
+const setHdr = () => document.documentElement.style.setProperty('--hdr', document.querySelector('header').offsetHeight + 'px');
+setHdr(); window.addEventListener('resize', setHdr);
 /* Қосымшаға қайта оралғанда деректерді жаңарту */
 document.addEventListener('visibilitychange', () => { if (!document.hidden && D) load(true); });
 

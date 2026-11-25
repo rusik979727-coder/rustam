@@ -34,10 +34,6 @@ function sheet_() { return ss_().getSheetByName(SHEET); }
 /** Күнді қосымшаға мәтін түрінде береміз (кесте уақыт белдеуінде): 2026-11-26T15:00 */
 function fmt_(d) { return d instanceof Date ? Utilities.formatDate(d, tz_(), "yyyy-MM-dd'T'HH:mm") : ''; }
 function parse_(s) { return s ? Utilities.parseDate(String(s), tz_(), "yyyy-MM-dd'T'HH:mm") : ''; }
-function today_() {
-  const z = tz_();
-  return Utilities.parseDate(Utilities.formatDate(new Date(), z, 'yyyy-MM-dd'), z, 'yyyy-MM-dd');
-}
 function digits_(p) {
   let d = String(p || '').replace(/\D/g, '');
   if (d.length === 11 && d[0] === '8') d = '7' + d.slice(1);
@@ -67,10 +63,10 @@ function me_(st) {
   return { email: email, name: m ? m.name : (isHead ? 'Бас менеджер' : ''), isHead: isHead, known: isHead || !!m };
 }
 
-/** Соңғы толтырылған жол — «Аты-жөні» бағаны бойынша (WhatsApp формуласы бүкіл бағанды алып жатыр). */
+/** Соңғы толтырылған жол — «Телефон» бағаны бойынша (WhatsApp формуласы бүкіл бағанды алып жатыр). */
 function lastRow_(sh) {
   const n = sh.getMaxRows() - 1;
-  const vals = sh.getRange(2, COL.name, n, 1).getValues();
+  const vals = sh.getRange(2, COL.phone, n, 1).getValues();
   for (let i = vals.length - 1; i >= 0; i--) if (String(vals[i][0]).trim()) return i + 2;
   return 1;
 }
@@ -98,7 +94,7 @@ function readLeads_(sh) {
   if (last < 2) return [];
   return sh.getRange(2, 1, last - 1, NCOL).getValues()
     .map((r, i) => rowToLead_(r, i + 2))
-    .filter((l) => l.name.trim());
+    .filter((l) => l.phone.trim());
 }
 
 /* ---------------- қосымша шақыратын функциялар ---------------- */
@@ -121,9 +117,10 @@ function addLead(d) {
   const st = settings_();
   const me = me_(st);
   if (!me.known) throw new Error('Кіруге рұқсат жоқ');
-  const name = String(d.name || '').trim();
+  const name = String(d.name || '').trim(); // міндетті емес
   const phone = String(d.phone || '').trim();
-  if (!name || !phone) throw new Error('Аты мен телефонын жазыңыз');
+  if (!phone) throw new Error('Телефон нөмірін жазыңыз');
+  if (digits_(phone).length < 11) throw new Error('Телефон нөмірі толық емес');
   const manager = me.isHead ? String(d.manager || '') : me.name;
 
   const lock = LockService.getDocumentLock();
@@ -135,7 +132,7 @@ function addLead(d) {
 
     const row = lastRow_(sh) + 1;
     if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 100);
-    sh.getRange(row, COL.date, 1, 3).setValues([[today_(), name, phone]]);
+    sh.getRange(row, COL.date, 1, 3).setValues([[new Date(), name, phone]]);
     sh.getRange(row, COL.source, 1, NCOL - COL.source + 1).setValues([[
       d.source || '', d.complaint || '', st.statuses[0] || 'Лид', manager, '', '', '', '', String(d.comment || '').trim(),
     ]]);
@@ -160,7 +157,7 @@ function updateLead(row, check, patch) {
   try {
     const sh = sheet_();
     const cur = rowToLead_(sh.getRange(row, 1, 1, NCOL).getValues()[0], row);
-    if (cur.name !== check.name || cur.phone !== check.phone) {
+    if (cur.phone !== check.phone) {
       throw new Error('Кесте өзгерген. «Жаңарту» батырмасын басып, қайталаңыз.');
     }
     if (!me.isHead && cur.manager !== me.name) throw new Error('Бұл өтінім сізге тиесілі емес');
