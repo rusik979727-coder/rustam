@@ -217,14 +217,24 @@ function toast(msg, err) {
 
 /* Уақыт: сервер «2026-11-26T15:00» түрінде, кесте уақыт белдеуінде береді */
 const dayOf = (s) => (s || '').slice(0, 10);
+/* «2026-11-26» күнін n күнге жылжыту (телефонның уақыт белдеуіне тәуелсіз) */
+function shiftDay(d, n) {
+  const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n);
+  return x.toISOString().slice(0, 10);
+}
 function human(s) {
   if (!s) return '';
-  const [d, t] = s.split('T'); const [y, m, dd] = d.split('-');
+  const [d, t] = s.split('T'); const [, m, dd] = d.split('-');
   const today = dayOf(D.now);
-  const tm = new Date(today); tm.setDate(tm.getDate() + 1);
-  const tomorrow = tm.toISOString().slice(0, 10);
-  const day = d === today ? 'бүгін' : d === tomorrow ? 'ертең' : `${dd}.${m}`;
+  const day = d === today ? 'бүгін' : d === shiftDay(today, 1) ? 'ертең' : `${dd}.${m}`;
   return `${day} ${t}`;
+}
+/* Күн тақырыбы: «Бүгін, 26.11», «Кеше, 25.11», «24.11» */
+function dayLabel(d) {
+  if (!d) return 'Күні жазылмаған';
+  const [, m, dd] = d.split('-'); const short = `${dd}.${m}`;
+  const today = dayOf(D.now);
+  return d === today ? `Бүгін, ${short}` : d === shiftDay(today, -1) ? `Кеше, ${short}` : short;
 }
 function addHours(base, h) {
   const d = new Date(base.replace('T', ' ').replace(/-/g, '/')); d.setHours(d.getHours() + h);
@@ -258,10 +268,23 @@ function todayList() {
 function scoped() { return D.leads.filter((l) => !mgr || l.manager === mgr); }
 function allList() {
   const qq = q.trim().toLowerCase(); const qd = q.replace(/\D/g, '');
+  const today = dayOf(D.now);
   return scoped().filter((l) =>
-    (!chip || l.status === chip) &&
+    (!chip || (chip === TODAY_CHIP ? dayOf(l.date) === today : l.status === chip)) &&
     (!qq || l.name.toLowerCase().includes(qq) || (qd.length >= 3 && waNumber(l.phone).includes(qd)))
-  ).sort((a, b) => b.row - a.row);
+  ).sort((a, b) => (dayOf(b.date) || '').localeCompare(dayOf(a.date) || '') || b.row - a.row);
+}
+const TODAY_CHIP = '__today';
+
+/* Тізімді түскен күні бойынша топтау (жаңасы жоғарыда, күні жоқтар соңында) */
+function byDay(list) {
+  const groups = [];
+  list.forEach((l) => {
+    const d = dayOf(l.date);
+    const g = groups[groups.length - 1];
+    if (g && g.day === d) g.items.push(l); else groups.push({ day: d, items: [l] });
+  });
+  return groups.map((g) => `<div class="section-label">${esc(dayLabel(g.day))}: ${g.items.length} лид</div><ul class="list">${g.items.map(card).join('')}</ul>`).join('');
 }
 
 function card(l) {
@@ -307,10 +330,12 @@ function render() {
     $('main').innerHTML = html || `<div class="empty"><b>Бүгінге бәрі орындалды</b>Жаңа өтінім түссе немесе қоңырау уақыты келсе, осында шығады.</div>`;
   } else {
     const counts = {}; scoped().forEach((l) => (counts[l.status] = (counts[l.status] || 0) + 1));
-    $('chips').innerHTML = [['', 'Барлығы', scoped().length]].concat(D.lists.statuses.map((s) => [s, s, counts[s] || 0]))
+    const todayCount = scoped().filter((l) => dayOf(l.date) === dayOf(D.now)).length;
+    $('chips').innerHTML = [['', 'Барлығы', scoped().length], [TODAY_CHIP, 'Бүгін түскендер', todayCount]]
+      .concat(D.lists.statuses.map((s) => [s, s, counts[s] || 0]))
       .map(([v, label, n]) => `<button class="chip" data-chip="${esc(v)}" aria-pressed="${chip === v}">${esc(label)}<span class="n">${n}</span></button>`).join('');
     const list = allList();
-    $('main').innerHTML = list.length ? `<ul class="list">${list.map(card).join('')}</ul>`
+    $('main').innerHTML = list.length ? byDay(list)
       : `<div class="empty"><b>Ештеңе табылмады</b>Сүзгіні не іздеуді өзгертіп көріңіз.</div>`;
   }
 }
