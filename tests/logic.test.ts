@@ -44,6 +44,9 @@ describe("stats", () => {
     { ...base, status: "PAID", createdAt: c, firstResponseAt: at(10, 20) },
     { ...base, status: "LOST", createdAt: c, firstResponseAt: at(10, 30), source: "2GIS" },
   ];
+  it("SPAM (Басылып кетті) is excluded from funnel", () => {
+    expect(funnel([...leads, { ...base, status: "SPAM", createdAt: c, firstResponseAt: null }]).total).toBe(4);
+  });
   it("funnel and conversion", () => {
     expect(funnel(leads)).toMatchObject({ total: 4, booked: 2, arrived: 1, paid: 1, lost: 1, convBooked: 50, convPaid: 25 });
   });

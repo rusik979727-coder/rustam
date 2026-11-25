@@ -96,9 +96,9 @@
   "leads.book": "Записать на приём",
   "leads.escalated": "Просрочено!",
   "leads.duplicate": "С этого номера уже есть открытая заявка — добавлено к ней",
-  "status.NEW": "Новая",
-  "status.CONTACTED": "Связались",
-  "status.BOOKED": "Записан",
+  "status.NEW": "Лид",
+  "status.CONTACTED": "Обработка",
+  "status.BOOKED": "Конс",
   "status.ARRIVED": "Пришёл",
   "status.PAID": "Оплатил лечение",
   "status.LOST": "Отказ",
@@ -208,5 +208,8 @@
   "audit.title": "Журнал действий",
   "audit.user": "Кто",
   "audit.entity": "Объект",
-  "audit.action": "Действие"
+  "audit.action": "Действие",
+  "status.NO_ANSWER": "Не отвечает",
+  "status.SPAM": "Басылып кетті (ошибка/спам)",
+  "leads.today": "Сегодняшние лиды"
 }

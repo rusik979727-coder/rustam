@@ -96,12 +96,12 @@
   "leads.book": "Қабылдауға жазу",
   "leads.escalated": "Кешіктірілген!",
   "leads.duplicate": "Бұл нөмірден ашық өтінім бар — соған тіркелді",
-  "status.NEW": "Жаңа",
-  "status.CONTACTED": "Хабарласты",
-  "status.BOOKED": "Жазылды",
+  "status.NEW": "Лид",
+  "status.CONTACTED": "Обработка",
+  "status.BOOKED": "Конс",
   "status.ARRIVED": "Келді",
   "status.PAID": "Емге төледі",
-  "status.LOST": "Бас тартты",
+  "status.LOST": "Отказ",
   "source.INSTAGRAM": "Instagram",
   "source.WHATSAPP": "WhatsApp",
   "source.2GIS": "2GIS",
@@ -208,5 +208,8 @@
   "audit.title": "Әрекеттер журналы",
   "audit.user": "Кім",
   "audit.entity": "Нысан",
-  "audit.action": "Әрекет"
+  "audit.action": "Әрекет",
+  "status.NO_ANSWER": "Не отвечает",
+  "status.SPAM": "Басылып кетті",
+  "leads.today": "Бүгінгі лид"
 }

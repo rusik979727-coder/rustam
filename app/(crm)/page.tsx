@@ -8,6 +8,7 @@ import { debtors } from "@/lib/debts";
 import { Stat, Meter, Empty, StatusBadge } from "@/components/ui";
 import { reassignLead, autoAssignUnassigned, runAutomationsNow, toggleTask } from "./actions";
 import { integrations } from "@/lib/notify";
+import { NOT_SPAM, CLOSED_LEAD_STATUSES, OPEN_LEAD_STATUSES } from "@/lib/constants";
 
 type SP = Promise<{ from?: string; to?: string; manager?: string }>;
 
@@ -32,8 +33,8 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
   const [managers, periodLeads, todayLeads, unanswered, todayAppts, todayRev, periodPayments, overdueTasks, unassigned, plan, debts] =
     await Promise.all([
       db.user.findMany({ where: { role: { in: ["MANAGER", "HEAD_MANAGER"] }, active: true }, orderBy: { name: "asc" } }),
-      db.lead.findMany({ where: { createdAt: { gte: from, lt: to } } }),
-      db.lead.count({ where: { createdAt: { gte: today } } }),
+      db.lead.findMany({ where: { createdAt: { gte: from, lt: to }, ...NOT_SPAM } }),
+      db.lead.count({ where: { createdAt: { gte: today }, ...NOT_SPAM } }),
       db.lead.findMany({
         where: { status: "NEW", firstResponseAt: null, createdAt: { lt: new Date(now.getTime() - escMin * 60000) } },
         include: { manager: true },
@@ -44,14 +45,14 @@ async function HeadDashboard({ searchParams }: { searchParams: SP }) {
       db.payment.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: today } } }),
       db.payment.findMany({ where: { createdAt: { gte: from, lt: to } }, select: { amount: true, managerId: true, patientId: true } }),
       db.task.findMany({ where: { done: false, dueAt: { lt: today } }, select: { assigneeId: true } }),
-      db.lead.findMany({ where: { managerId: null, status: { notIn: ["PAID", "LOST"] } }, orderBy: { createdAt: "asc" }, take: 20 }),
+      db.lead.findMany({ where: { managerId: null, status: { notIn: CLOSED_LEAD_STATUSES } }, orderBy: { createdAt: "asc" }, take: 20 }),
       db.monthlyPlan.findFirst({ where: { month: monthKey(now), managerId: null } }),
       debtors(8),
     ]);
 
   const monthFrom = startOfMonth(now);
   const [monthLeads, monthRev] = await Promise.all([
-    db.lead.findMany({ where: { createdAt: { gte: monthFrom } }, select: { status: true } }),
+    db.lead.findMany({ where: { createdAt: { gte: monthFrom }, ...NOT_SPAM }, select: { status: true } }),
     db.payment.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: monthFrom } } }),
   ]);
   const monthBooked = await db.appointment.count({ where: { createdAt: { gte: monthFrom }, status: { not: "CANCELLED" } } });
@@ -273,8 +274,8 @@ async function MyDay() {
     isDoctor ? [] : db.lead.findMany({
       where: {
         managerId: user.id,
-        status: { in: ["NEW", "CONTACTED", "BOOKED", "ARRIVED"] },
-        OR: [{ nextContactAt: { lt: tomorrow } }, { status: "NEW" }],
+        status: { in: OPEN_LEAD_STATUSES },
+        OR: [{ nextContactAt: { lt: tomorrow } }, { status: "NEW" }, { status: "NO_ANSWER" }],
       },
       orderBy: [{ nextContactAt: "asc" }, { createdAt: "asc" }],
     }),
@@ -284,7 +285,7 @@ async function MyDay() {
       include: { patient: true, doctor: true, service: true },
       orderBy: { startAt: "asc" },
     }),
-    isDoctor ? [] : db.lead.findMany({ where: { managerId: user.id, createdAt: { gte: monthFrom } } }),
+    isDoctor ? [] : db.lead.findMany({ where: { managerId: user.id, createdAt: { gte: monthFrom }, ...NOT_SPAM } }),
     db.payment.aggregate({ _sum: { amount: true }, where: { managerId: user.id, createdAt: { gte: monthFrom } } }),
     db.monthlyPlan.findFirst({ where: { month: monthKey(now), managerId: user.id } }),
   ]);

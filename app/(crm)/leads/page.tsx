@@ -3,18 +3,21 @@ import type { Prisma } from "@prisma/client";
 import { requireUser, isHead } from "@/lib/auth";
 import { getT } from "@/lib/i18n-server";
 import { db } from "@/lib/db";
-import { LEAD_STATUSES, LEAD_SOURCES, COMPLAINTS, LOST_REASONS } from "@/lib/constants";
-import { dt, addDays } from "@/lib/format";
+import { LEAD_STATUSES, LEAD_SOURCES, COMPLAINTS, LOST_REASONS, CLOSED_LEAD_STATUSES } from "@/lib/constants";
+import { dt, addDays, startOfDay } from "@/lib/format";
 import { Field, Select } from "@/components/ui";
 import { createLead, moveLead } from "../actions";
 
+// Әр бағаннан келесі қадамдар (WhatsApp тізімдеріне сәйкес)
 const NEXT: Record<string, string[]> = {
-  NEW: ["CONTACTED", "BOOKED"],
-  CONTACTED: ["BOOKED"],
+  NEW: ["CONTACTED", "NO_ANSWER", "BOOKED", "SPAM"],
+  CONTACTED: ["NO_ANSWER", "BOOKED"],
+  NO_ANSWER: ["CONTACTED", "BOOKED"],
   BOOKED: ["ARRIVED"],
   ARRIVED: ["PAID"],
   PAID: [],
   LOST: ["NEW"],
+  SPAM: ["NEW"],
 };
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -27,10 +30,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   const closedSince = addDays(now, -30);
   // Жабық (PAID/LOST) өтінімдер тек соңғы 30 күн бойынша көрсетіледі
-  const and: Prisma.LeadWhereInput[] = [{ OR: [{ status: { notIn: ["PAID", "LOST"] } }, { updatedAt: { gte: closedSince } }] }];
+  const and: Prisma.LeadWhereInput[] = [{ OR: [{ status: { notIn: CLOSED_LEAD_STATUSES } }, { updatedAt: { gte: closedSince } }] }];
   if (!head) and.push({ managerId: user.id });
   else if (sp.manager === "none") and.push({ managerId: null });
   else if (sp.manager) and.push({ managerId: Number(sp.manager) });
+  if (sp.today) and.push({ createdAt: { gte: startOfDay(now) } });
   if (sp.source) and.push({ source: sp.source });
   if (sp.complaint) and.push({ complaint: sp.complaint });
   if (sp.q) and.push({ OR: [{ name: { contains: sp.q } }, { phone: { contains: sp.q.replace(/\D/g, "") || sp.q } }] });
@@ -54,6 +58,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           )}
           <Select name="source" defaultValue={sp.source} className="input w-36" label={t("leads.source")} options={[{ value: "", label: `${t("leads.source")}: ${t("common.all")}` }, ...sourceOpts]} />
           <Select name="complaint" defaultValue={sp.complaint} className="input w-40" label={t("leads.complaint")} options={[{ value: "", label: `${t("leads.complaint")}: ${t("common.all")}` }, ...complaintOpts]} />
+          <label className={`flex items-center gap-1 rounded-lg border px-3 text-sm ${sp.today ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-300 bg-white"}`}>
+            <input type="checkbox" name="today" value="1" defaultChecked={!!sp.today} /> {t("leads.today")}
+          </label>
           <button className="btn-ghost">{t("common.filter")}</button>
         </form>
       </div>
@@ -85,7 +92,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               <div className="space-y-2">
                 {col.map((l) => {
                   const late = l.status === "NEW" && !l.firstResponseAt && now.getTime() - l.createdAt.getTime() > escMin * 60000;
-                  const callDue = l.nextContactAt && l.nextContactAt < now && !["PAID", "LOST"].includes(l.status);
+                  const callDue = l.nextContactAt && l.nextContactAt < now && !CLOSED_LEAD_STATUSES.includes(l.status as never);
                   return (
                     <article key={l.id} className={`rounded-lg border bg-white p-2 text-sm shadow-sm ${late ? "border-red-400" : "border-slate-200"}`}>
                       <Link href={`/leads/${l.id}`} className="block">
@@ -107,7 +114,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                             <button className="btn-ghost btn-sm">→ {t(`status.${ns}`)}</button>
                           </form>
                         ))}
-                        {st !== "LOST" && st !== "PAID" && (
+                        {!CLOSED_LEAD_STATUSES.includes(st) && (
                           <form action={moveLead} className="flex gap-1">
                             <input type="hidden" name="id" value={l.id} />
                             <input type="hidden" name="status" value="LOST" />

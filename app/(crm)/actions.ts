@@ -11,7 +11,7 @@ import { createIncomingLead, autoAssignManager } from "@/lib/leads";
 import { normalizePhone } from "@/lib/phone";
 import { findConflict } from "@/lib/schedule";
 import { onAppointmentStatus, runFrequent, sendDailyReport } from "@/lib/automations";
-import { LEAD_STATUSES, APPT_STATUSES, PAYMENT_METHODS, ROLES } from "@/lib/constants";
+import { LEAD_STATUSES, APPT_STATUSES, PAYMENT_METHODS, ROLES, CLOSED_LEAD_STATUSES, NO_ANSWER_RETRY_HOURS } from "@/lib/constants";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const num = (fd: FormData, k: string) => {
@@ -69,6 +69,10 @@ async function applyLeadStatus(u: CurrentUser, leadId: number, status: string, e
       status,
       lostReason: status === "LOST" ? extra.lostReason || lead.lostReason || "OTHER" : null,
       firstResponseAt: lead.firstResponseAt ?? (status !== "NEW" ? new Date() : null),
+      // «Не отвечает» → N сағаттан кейін қайта хабарласу автоматты қойылады
+      ...(status === "NO_ANSWER" && (!lead.nextContactAt || lead.nextContactAt < new Date())
+        ? { nextContactAt: new Date(Date.now() + NO_ANSWER_RETRY_HOURS * 3600_000) }
+        : {}),
     },
   });
   await db.leadActivity.create({ data: { leadId, userId: u.id, type: "STATUS", text: `${lead.status} → ${status}` } });
@@ -114,7 +118,7 @@ export async function addLeadActivity(fd: FormData) {
   if (!lead.firstResponseAt && (type === "CALL" || type === "MESSAGE")) {
     await db.lead.update({
       where: { id },
-      data: { firstResponseAt: new Date(), status: lead.status === "NEW" ? "CONTACTED" : lead.status },
+      data: { firstResponseAt: new Date(), status: lead.status === "NEW" || lead.status === "NO_ANSWER" ? "CONTACTED" : lead.status },
     });
   }
   revalidatePath(`/leads/${id}`);
@@ -136,7 +140,7 @@ export async function reassignLead(fd: FormData) {
 
 export async function autoAssignUnassigned() {
   const u = await requireHead();
-  const leads = await db.lead.findMany({ where: { managerId: null, status: { notIn: ["PAID", "LOST"] } }, orderBy: { createdAt: "asc" } });
+  const leads = await db.lead.findMany({ where: { managerId: null, status: { notIn: CLOSED_LEAD_STATUSES } }, orderBy: { createdAt: "asc" } });
   for (const l of leads) {
     const m = await autoAssignManager();
     if (!m) break;
@@ -279,7 +283,7 @@ export async function createAppointment(fd: FormData) {
     },
   });
   await db.lead.updateMany({
-    where: { patientId, status: { in: ["NEW", "CONTACTED"] } },
+    where: { patientId, status: { in: ["NEW", "CONTACTED", "NO_ANSWER"] } },
     data: { status: "BOOKED", firstResponseAt: new Date() },
   });
   await audit(u.id, "Appointment", a.id, "create", { patientId, doctorId, startAt });
@@ -316,7 +320,7 @@ export async function createPayment(fd: FormData) {
   });
   if (courseId) {
     await db.lead.updateMany({
-      where: { patientId, status: { in: ["NEW", "CONTACTED", "BOOKED", "ARRIVED"] } },
+      where: { patientId, status: { in: ["NEW", "CONTACTED", "NO_ANSWER", "BOOKED", "ARRIVED"] } },
       data: { status: "PAID" },
     });
   }

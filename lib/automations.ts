@@ -50,7 +50,7 @@ export async function onAppointmentStatus(apptId: number, status: string) {
   if (status === "ARRIVED") {
     // Өтінім статусын «Келді»-ге көтеру
     await db.lead.updateMany({
-      where: { patientId: a.patientId, status: { in: ["NEW", "CONTACTED", "BOOKED"] } },
+      where: { patientId: a.patientId, status: { in: ["NEW", "CONTACTED", "NO_ANSWER", "BOOKED"] } },
       data: { status: "ARRIVED" },
     });
     // Курс сеанстарын санау
@@ -166,7 +166,7 @@ export async function followUps(now = new Date()) {
 /** 4) Келесі хабарласу уақыты келген өтінімдер бойынша тапсырма. */
 export async function callbackTasks(now = new Date()) {
   const leads = await db.lead.findMany({
-    where: { nextContactAt: { lte: now }, managerId: { not: null }, status: { in: ["NEW", "CONTACTED", "BOOKED", "ARRIVED"] } },
+    where: { nextContactAt: { lte: now }, managerId: { not: null }, status: { in: ["NEW", "CONTACTED", "NO_ANSWER", "BOOKED", "ARRIVED"] } },
   });
   for (const l of leads) {
     await ensureTask({
@@ -187,7 +187,7 @@ export async function buildDailyReport(now = new Date()) {
   const to = addDays(from, 1);
   const mFrom = startOfMonth(now);
   const [leads, appts, payments, monthPayments, managers, plan] = await Promise.all([
-    db.lead.findMany({ where: { createdAt: { gte: from, lt: to } } }),
+    db.lead.findMany({ where: { createdAt: { gte: from, lt: to }, status: { not: "SPAM" } } }),
     db.appointment.findMany({ where: { startAt: { gte: from, lt: to } } }),
     db.payment.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: from, lt: to } } }),
     db.payment.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: mFrom, lt: to } } }),

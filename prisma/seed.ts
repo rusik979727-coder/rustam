@@ -57,7 +57,7 @@ async function main() {
   ];
   const sources = ["INSTAGRAM", "INSTAGRAM", "INSTAGRAM", "WHATSAPP", "WHATSAPP", "2GIS", "SITE", "CALL", "REFERRAL"] as const;
   const complaints = ["HERNIA", "HERNIA", "PROTRUSION", "PROTRUSION", "ARTHROSIS", "ARTHRITIS", "OTHER"] as const;
-  const statuses = ["NEW", "CONTACTED", "CONTACTED", "BOOKED", "ARRIVED", "PAID", "PAID", "LOST"] as const;
+  const statuses = ["NEW", "CONTACTED", "CONTACTED", "NO_ANSWER", "BOOKED", "ARRIVED", "PAID", "PAID", "LOST", "SPAM"] as const;
 
   for (let i = 0; i < names.length; i++) {
     const phone = `+7701${String(1000000 + i * 37117).slice(0, 7)}`;
@@ -82,7 +82,7 @@ async function main() {
         lostReason: status === "LOST" ? rnd(["EXPENSIVE", "FAR", "NO_ANSWER", "OTHER_CLINIC", "NOT_NOW"]) : null,
         createdAt: created,
         firstResponseAt: status === "NEW" ? null : new Date(created.getTime() + (3 + Math.random() * 30) * 60000),
-        nextContactAt: status === "CONTACTED" ? daysAgo(-Math.floor(Math.random() * 2), 15) : null,
+        nextContactAt: status === "CONTACTED" || status === "NO_ANSWER" ? daysAgo(-Math.floor(Math.random() * 2), 15) : null,
         activities: { create: [{ type: "SYSTEM", text: "Өтінім түсті", createdAt: created }] },
       },
     });

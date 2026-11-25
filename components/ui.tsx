@@ -36,6 +36,8 @@ const STATUS_TONE: Record<string, string> = {
   ARRIVED: "bg-teal-100 text-teal-800",
   PAID: "bg-emerald-100 text-emerald-800",
   LOST: "bg-slate-200 text-slate-600",
+  NO_ANSWER: "bg-orange-100 text-orange-800",
+  SPAM: "bg-stone-200 text-stone-600",
   CONFIRMED: "bg-indigo-100 text-indigo-800",
   NO_SHOW: "bg-red-100 text-red-700",
   CANCELLED: "bg-slate-200 text-slate-600",

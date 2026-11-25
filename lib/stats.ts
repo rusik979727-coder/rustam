@@ -12,7 +12,8 @@ export type LeadLite = {
 const REACHED_BOOKED = new Set(["BOOKED", "ARRIVED", "PAID"]);
 
 /** Воронка: лид → жазылды → келді → төледі */
-export function funnel(leads: LeadLite[]) {
+export function funnel(all: LeadLite[]) {
+  const leads = all.filter((l) => l.status !== "SPAM");
   const total = leads.length;
   const booked = leads.filter((l) => REACHED_BOOKED.has(l.status)).length;
   const arrived = leads.filter((l) => l.status === "ARRIVED" || l.status === "PAID").length;
